@@ -470,14 +470,16 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
   })
 
-  it('shows the running call as its own live row while it executes', () => {
+  it('shows the running call as its own collapsed live row while it executes', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash') }),
     ])
-    // The latest running call stays out of the fold: its own row, running.
+    // The latest running call stays out of the fold: its own row, running,
+    // collapsed by default (no card, no sweep).
     const row = screen.getByText('Bash').closest('[data-state]')
     expect(row?.getAttribute('data-state')).toBe('running')
-    expect(screen.getAllByText('{}').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('{}').length).toBe(1)
+    expect(screen.queryByText('输入')).toBeNull()
   })
 
   it('keeps the running call standalone and folds it into the summary line once settled', () => {

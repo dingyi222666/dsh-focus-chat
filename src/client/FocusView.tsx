@@ -380,10 +380,10 @@ const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   const [expanded, setExpanded] = useState(false)
   const card = row.card
   // A card replaces the text body; any of them, or a text body/output, makes
-  // the row expandable (the chat row's rule). A running call shows its card
-  // live without a click — the chat view's running row.
+  // the row expandable (the chat row's rule). The running call stays
+  // collapsed by default — expand on click only.
   const expandable = row.body !== null || row.output !== null || card !== null
-  const open = (expanded && expandable) || row.state === 'running'
+  const open = expanded && expandable
   // An error row's collapsed summary IS the failure: the first error line in
   // the error color outranks the args summary.
   const failureLine = row.state === 'error' ? row.errorSummary : null

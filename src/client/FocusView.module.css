@@ -940,38 +940,8 @@
 }
 
 .groupRowInner {
-  position: relative; /* running sweep overlay anchor */
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-/* Running sweep (the chat row's glare band) on the summary line. */
-.groupRow[data-state='running'] .groupRowInner::after {
-  content: '';
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: 300px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%,
-    transparent 100%
-  );
-  animation: dsh-focus-group-sweep 2.6s ease-out infinite;
-  pointer-events: none;
-}
-
-@keyframes dsh-focus-group-sweep {
-  0% { left: -300px; }
-  90%, 100% { left: 100%; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .groupRow[data-state='running'] .groupRowInner::after {
-    animation: none;
-  }
 }
 
 .calls {
@@ -1014,40 +984,6 @@
 .callRow {
   display: flex;
   flex-direction: column;
-}
-
-.callRowInner {
-  position: relative; /* sweep-glare overlay anchor */
-  overflow: hidden;
-}
-
-/* Running sweep (the chat row's glare band) on the row content. */
-.callRow[data-state='running'] .callRowInner::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 300px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%,
-    transparent 100%
-  );
-  animation: dsh-focus-tool-row-sweep 2.6s ease-out infinite;
-  pointer-events: none;
-}
-
-@keyframes dsh-focus-tool-row-sweep {
-  0% { left: -300px; }
-  90%, 100% { left: 100%; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .callRow[data-state='running'] .callRowInner::after {
-    animation: none;
-  }
 }
 
 /* Cordis lifecycle tools retain their generic row mechanics while carrying a
