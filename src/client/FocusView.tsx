@@ -575,23 +575,6 @@ function sentenceParts(parts: readonly string[]): string[] {
   })
 }
 
-/** The latest running call, rendered live (the chat view's running row):
- *  its own call rows with the running cards, folded into the group once the
- *  call settles. */
-const RunningToolRows = memo(function RunningToolRows({ item, t, openFile }: {
-  item: Extract<FocusFlowItem, { kind: 'tool-running' }>
-  t: FocusTranslate
-  openFile: (path: string) => void
-}) {
-  return (
-    <div className={css.runningTool} data-running-tool>
-      {item.rows.map(row => (
-        <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
-      ))}
-    </div>
-  )
-})
-
 /** One folded run of Tool calls: the step-summary line with its metrics. */
 const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile }: {
   group: FocusToolGroup
@@ -600,22 +583,18 @@ const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile
   openFile: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  // While the run executes the line is the folded tool row's own line —
-  // `Bash · pnpm build` — the running call's title and args summary inside
-  // the group, settling back to the metric line once done.
-  const runningRow = group.items.find(item => 'callId' in item && item.state === 'running')
-  const title = runningRow !== undefined && 'callId' in runningRow
-    ? `${runningRow.title} · ${runningRow.summary}`
-    : groupTitle(group, t)
+  // The summary line reads the settled metrics (the running call is counted
+  // in — the line stays put when the call completes; only the tail folds).
+  const title = groupTitle(group, t)
+  const runningRows = group.items.filter((item): item is FocusToolRow =>
+    'callId' in item && item.state === 'running')
   return (
     <div className={css.groupRow} data-state={group.running ? 'running' : 'ok'}>
     <DisclosureRow
       className={css.groupRowInner}
       icon={<IconSparkle16 size={16} />}
       title={title}
-      // The latest run stays unfolded while it executes (the chat view's
-      // live row), folding back into the summary line once it completes.
-      open={expanded || group.running}
+      open={expanded}
       expandable
       expandOnRowClick
       onToggle={() => { setExpanded(value => !value) }}
@@ -635,6 +614,16 @@ const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile
         ))}
       </div>
     </DisclosureRow>
+    {/* The running call stays part of the group — the flow never rebuilds —
+       but renders as a live tail under the collapsed summary line (the chat
+       view's running row); it folds into the group once settled. */}
+    {group.running && !expanded && runningRows.length > 0 && (
+      <div className={css.runningTail} data-running-tail>
+        {runningRows.map(row => (
+          <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
+        ))}
+      </div>
+    )}
     </div>
   )
 })
@@ -1712,8 +1701,6 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
     }
     case 'tools':
       return <ToolGroupRow group={item.group} t={t} codeLabels={codeLabels} openFile={openFile} />
-    case 'tool-running':
-      return <RunningToolRows item={item} t={t} openFile={openFile} />
     case 'turn-fold':
       return (
         <TurnFoldRow

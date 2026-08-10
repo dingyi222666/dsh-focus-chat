@@ -932,11 +932,14 @@
   flex-direction: column;
 }
 
-/* The latest running call's live rows (the chat view's running row). */
-.runningTool {
+/* The running call's tail under the collapsed summary line: the chat view's
+   live row, still a group member so the flow never rebuilds — it folds into
+   the group once settled. */
+.runningTail {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-top: 8px;
 }
 
 .groupRowInner {

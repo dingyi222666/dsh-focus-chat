@@ -470,36 +470,36 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
   })
 
-  it('shows the running call as its own collapsed live row while it executes', () => {
+  it('renders the running call as a tail under the collapsed summary line', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash') }),
     ])
-    // The latest running call stays out of the fold: its own row, running,
-    // collapsed by default (no card, no sweep).
-    const row = screen.getByText('Bash').closest('[data-state]')
-    expect(row?.getAttribute('data-state')).toBe('running')
+    // The group stays collapsed with the running call as its live tail —
+    // one stable flow row, no card open.
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getAllByText('{}').length).toBe(1)
     expect(screen.queryByText('输入')).toBeNull()
+    const row = screen.getByText('Bash').closest('[data-state]')
+    expect(row?.getAttribute('data-state')).toBe('running')
   })
 
-  it('keeps the running call standalone and folds it into the summary line once settled', () => {
+  it('keeps the running call as a tail and folds it into the group once settled', () => {
     const { source } = renderView([
       assistantNode('a1', 'settled', 't', 3000),
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash', '{"command":"pnpm build"}') }),
     ])
-    // While the call runs there is no folded group yet: the think row stays
-    // standalone and the running call renders as its own live row.
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    // While the call runs: the summary line with the live tail below it.
+    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('pnpm build')).toBeTruthy()
-    expect(screen.queryByText(/运行了/)).toBeNull()
     act(() => {
       source.set(chatOf([
         assistantNode('a1', 'settled', 't', 3000),
         chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
       ]))
     })
-    // Once settled the call folds into the group's summary line.
+    // Once settled the tail folds in: the summary line stays, the tail is gone.
     expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
   })

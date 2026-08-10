@@ -174,16 +174,6 @@ export type FocusFlowItem =
   }
   | { kind: 'tools'; group: FocusToolGroup }
   | {
-    /**
-     * The latest running call, kept out of the fold while it executes: it
-     * renders as its own live row (the chat view's running call, like the
-     * Think rows) and folds into the group once it settles.
-     */
-    kind: 'tool-running'
-    nodeKey: string
-    rows: readonly FocusToolRow[]
-  }
-  | {
     kind: 'turn-fold'
     nodeKey: string
     turn: number
@@ -986,137 +976,121 @@ export function buildFocusFlow(
     if (pending === null) return
     // v8 ignore next -- unreachable: pending is created only by a visible tool-call node
     if (pending.blocks.length > 0) {
-      // The latest (running) call stays out of the fold — it renders as its
-      // own live row (the chat view's running call, like the Think rows) and
-      // folds into the group once it settles.
-      const runningAt = pending.blocks.findIndex(block => !('kind' in block))
-      const settledBlocks = runningAt === -1 ? pending.blocks : pending.blocks.slice(0, runningAt)
-      const runningBlocks = runningAt === -1 ? [] : pending.blocks.slice(runningAt)
-      const settledKeys = runningAt === -1 ? pending.keys : pending.keys.slice(0, runningAt)
-      if (settledBlocks.length > 0) {
-        // The step summary borrows the thinking metric only from an
-        // immediately-preceding assistant (anything between them — a command,
-        // a steering message — keeps the Think row owning its own duration).
-        // With turn folding the preceding assistant may already sit in the
-        // fold buffer rather than the emitted flow.
-        const previous = pendingFold.length > 0
-          ? pendingFold[pendingFold.length - 1]
-          : flow.at(-1)
-        const adjacentAssistant = previous !== undefined && previous.kind === 'assistant'
-          ? previous
-          : null
-        const thoughtMs = adjacentAssistant === null ? null : adjacentAssistant.thoughtMs
-        const think: FocusGroupThink[] = []
-        let trailingAssistant: FocusFlowItem | null = null
-        if (adjacentAssistant !== null) {
-          // Absorb the assistant's reasoning into the group (the chat Think
-          // disclosure becomes the first row of the expanded group). Only the
-          // last reasoning block keeps the streaming tail; blocks that remain
-          // stay on the assistant item, and an item left with nothing visible
-          // is dropped entirely.
-          const blocks: AssistantBlock[] = []
-          for (let i = 0; i < adjacentAssistant.blocks.length; i += 1) {
-            const block = adjacentAssistant.blocks[i]
-            if (block.kind === 'reasoning') {
-              think.push({
-                text: block.text,
-                running: adjacentAssistant.running && i === adjacentAssistant.blocks.length - 1,
-              })
-            } else {
-              blocks.push(block)
-            }
-          }
-          const visible = adjacentAssistant.running
-            || adjacentAssistant.interrupted
-            || blocks.some(block => block.kind !== 'tool-call')
-          if (visible) {
-            // The folded group precedes the assistant's visible reply: the
-            // thinking and the step-summary line render above the text, matching
-            // the chat order (reasoning → reply → tool rows). The visible reply
-            // also keeps the runs either side of it from merging.
-            trailingAssistant = { ...adjacentAssistant, blocks }
-          }
-          if (pendingFold.length > 0) {
-            pendingFold.pop()
+      // The step summary borrows the thinking metric only from an
+      // immediately-preceding assistant (anything between them — a command,
+      // a steering message — keeps the Think row owning its own duration).
+      // With turn folding the preceding assistant may already sit in the
+      // fold buffer rather than the emitted flow.
+      const previous = pendingFold.length > 0
+        ? pendingFold[pendingFold.length - 1]
+        : flow.at(-1)
+      const adjacentAssistant = previous !== undefined && previous.kind === 'assistant'
+        ? previous
+        : null
+      const thoughtMs = adjacentAssistant === null ? null : adjacentAssistant.thoughtMs
+      const think: FocusGroupThink[] = []
+      let trailingAssistant: FocusFlowItem | null = null
+      if (adjacentAssistant !== null) {
+        // Absorb the assistant's reasoning into the group (the chat Think
+        // disclosure becomes the first row of the expanded group). Only the
+        // last reasoning block keeps the streaming tail; blocks that remain
+        // stay on the assistant item, and an item left with nothing visible
+        // is dropped entirely.
+        const blocks: AssistantBlock[] = []
+        for (let i = 0; i < adjacentAssistant.blocks.length; i += 1) {
+          const block = adjacentAssistant.blocks[i]
+          if (block.kind === 'reasoning') {
+            think.push({
+              text: block.text,
+              running: adjacentAssistant.running && i === adjacentAssistant.blocks.length - 1,
+            })
           } else {
-            flow.pop()
+            blocks.push(block)
           }
         }
-        // Absorb a context batch directly preceding the run into the group as
-        // well: its count leads a segment of the summary line, its rows expand
-        // inside the group (session order: context → thinking → calls). A
-        // context batch with no adjacent run keeps its own folded line.
-        const groupTurn = nodeTurn.get(settledKeys[0]) ?? null
-        const previousAfterAssistant = pendingFold.length > 0
-          ? pendingFold[pendingFold.length - 1]
-          : flow.at(-1)
-        let absorbedContext: readonly FocusContextItem[] = []
-        if (previousAfterAssistant !== undefined
-          && previousAfterAssistant.kind === 'context-fold'
-          && previousAfterAssistant.turn === groupTurn) {
-          absorbedContext = previousAfterAssistant.items
-          if (pendingFold.length > 0) {
-            pendingFold.pop()
-          } else {
-            flow.pop()
-          }
+        const visible = adjacentAssistant.running
+          || adjacentAssistant.interrupted
+          || blocks.some(block => block.kind !== 'tool-call')
+        if (visible) {
+          // The folded group precedes the assistant's visible reply: the
+          // thinking and the step-summary line render above the text, matching
+          // the chat order (reasoning → reply → tool rows). The visible reply
+          // also keeps the runs either side of it from merging.
+          trailingAssistant = { ...adjacentAssistant, blocks }
         }
-        const group = toolGroup(settledBlocks, cwd, thoughtMs, think)
-        const folded: FocusToolGroup = {
-          ...group,
-          nodeKeys: settledKeys,
-          items: [...absorbedContext, ...group.items],
-          contextCount: absorbedContext.length,
-          context: absorbedContext,
-        }
-        // Merge directly-consecutive runs — in the flow or in the turn-fold
-        // buffer — into one summary line: metrics and thinking time aggregate,
-        // the rows keep flow order. Anything visible between two runs — an
-        // assistant reply, a command, a message — keeps them separate.
-        const previousItem = pendingFold.length > 0
-          ? pendingFold[pendingFold.length - 1]
-          : flow.at(-1)
-        if (trailingAssistant === null && previousItem !== undefined && previousItem.kind === 'tools') {
-          const prev = previousItem.group
-          const merged: FocusToolGroup = {
-            nodeKeys: [...prev.nodeKeys, ...folded.nodeKeys],
-            items: [...prev.items, ...folded.items],
-            running: prev.running || folded.running,
-            metrics: {
-              commands: prev.metrics.commands + folded.metrics.commands,
-              writes: prev.metrics.writes + folded.metrics.writes,
-              edits: prev.metrics.edits + folded.metrics.edits,
-              searches: prev.metrics.searches + folded.metrics.searches,
-              files: prev.metrics.files + folded.metrics.files,
-              dirs: prev.metrics.dirs + folded.metrics.dirs,
-              commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
-              writesFailed: prev.metrics.writesFailed + folded.metrics.writesFailed,
-              editsFailed: prev.metrics.editsFailed + folded.metrics.editsFailed,
-              searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,
-            },
-            contextCount: prev.contextCount + folded.contextCount,
-            context: [...prev.context, ...folded.context],
-            thoughtMs: prev.thoughtMs === null ? folded.thoughtMs
-              : folded.thoughtMs === null ? prev.thoughtMs
-                : prev.thoughtMs + folded.thoughtMs,
-          }
-          if (pendingFold.length > 0) {
-            pendingFold[pendingFold.length - 1] = { kind: 'tools', group: merged }
-          } else {
-            flow[flow.length - 1] = { kind: 'tools', group: merged }
-          }
+        if (pendingFold.length > 0) {
+          pendingFold.pop()
         } else {
-          pushItem({ kind: 'tools', group: folded })
+          flow.pop()
         }
-        if (trailingAssistant !== null) pushItem(trailingAssistant)
       }
-      if (runningBlocks.length > 0) {
-        pushItem({
-          kind: 'tool-running',
-          nodeKey: pending.keys[runningAt] ?? pending.keys[0] ?? 'tool',
-          rows: runningBlocks.map(block => toolRowModel(block, cwd)),
-        })
+      // Absorb a context batch directly preceding the run into the group as
+      // well: its count leads a segment of the summary line, its rows expand
+      // inside the group (session order: context → thinking → calls). A
+      // context batch with no adjacent run keeps its own folded line.
+      const groupTurn = nodeTurn.get(pending.keys[0]) ?? null
+      const previousAfterAssistant = pendingFold.length > 0
+        ? pendingFold[pendingFold.length - 1]
+        : flow.at(-1)
+      let absorbedContext: readonly FocusContextItem[] = []
+      if (previousAfterAssistant !== undefined
+        && previousAfterAssistant.kind === 'context-fold'
+        && previousAfterAssistant.turn === groupTurn) {
+        absorbedContext = previousAfterAssistant.items
+        if (pendingFold.length > 0) {
+          pendingFold.pop()
+        } else {
+          flow.pop()
+        }
       }
+      const group = toolGroup(pending.blocks, cwd, thoughtMs, think)
+      const folded: FocusToolGroup = {
+        ...group,
+        nodeKeys: pending.keys,
+        items: [...absorbedContext, ...group.items],
+        contextCount: absorbedContext.length,
+        context: absorbedContext,
+      }
+      // Merge directly-consecutive runs — in the flow or in the turn-fold
+      // buffer — into one summary line: metrics and thinking time aggregate,
+      // the rows keep flow order. Anything visible between two runs — an
+      // assistant reply, a command, a message — keeps them separate.
+      const previousItem = pendingFold.length > 0
+        ? pendingFold[pendingFold.length - 1]
+        : flow.at(-1)
+      if (trailingAssistant === null && previousItem !== undefined && previousItem.kind === 'tools') {
+        const prev = previousItem.group
+        const merged: FocusToolGroup = {
+          nodeKeys: [...prev.nodeKeys, ...folded.nodeKeys],
+          items: [...prev.items, ...folded.items],
+          running: prev.running || folded.running,
+          metrics: {
+            commands: prev.metrics.commands + folded.metrics.commands,
+            writes: prev.metrics.writes + folded.metrics.writes,
+            edits: prev.metrics.edits + folded.metrics.edits,
+            searches: prev.metrics.searches + folded.metrics.searches,
+            files: prev.metrics.files + folded.metrics.files,
+            dirs: prev.metrics.dirs + folded.metrics.dirs,
+            commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
+            writesFailed: prev.metrics.writesFailed + folded.metrics.writesFailed,
+            editsFailed: prev.metrics.editsFailed + folded.metrics.editsFailed,
+            searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,
+          },
+          contextCount: prev.contextCount + folded.contextCount,
+          context: [...prev.context, ...folded.context],
+          thoughtMs: prev.thoughtMs === null ? folded.thoughtMs
+            : folded.thoughtMs === null ? prev.thoughtMs
+              : prev.thoughtMs + folded.thoughtMs,
+        }
+        if (pendingFold.length > 0) {
+          pendingFold[pendingFold.length - 1] = { kind: 'tools', group: merged }
+        } else {
+          flow[flow.length - 1] = { kind: 'tools', group: merged }
+        }
+      } else {
+        pushItem({ kind: 'tools', group: folded })
+      }
+      if (trailingAssistant !== null) pushItem(trailingAssistant)
     }
     pending = null
   }
