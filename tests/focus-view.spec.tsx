@@ -470,33 +470,36 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
   })
 
-  it('shows the running call row title while the group executes', () => {
+  it('shows the running call as its own live row while it executes', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash') }),
     ])
-    // While the call runs the line is the folded tool row's own line.
-    const row = screen.getByText('Bash · {}').closest('[data-state]')
+    // The latest running call stays out of the fold: its own row, running.
+    const row = screen.getByText('Bash').closest('[data-state]')
     expect(row?.getAttribute('data-state')).toBe('running')
+    expect(screen.getAllByText('{}').length).toBeGreaterThan(0)
   })
 
-  it('replaces the line with the running tool title and settles back to metrics', () => {
+  it('keeps the running call standalone and folds it into the summary line once settled', () => {
     const { source } = renderView([
       assistantNode('a1', 'settled', 't', 3000),
-      chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash') }),
+      chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash', '{"command":"pnpm build"}') }),
     ])
-    // While the call runs the line reads the folded tool row's own line
-    // (title · summary), not the metric line.
-    expect(screen.getByText('Bash · {}')).toBeTruthy()
-    expect(screen.queryByText(/思考了/)).toBeNull()
+    // While the call runs there is no folded group yet: the think row stays
+    // standalone and the running call renders as its own live row.
+    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('Bash')).toBeTruthy()
+    expect(screen.getByText('pnpm build')).toBeTruthy()
+    expect(screen.queryByText(/运行了/)).toBeNull()
     act(() => {
       source.set(chatOf([
         assistantNode('a1', 'settled', 't', 3000),
         chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
       ]))
     })
-    // Once settled the metric line returns.
+    // Once settled the call folds into the group's summary line.
+    expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
-    expect(screen.queryByText('Bash · {}')).toBeNull()
   })
 
   it('lets the terminal description and search title outrank the args summary', () => {

@@ -932,6 +932,13 @@
   flex-direction: column;
 }
 
+/* The latest running call's live rows (the chat view's running row). */
+.runningTool {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .groupRowInner {
   position: relative; /* running sweep overlay anchor */
   overflow: hidden;

@@ -380,9 +380,10 @@ const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   const [expanded, setExpanded] = useState(false)
   const card = row.card
   // A card replaces the text body; any of them, or a text body/output, makes
-  // the row expandable (the chat row's rule).
+  // the row expandable (the chat row's rule). A running call shows its card
+  // live without a click — the chat view's running row.
   const expandable = row.body !== null || row.output !== null || card !== null
-  const open = expanded && expandable
+  const open = (expanded && expandable) || row.state === 'running'
   // An error row's collapsed summary IS the failure: the first error line in
   // the error color outranks the args summary.
   const failureLine = row.state === 'error' ? row.errorSummary : null
@@ -574,6 +575,23 @@ function sentenceParts(parts: readonly string[]): string[] {
   })
 }
 
+/** The latest running call, rendered live (the chat view's running row):
+ *  its own call rows with the running cards, folded into the group once the
+ *  call settles. */
+const RunningToolRows = memo(function RunningToolRows({ item, t, openFile }: {
+  item: Extract<FocusFlowItem, { kind: 'tool-running' }>
+  t: FocusTranslate
+  openFile: (path: string) => void
+}) {
+  return (
+    <div className={css.runningTool} data-running-tool>
+      {item.rows.map(row => (
+        <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
+      ))}
+    </div>
+  )
+})
+
 /** One folded run of Tool calls: the step-summary line with its metrics. */
 const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile }: {
   group: FocusToolGroup
@@ -595,7 +613,9 @@ const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile
       className={css.groupRowInner}
       icon={<IconSparkle16 size={16} />}
       title={title}
-      open={expanded}
+      // The latest run stays unfolded while it executes (the chat view's
+      // live row), folding back into the summary line once it completes.
+      open={expanded || group.running}
       expandable
       expandOnRowClick
       onToggle={() => { setExpanded(value => !value) }}
@@ -1692,6 +1712,8 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
     }
     case 'tools':
       return <ToolGroupRow group={item.group} t={t} codeLabels={codeLabels} openFile={openFile} />
+    case 'tool-running':
+      return <RunningToolRows item={item} t={t} openFile={openFile} />
     case 'turn-fold':
       return (
         <TurnFoldRow
