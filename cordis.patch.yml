@@ -1,0 +1,7 @@
+# The dsh-focus-chat bundle patch: one browser plugin row added to the web
+# profile composition. Applied after the web-app bundle's own patch layer;
+# the row joins the dshClient roster, so the modules node half serves
+# lib/client.js into the boot graph and the browser shows the 聚焦 tab.
+- insert:
+    - id: ui-focus
+      name: 'dsh-focus-chat'

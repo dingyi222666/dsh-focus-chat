@@ -1,0 +1,63 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@deepseek-ai/dsh-client-connection/client": [
+        "../test-dingyi222666/packages/client/connection/lib/types/client"
+      ],
+      "@deepseek-ai/dsh-client-locale/src/*": [
+        "../test-dingyi222666/packages/client/locale/src/*"
+      ],
+      "@deepseek-ai/dsh-client-runtime/client": [
+        "../test-dingyi222666/packages/client/runtime/lib/types/client"
+      ],
+      "@deepseek-ai/dsh-client-test-runtime": [
+        "../test-dingyi222666/packages/client/test-runtime/lib/types"
+      ],
+      "@deepseek-ai/dsh-client-ui-conversation/client": [
+        "../test-dingyi222666/packages/client/ui-conversation/lib/types/client"
+      ],
+      "@deepseek-ai/dsh-client-ui-primitives": [
+        "../test-dingyi222666/packages/client/ui-primitives/lib/types"
+      ],
+      "@deepseek-ai/dsh-client-ui-slots": [
+        "../test-dingyi222666/packages/client/ui-slots/lib/types"
+      ],
+      "@deepseek-ai/dsh-client-web-react": [
+        "../test-dingyi222666/packages/client/web-react/lib/types"
+      ],
+      "@deepseek-ai/dsh-invariants": [
+        "../test-dingyi222666/packages/support/invariants/lib/types"
+      ],
+      "@deepseek-ai/dsh-llm/types": [
+        "../test-dingyi222666/packages/llm/llm/lib/types/types.d.ts"
+      ],
+      "@deepseek-ai/dsh-client-locale/client": [
+        "../test-dingyi222666/packages/client/locale/lib/types/client"
+      ],
+      "cordis": [
+        "../test-dingyi222666/vendor/cordis/lib/types"
+      ]
+    },
+    "ignoreDeprecations": "6.0",
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "src",
+    "tests"
+  ]
+}
