@@ -504,6 +504,22 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
   })
 
+  it('keeps the live slot occupied while the model prepares the next action', () => {
+    const nodes = [
+      assistantNode('a1', 'settled', 't', 3000),
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+    ]
+    const { source } = renderView(nodes, { chat: chatOf(nodes, { running: true }) })
+    // The running turn's last group keeps its 24px live slot: no empty gap
+    // below the summary line while the model works.
+    expect(screen.getByText('准备下一步…')).toBeTruthy()
+    act(() => {
+      source.set(chatOf(nodes, { running: false }))
+    })
+    // The turn completes: the placeholder folds away with everything else.
+    expect(screen.queryByText('准备下一步…')).toBeNull()
+  })
+
   it('lets the terminal description and search title outrank the args summary', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"pnpm build"}', {

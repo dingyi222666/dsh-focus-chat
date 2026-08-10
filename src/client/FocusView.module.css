@@ -942,6 +942,19 @@
   margin-top: 8px;
 }
 
+/* The same-height placeholder while the model prepares the next action: the
+   live slot under the running turn's last group never empties, so nothing
+   below it jumps. */
+.livePlaceholder {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  margin-top: 8px;
+  color: var(--dsw-alias-label-caption);
+  font-size: 14px;
+  line-height: 24px;
+}
+
 .groupRowInner {
   display: flex;
   flex-direction: column;

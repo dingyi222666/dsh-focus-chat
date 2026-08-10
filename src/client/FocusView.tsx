@@ -576,11 +576,15 @@ function sentenceParts(parts: readonly string[]): string[] {
 }
 
 /** One folded run of Tool calls: the step-summary line with its metrics. */
-const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile }: {
+const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile, last, turnRunning }: {
   group: FocusToolGroup
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
   openFile: (path: string) => void
+  /** The flow's last row: the running turn's live slot rides on it. */
+  last?: boolean | undefined
+  /** Whether the owning turn is still running. */
+  turnRunning?: boolean | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
   // The summary line reads the settled metrics (the running call is counted
@@ -614,15 +618,25 @@ const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile
         ))}
       </div>
     </DisclosureRow>
-    {/* The running call stays part of the group — the flow never rebuilds —
-       but renders as a live tail under the collapsed summary line (the chat
-       view's running row); it folds into the group once settled. */}
-    {group.running && !expanded && runningRows.length > 0 && (
-      <div className={css.runningTail} data-running-tail>
-        {runningRows.map(row => (
-          <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
-        ))}
-      </div>
+    {/* The live slot under the running turn's last group: the running call
+       renders as a tail (still a group member — the flow never rebuilds,
+       nothing shifts when it completes), and while the model prepares the
+       next action a same-height placeholder keeps the slot occupied so the
+       rows below never jump. */}
+    {!expanded && (
+      group.running && runningRows.length > 0 ? (
+        <div className={css.runningTail} data-running-tail>
+          {runningRows.map(row => (
+            <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
+          ))}
+        </div>
+      ) : (
+        turnRunning === true && last === true && (
+          <div className={css.livePlaceholder} data-live-placeholder role="status">
+            {t('preparing')}
+          </div>
+        )
+      )
     )}
     </div>
   )
@@ -1637,7 +1651,7 @@ const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, f
 })
 
 /** One condensed flow row, dispatched on kind. */
-const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey }: {
+const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, last, turnRunning }: {
   item: FocusFlowItem
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -1645,6 +1659,10 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
   forkAt: (seq: number) => void
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
+  /** The flow's last row (the running turn's live slot rides on it). */
+  last?: boolean | undefined
+  /** Whether the owning turn is still running. */
+  turnRunning?: boolean | undefined
 }) {
   switch (item.kind) {
     case 'message':
@@ -1700,7 +1718,7 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
       )
     }
     case 'tools':
-      return <ToolGroupRow group={item.group} t={t} codeLabels={codeLabels} openFile={openFile} />
+      return <ToolGroupRow group={item.group} t={t} codeLabels={codeLabels} openFile={openFile} last={last} turnRunning={turnRunning} />
     case 'turn-fold':
       return (
         <TurnFoldRow
@@ -2106,7 +2124,7 @@ export function FocusView({
           </div>
         )}
         {flow.length === 0 && <div className={css.empty}>{t('empty')}</div>}
-        {flow.map(item => (
+        {flow.map((item, index) => (
           <div key={flowKey(item)} className={css.flowItem} data-focus-anchor-key={flowKey(item)}>
             <FlowRow
               item={item}
@@ -2115,6 +2133,8 @@ export function FocusView({
               openFile={openFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
+              last={index === flow.length - 1}
+              turnRunning={running}
             />
           </div>
         ))}
