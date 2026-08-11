@@ -76,9 +76,10 @@ export interface FocusGroupThink {
 export type FocusGroupItem = FocusContextItem | FocusGroupThink | FocusToolRow
 
 /** Step-summary metric families the group line aggregates, in display order. */
-export type FocusMetricKey = 'commands' | 'writes' | 'edits' | 'searches' | 'files' | 'dirs'
+export type FocusMetricKey = 'commands' | 'edits' | 'searches' | 'files' | 'dirs'
 
-/** Tool name → metric family; unknown tools carry no metric. */
+/** Tool name → metric family; unknown tools carry no metric. Writes fold
+ *  into the edit family (the summary line reads one "edited" segment). */
 const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   bash: 'commands',
   pwsh: 'commands',
@@ -86,8 +87,8 @@ const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   cmd: 'commands',
   terminal: 'commands',
   shell: 'commands',
-  write: 'writes',
-  save: 'writes',
+  write: 'edits',
+  save: 'edits',
   edit: 'edits',
   replace: 'edits',
   patch: 'edits',
@@ -102,14 +103,12 @@ const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
 /** Per-family call counts and their error rows ("Ran N commands (M failed)"). */
 export interface FocusGroupMetrics {
   commands: number
-  writes: number
   edits: number
   searches: number
   files: number
   dirs: number
   /** Failed calls in the failure-aware families (error-state rows). */
   commandsFailed: number
-  writesFailed: number
   editsFailed: number
   searchesFailed: number
 }
@@ -607,8 +606,8 @@ function toolGroup(
   const rows = blocks.map(block => toolRowModel(block, cwd))
   const running = rows.some(row => row.state === 'running')
   const metrics: FocusGroupMetrics = {
-    commands: 0, writes: 0, edits: 0, searches: 0, files: 0, dirs: 0,
-    commandsFailed: 0, writesFailed: 0, editsFailed: 0, searchesFailed: 0,
+    commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,
+    commandsFailed: 0, editsFailed: 0, searchesFailed: 0,
   }
   for (const row of rows) {
     // A running call joins its group's summary line only once it settles
@@ -620,10 +619,9 @@ function toolGroup(
     metrics[key] += 1
     // Failure tallies only for the families whose summary line carries them:
     // a failing exit status settles a terminal card's row to the error state.
-    if (row.state === 'error' && (key === 'commands' || key === 'searches' || key === 'writes' || key === 'edits')) {
+    if (row.state === 'error' && (key === 'commands' || key === 'searches' || key === 'edits')) {
       if (key === 'commands') metrics.commandsFailed += 1
       else if (key === 'searches') metrics.searchesFailed += 1
-      else if (key === 'writes') metrics.writesFailed += 1
       else metrics.editsFailed += 1
     }
   }
@@ -1070,13 +1068,11 @@ export function buildFocusFlow(
           running: prev.running || folded.running,
           metrics: {
             commands: prev.metrics.commands + folded.metrics.commands,
-            writes: prev.metrics.writes + folded.metrics.writes,
             edits: prev.metrics.edits + folded.metrics.edits,
             searches: prev.metrics.searches + folded.metrics.searches,
             files: prev.metrics.files + folded.metrics.files,
             dirs: prev.metrics.dirs + folded.metrics.dirs,
             commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
-            writesFailed: prev.metrics.writesFailed + folded.metrics.writesFailed,
             editsFailed: prev.metrics.editsFailed + folded.metrics.editsFailed,
             searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,
           },

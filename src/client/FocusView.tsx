@@ -490,8 +490,8 @@ const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
  *  segment. While the run executes the line is replaced by the running
  *  call's own row title. */
 function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): string[] {
-  const { commands, writes, edits, searches, files, dirs } = group.metrics
-  const { commandsFailed, writesFailed, editsFailed, searchesFailed } = group.metrics
+  const { commands, edits, searches, files, dirs } = group.metrics
+  const { commandsFailed, editsFailed, searchesFailed } = group.metrics
   const parts: string[] = []
   if (group.thoughtMs !== null) {
     parts.push(t('tool.thought', { n: formatSeconds(group.thoughtMs) }))
@@ -502,7 +502,6 @@ function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): string[] {
     }))
   }
   metricPart(parts, commands, commandsFailed, 'commands', t)
-  metricPart(parts, writes, writesFailed, 'writes', t)
   metricPart(parts, edits, editsFailed, 'edits', t)
   metricPart(parts, searches, searchesFailed, 'searches', t)
   if (files > 0 && dirs > 0) {
@@ -516,7 +515,7 @@ function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): string[] {
   // 才收进去摘要行"), so the metric-less remainder cannot count it either.
   const callCount = group.items.reduce((count, item) =>
     count + ('callId' in item && item.state !== 'running' ? 1 : 0), 0)
-  const others = callCount - commands - writes - edits - searches - files - dirs
+  const others = callCount - commands - edits - searches - files - dirs
   if (others > 0) {
     parts.push(t(others === 1 ? 'tool.others.one' : 'tool.others', { n: others }))
   }
@@ -570,7 +569,7 @@ function metricPart(
 }
 
 /** A metric family the summary line aggregates (locale key stem). */
-type MetricFamily = 'commands' | 'writes' | 'edits' | 'searches'
+type MetricFamily = 'commands' | 'edits' | 'searches'
 
 /** The count segment of one metric family, with the singular form for one. */
 function countSegment(family: MetricFamily, n: number, t: FocusTranslate): string {

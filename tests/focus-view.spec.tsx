@@ -399,12 +399,14 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('运行了 2 个命令（全部失败）')).toBeTruthy()
   })
 
-  it('shows a dirs-only exploration metric, write/edit families, and the total-count fallback', () => {
+  it('shows a dirs-only exploration metric, the edit family folding writes, and the total-count fallback', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'glob', '{}') }),
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'write', '{}') }),
     ])
-    expect(screen.getByText('写入了 1 个文件，列出了 1 个目录')).toBeTruthy()
+    // A write call counts in the edit family (the summary line reads one
+    // "edited" segment).
+    expect(screen.getByText('编辑了 1 次，列出了 1 个目录')).toBeTruthy()
     renderView([
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'edit', '{}') }),
     ])
@@ -456,7 +458,7 @@ describe('FocusView flow rows', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(screen.getByText('运行了 1 个命令（1 次失败），写入了 1 个文件，编辑了 1 次，搜索了 1 个正则，读取了 1 个文件，调用了 2 个工具'))
+    fireEvent.click(screen.getByText('运行了 1 个命令（1 次失败），编辑了 2 次，搜索了 1 个正则，读取了 1 个文件，调用了 2 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
