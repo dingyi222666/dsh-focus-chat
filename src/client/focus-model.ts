@@ -611,6 +611,10 @@ function toolGroup(
     commandsFailed: 0, writesFailed: 0, editsFailed: 0, searchesFailed: 0,
   }
   for (const row of rows) {
+    // A running call joins its group's summary line only once it settles
+    // (the think metric's lifecycle: "完成了才收进去摘要行"); while it runs
+    // it renders as the flow-end live row instead.
+    if (row.state === 'running') continue
     const key = METRIC_BY_TOOL[row.name]
     if (key === undefined) continue
     metrics[key] += 1

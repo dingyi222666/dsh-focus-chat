@@ -512,20 +512,33 @@ function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): string[] {
   } else if (dirs > 0) {
     parts.push(t(dirs === 1 ? 'tool.explored.dirs.one' : 'tool.explored.dirs', { n: dirs }))
   }
-  const callCount = group.items.reduce((count, item) => count + ('callId' in item ? 1 : 0), 0)
+  // Settled calls only: a running call is not in the summary line yet ("完成了
+  // 才收进去摘要行"), so the metric-less remainder cannot count it either.
+  const callCount = group.items.reduce((count, item) =>
+    count + ('callId' in item && item.state !== 'running' ? 1 : 0), 0)
   const others = callCount - commands - writes - edits - searches - files - dirs
   if (others > 0) {
     parts.push(t(others === 1 ? 'tool.others.one' : 'tool.others', { n: others }))
   }
-  if (parts.length === 0) {
-    parts.push(t(callCount === 1 ? 'tool.group.one' : 'tool.group', { n: callCount }))
-  }
   return parts
 }
 
-/** The settled step-summary line, sentence-cased and joined. */
+/** The settled step-summary line, sentence-cased and joined. A group whose
+ *  calls all still run reads as its live call's own row (the chat running
+ *  row's title); the settled metrics replace the line once a call completes. */
 function groupTitle(group: FocusToolGroup, t: FocusTranslate): string {
-  return sentenceParts(groupTitleParts(group, t)).join(t('tool.separator'))
+  const parts = groupTitleParts(group, t)
+  if (parts.length === 0) {
+    const running = group.items.find((item): item is FocusToolRow =>
+      'callId' in item && item.state === 'running')
+    if (running !== undefined) {
+      return running.summary === '' ? running.title : `${running.title} · ${running.summary}`
+    }
+    // Unreachable: a tools group always folds at least one call, so an empty
+    // part list means every call is still running.
+    return t('tool.group', { n: 0 })
+  }
+  return sentenceParts(parts).join(t('tool.separator'))
 }
 
 /** One metric family's summary segment with PR67 failure semantics: the
@@ -583,11 +596,10 @@ const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile
   openFile: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
-  // The summary line reads the settled metrics (the running call is counted
-  // in — the line stays put when the call completes; only the tail folds).
+  // The summary line reads the settled metrics only — a running call joins
+  // the line once it settles (the think lifecycle) and renders as a live
+  // row at the end of the flow meanwhile.
   const title = groupTitle(group, t)
-  const runningRows = group.items.filter((item): item is FocusToolRow =>
-    'callId' in item && item.state === 'running')
   return (
     <div className={css.groupRow} data-state={group.running ? 'running' : 'ok'}>
     <DisclosureRow
@@ -614,16 +626,6 @@ const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile
         ))}
       </div>
     </DisclosureRow>
-    {/* The running call stays part of the group — the flow never rebuilds —
-       but renders as a live tail under the collapsed summary line (the chat
-       view's running row); it folds into the group once settled. */}
-    {group.running && !expanded && runningRows.length > 0 && (
-      <div className={css.runningTail} data-running-tail>
-        {runningRows.map(row => (
-          <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
-        ))}
-      </div>
-    )}
     </div>
   )
 })
@@ -1890,6 +1892,19 @@ export function FocusView({
     () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd),
     [chat, cwd],
   )
+  // The current step's running calls: live rows at the END of the flow —
+  // below the model's output text — that fold into their group's summary
+  // line once settled (the chat live row's position, the think lifecycle).
+  const runningCalls = useMemo(() => {
+    const rows: FocusToolRow[] = []
+    for (const item of flow) {
+      if (item.kind !== 'tools' || !item.group.running) continue
+      for (const row of item.group.items) {
+        if ('callId' in row && row.state === 'running') rows.push(row)
+      }
+    }
+    return rows
+  }, [flow])
   const runningTurnStart = useMemo(() => runningTurnStartTime(chat.timeline), [chat.timeline])
   const codeLabels = useMemo<MarkdownCodeLabels>(
     () => ({ copyLabel: t('copy'), copiedLabel: t('copied') }),
@@ -2118,6 +2133,18 @@ export function FocusView({
             />
           </div>
         ))}
+        {/* The running call renders below everything settled — the model's
+            output text included — and folds into its group's summary line
+            once the call settles (no flow rebuild, no row jump). */}
+        {runningCalls.length > 0 && (
+          <div className={css.flowItem}>
+            <div className={css.runningCalls} data-running-calls>
+              {runningCalls.map(row => (
+                <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
+              ))}
+            </div>
+          </div>
+        )}
         {running && <RunningStatus startTime={runningTurnStart} t={t} />}
         {pendingSteering.map(item => (
           <PendingSteeringBubble key={item.id} content={item.content} t={t} />

@@ -470,27 +470,32 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
   })
 
-  it('renders the running call as a tail under the collapsed summary line', () => {
+  it('renders the running call as a live row at the end of the flow', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash') }),
     ])
-    // The group stays collapsed with the running call as its live tail —
-    // one stable flow row, no card open.
-    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    // The group's line reads the settled metrics only — with nothing settled
+    // yet it reads as the live call's own row — and the running call itself
+    // renders at the END of the flow, below the model output text.
+    expect(screen.getByText('Bash · {}')).toBeTruthy()
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getAllByText('{}').length).toBe(1)
+    expect(screen.queryByText('运行了 1 个命令')).toBeNull()
     expect(screen.queryByText('输入')).toBeNull()
     const row = screen.getByText('Bash').closest('[data-state]')
     expect(row?.getAttribute('data-state')).toBe('running')
   })
 
-  it('keeps the running call as a tail and folds it into the group once settled', () => {
+  it('keeps the running call as a live row and folds it into the summary once settled', () => {
     const { source } = renderView([
       assistantNode('a1', 'settled', 't', 3000),
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash', '{"command":"pnpm build"}') }),
     ])
-    // While the call runs: the summary line with the live tail below it.
-    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
+    // While the call runs the summary line reads the settled metrics only —
+    // the thought is in, the call is not ("完成了才收进去摘要行") — and the
+    // call renders as a live row at the end of the flow.
+    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.queryByText('运行了 1 个命令')).toBeNull()
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('pnpm build')).toBeTruthy()
     act(() => {
@@ -499,7 +504,8 @@ describe('FocusView flow rows', () => {
         chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
       ]))
     })
-    // Once settled the tail folds in: the summary line stays, the tail is gone.
+    // Once settled the call folds in: the summary line now counts it, the
+    // live row is gone.
     expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
   })

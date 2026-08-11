@@ -993,14 +993,15 @@
   flex-direction: column;
 }
 
-/* The running call's tail under the collapsed summary line: the chat view's
-   live row, still a group member so the flow never rebuilds — it folds into
-   the group once settled. */
-.runningTail {
+/* The current step's running calls at the END of the flow (the chat live
+   row's position): the same 16px rhythm as every flow row — between the
+   parallel running calls and around the section — so the running row's
+   vertical spacing matches the summary lines'. It folds into its group's
+   summary line once settled. */
+.runningCalls {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 16px;
 }
 
 
