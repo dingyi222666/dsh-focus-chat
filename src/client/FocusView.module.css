@@ -99,7 +99,6 @@
 .older {
   display: flex;
   justify-content: center;
-  padding: 4px 0;
 }
 
 /* The chat pager's quiet solid pill. */
@@ -174,6 +173,21 @@
   height: 28px;
 }
 
+/* Clock paddings (the chat MessageIconActions rule): the start clock pads
+   right, the end clock pads left, both 12px. */
+.messageActions[data-clock='start'] .messageClock {
+  padding-right: 12px;
+}
+
+.messageActions[data-clock='end'] .messageClock {
+  padding-left: 12px;
+}
+
+/* The turn-tail footer's optical offset (the chat turn-tail rule). */
+.messageActions[data-clock='end'] {
+  margin-left: -6px;
+}
+
 .messageClock {
   font-size: 14px;
   line-height: 24px;
@@ -234,11 +248,12 @@
 }
 
 /* Turn tail: the produced-files row and the actions footer a finished turn
-   ends with (the chat turn-tail chrome). */
+   ends with (the chat turn-tail chrome: 16px root gap, produced row sits
+   off the tail's own 16px top margin). */
 .turnTail {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 16px;
 }
 
 .producedRow {
@@ -246,6 +261,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  margin-top: 16px;
   font-size: 13px;
   line-height: 22px;
 }
@@ -645,6 +661,36 @@
   flex-direction: column;
 }
 
+/* Running sweep (the chat GenericCommandCard glare band) on the TITLE row
+   only — the expanded card content stays sweep-free. This is the live
+   compaction lifecycle row ("Compacting context…") and every running command. */
+.commandRow[data-state='running'] [data-disclosure-row]::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 300px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%,
+    transparent 100%
+  );
+  animation: dsh-focus-command-row-sweep 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes dsh-focus-command-row-sweep {
+  0% { left: -300px; }
+  90%, 100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .commandRow[data-state='running'] [data-disclosure-row]::after {
+    animation: none;
+  }
+}
+
 .commandSummary {
   min-width: 0;
   overflow: hidden;
@@ -660,15 +706,19 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* The expanded multiline body is one code-block card (the chat command
+   card's body): bounded, scrolling internally, 12px 16px padding. */
 .commandBody {
-  margin: 0;
-  padding: 4px 0 4px 22px;
-  color: var(--dsw-alias-label-secondary);
-  font-family: var(--ds-font-family-code);
-  font-size: 12px;
-  line-height: 18px;
+  max-height: 260px;
+  margin: 4px 0 4px 4px;
+  padding: 12px 16px;
+  overflow: auto;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-markdown-code-block);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-markdown-code-block-small);
   white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .commandBody[data-error] {
@@ -805,15 +855,26 @@
   font: var(--dsw-font-markdown-code-block-small);
 }
 
+/* Assistant narration column (the chat AssistantMarkdown root): 16px block
+   rhythm, full-width 16/28 body face. */
 .assistant {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
+  font-size: 16px;
+  line-height: 28px;
+  color: var(--dsw-alias-label-primary);
 }
 
+/* Interrupted-turn terminal marker: quiet inline tag, no animation (the chat
+   assistant's stopped chip). */
 .stopped {
-  color: var(--dsw-alias-label-secondary);
-  font-size: 13px;
+  align-self: flex-start;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
   line-height: 18px;
 }
 
@@ -1187,11 +1248,13 @@
   border: 1px solid var(--dsw-alias-border-l1);
 }
 
-/* Recursive sub-call tree inside an expanded call body. */
+/* Recursive sub-call tree inside an expanded call body (the chat subCall
+   tree geometry: 22px indent, 8px gutter, l2 hairline). */
 .subcalls {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-left: 14px;
+  margin: 4px 0 2px 22px;
+  padding-left: 8px;
   border-left: 1px solid var(--dsw-alias-border-l2);
 }

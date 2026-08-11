@@ -705,7 +705,7 @@ const MessageActions = memo(function MessageActions({ text, time, runMs, ttftMs,
     </span>
   )
   return (
-    <div className={css.messageActions}>
+    <div className={css.messageActions} data-clock={clock}>
       {clock === 'start' ? clockEl : null}
       <Tooltip label={copied ? t('copied') : t('copy')} side="bottom">
         <button
