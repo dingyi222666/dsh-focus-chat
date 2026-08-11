@@ -109,7 +109,6 @@ const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   update_goal: 'goals',
   get_goal: 'goals',
   workflow: 'workflows',
-  workflow_yaml: 'workflows',
   ralph: 'workflows',
 }
 
@@ -126,7 +125,7 @@ export interface FocusGroupMetrics {
   todos: number
   /** Goal mutations (create/update/get_goal): "updated N goals". */
   goals: number
-  /** Orchestration calls (workflow / workflow_yaml / ralph): "ran N workflows". */
+  /** Orchestration calls (workflow / ralph): "ran N workflows". */
   workflows: number
   /** Failed calls in the failure-aware families (error-state rows). */
   commandsFailed: number
