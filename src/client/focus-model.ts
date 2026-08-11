@@ -76,10 +76,14 @@ export interface FocusGroupThink {
 export type FocusGroupItem = FocusContextItem | FocusGroupThink | FocusToolRow
 
 /** Step-summary metric families the group line aggregates, in display order. */
-export type FocusMetricKey = 'commands' | 'edits' | 'searches' | 'files' | 'dirs'
+export type FocusMetricKey =
+  | 'commands' | 'edits' | 'searches' | 'files' | 'dirs'
+  | 'subagents' | 'todos' | 'goals' | 'workflows'
 
 /** Tool name → metric family; unknown tools carry no metric. Writes fold
- *  into the edit family (the summary line reads one "edited" segment). */
+ *  into the edit family (the summary line reads one "edited" segment); the
+ *  agentic families (delegation, todo, goal, workflow) replace the generic
+ *  "called N tools" remainder for their own tools. */
 const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   bash: 'commands',
   pwsh: 'commands',
@@ -98,6 +102,15 @@ const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   search: 'searches',
   read: 'files',
   glob: 'dirs',
+  subagent: 'subagents',
+  subagent_fork: 'subagents',
+  todo_write: 'todos',
+  create_goal: 'goals',
+  update_goal: 'goals',
+  get_goal: 'goals',
+  workflow: 'workflows',
+  workflow_yaml: 'workflows',
+  ralph: 'workflows',
 }
 
 /** Per-family call counts and their error rows ("Ran N commands (M failed)"). */
@@ -107,6 +120,14 @@ export interface FocusGroupMetrics {
   searches: number
   files: number
   dirs: number
+  /** Delegation calls (subagent / subagent_fork): "launched N subagents". */
+  subagents: number
+  /** Todo mutations (todo_write): "updated N todos". */
+  todos: number
+  /** Goal mutations (create/update/get_goal): "updated N goals". */
+  goals: number
+  /** Orchestration calls (workflow / workflow_yaml / ralph): "ran N workflows". */
+  workflows: number
   /** Failed calls in the failure-aware families (error-state rows). */
   commandsFailed: number
   editsFailed: number
@@ -607,6 +628,7 @@ function toolGroup(
   const running = rows.some(row => row.state === 'running')
   const metrics: FocusGroupMetrics = {
     commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,
+    subagents: 0, todos: 0, goals: 0, workflows: 0,
     commandsFailed: 0, editsFailed: 0, searchesFailed: 0,
   }
   for (const row of rows) {
@@ -1081,6 +1103,10 @@ export function buildFocusFlow(
             searches: prev.metrics.searches + folded.metrics.searches,
             files: prev.metrics.files + folded.metrics.files,
             dirs: prev.metrics.dirs + folded.metrics.dirs,
+            subagents: prev.metrics.subagents + folded.metrics.subagents,
+            todos: prev.metrics.todos + folded.metrics.todos,
+            goals: prev.metrics.goals + folded.metrics.goals,
+            workflows: prev.metrics.workflows + folded.metrics.workflows,
             commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
             editsFailed: prev.metrics.editsFailed + folded.metrics.editsFailed,
             searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,

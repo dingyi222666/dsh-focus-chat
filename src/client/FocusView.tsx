@@ -498,6 +498,7 @@ interface GroupTitleSegment {
 
 function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSegment[] {
   const { commands, edits, searches, files, dirs } = group.metrics
+  const { subagents, todos, goals, workflows } = group.metrics
   const { commandsFailed, editsFailed, searchesFailed } = group.metrics
   const parts: GroupTitleSegment[] = []
   if (group.thoughtMs !== null) {
@@ -511,6 +512,13 @@ function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSe
   metricPart(parts, commands, commandsFailed, 'commands', t)
   metricPart(parts, edits, editsFailed, 'edits', t)
   metricPart(parts, searches, searchesFailed, 'searches', t)
+  // The agentic families replace the generic "called N tools" remainder for
+  // their own tools: delegation, todo, goal, and workflow calls read their
+  // own segments.
+  agentPart(parts, subagents, 'subagents', t)
+  agentPart(parts, todos, 'todos', t)
+  agentPart(parts, goals, 'goals', t)
+  agentPart(parts, workflows, 'workflows', t)
   if (files > 0 && dirs > 0) {
     parts.push({ text: t('tool.explored.both', { files, dirs }) })
   } else if (files > 0) {
@@ -523,6 +531,7 @@ function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSe
   const callCount = group.items.reduce((count, item) =>
     count + ('callId' in item && item.state !== 'running' ? 1 : 0), 0)
   const others = callCount - commands - edits - searches - files - dirs
+    - subagents - todos - goals - workflows
   if (others > 0) {
     parts.push({ text: t(others === 1 ? 'tool.others.one' : 'tool.others', { n: others }) })
   }
@@ -589,6 +598,18 @@ function metricPart(
 
 /** A metric family the summary line aggregates (locale key stem). */
 type MetricFamily = 'commands' | 'edits' | 'searches'
+
+/** One agentic family's count segment (delegation / todo / goal / workflow):
+ *  plain count, no failure tally (the chat's family literals). */
+function agentPart(
+  parts: GroupTitleSegment[],
+  n: number,
+  family: 'subagents' | 'todos' | 'goals' | 'workflows',
+  t: FocusTranslate,
+): void {
+  if (n === 0) return
+  parts.push({ text: t(n === 1 ? `tool.${family}.one` : `tool.${family}`, { n }) })
+}
 
 /** The count segment of one metric family, with the singular form for one. */
 function countSegment(family: MetricFamily, n: number, t: FocusTranslate): string {
