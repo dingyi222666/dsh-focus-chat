@@ -368,7 +368,7 @@ describe('FocusView flow rows', () => {
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'read', '{}') }),
       chatNode('t4', 'tool-call', { root: settledCall('c4', 'glob', '{}') }),
     ])
-    expect(screen.getByText('运行了 1 个命令，搜索了 1 个模式，读取了 1 个文件，列出了 1 个目录')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令，搜索了 1 个正则，读取了 1 个文件，列出了 1 个目录')).toBeTruthy()
   })
 
   it('appends a failure tally to a mixed family in the summary line', () => {
@@ -456,7 +456,7 @@ describe('FocusView flow rows', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(screen.getByText('运行了 1 个命令（1 次失败），写入了 1 个文件，编辑了 1 次，搜索了 1 个模式，读取了 1 个文件，调用了 2 个工具'))
+    fireEvent.click(screen.getByText('运行了 1 个命令（1 次失败），写入了 1 个文件，编辑了 1 次，搜索了 1 个正则，读取了 1 个文件，调用了 2 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
@@ -522,7 +522,7 @@ describe('FocusView flow rows', () => {
       }) }),
     ])
     // Expand the group first: the rows carry the chat outranking summaries.
-    fireEvent.click(screen.getByText('运行了 1 个命令，搜索了 1 个模式'))
+    fireEvent.click(screen.getByText('运行了 1 个命令，搜索了 1 个正则'))
     expect(screen.getByText('Build the app')).toBeTruthy()
     expect(screen.getByText('Search results')).toBeTruthy()
     expect(screen.queryByText('pnpm build')).toBeNull()
@@ -1218,7 +1218,7 @@ describe('FocusView flow rows', () => {
         resultView: { card: 'web', kind: 'search', sources: [{ url: 'https://dsh.dev', title: 'DSH' }], truncated: false },
       }) }),
     ])
-    fireEvent.click(screen.getByText('编辑了 1 次，搜索了 1 个模式'))
+    fireEvent.click(screen.getByText('编辑了 1 次，搜索了 1 个正则'))
     fireEvent.click(screen.getByText('Edit'))
     expect(screen.getByText('a.ts')).toBeTruthy()
     fireEvent.click(screen.getByText('Search'))
