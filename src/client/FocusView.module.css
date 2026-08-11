@@ -993,6 +993,23 @@
   flex-direction: column;
 }
 
+/* The group's summary line: one flexible ellipsizing run; failure tallies
+   (parentheses included) render in the error color. */
+.groupTitleLine {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.groupTitleFailed {
+  color: var(--dsw-alias-state-error-primary);
+}
+
 /* The current step's running calls at the END of the flow (the chat live
    row's position): the same 16px rhythm as every flow row — between the
    parallel running calls and around the section — so the running row's

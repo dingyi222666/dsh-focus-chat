@@ -124,6 +124,15 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   return { result: render(<FocusView {...props} />), source }
 }
 
+/** The group summary line element whose full text (nested failure spans
+ *  included) equals `text` — the default text matcher sees direct text
+ *  nodes only, so it cannot read the line through the failure spans. */
+function fullText(text: string): HTMLElement {
+  return screen.getByText((_content, element) => element?.textContent === text, {
+    selector: '[data-group-title]',
+  })
+}
+
 function assistantNode(key: string, status: 'running' | 'settled', reasoning: string, time: number): ReturnType<typeof chatNode> {
   return chatNode(key, 'assistant-step', {
     status, turn: 1, step: 1, time,
@@ -378,7 +387,7 @@ describe('FocusView flow rows', () => {
         isError: true, error: { name: 'Error', code: 'boom' },
       }) }),
     ])
-    expect(screen.getByText('运行了 1 个命令（1 次失败）')).toBeTruthy()
+    expect(fullText('运行了 1 个命令（1 次失败）')).toBeTruthy()
   })
 
   it('reads a fully failed family as its singular phrase or an all-failed suffix', () => {
@@ -387,7 +396,7 @@ describe('FocusView flow rows', () => {
         isError: true, error: { name: 'Error', code: 'boom' },
       }) }),
     ])
-    expect(screen.getByText('命令失败')).toBeTruthy()
+    expect(screen.getByText('命令失败', { selector: '[data-group-title-failed]' })).toBeTruthy()
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}', {
         isError: true, error: { name: 'Error', code: 'boom' },
@@ -396,7 +405,7 @@ describe('FocusView flow rows', () => {
         isError: true, error: { name: 'Error', code: 'boom' },
       }) }),
     ])
-    expect(screen.getByText('运行了 2 个命令（全部失败）')).toBeTruthy()
+    expect(fullText('运行了 2 个命令（全部失败）')).toBeTruthy()
   })
 
   it('shows a dirs-only exploration metric, the edit family folding writes, and the total-count fallback', () => {
@@ -458,7 +467,7 @@ describe('FocusView flow rows', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(screen.getByText('运行了 1 个命令（1 次失败），编辑了 2 次，搜索了 1 个正则，读取了 1 个文件，调用了 2 个工具'))
+    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 次，搜索了 1 个正则，读取了 1 个文件，调用了 2 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
@@ -537,7 +546,7 @@ describe('FocusView flow rows', () => {
         resultView: { card: 'terminal', output: 'boom', exitCode: 2 },
       }) }),
     ])
-    fireEvent.click(screen.getByText('命令失败'))
+    fireEvent.click(screen.getByText('命令失败', { selector: '[data-group-title-failed]' }))
     const row = screen.getByText('Bash').closest('[data-state]')
     expect(row?.getAttribute('data-state')).toBe('error')
   })
@@ -549,7 +558,7 @@ describe('FocusView flow rows', () => {
         content: [{ type: 'text', text: 'failed line\nrest' }],
       }) }),
     ])
-    fireEvent.click(screen.getByText('命令失败'))
+    fireEvent.click(screen.getByText('命令失败', { selector: '[data-group-title-failed]' }))
     const row = screen.getByText('Bash')
     // The error row's collapsed summary IS the failure's first line.
     expect(screen.getAllByText('failed line').length).toBeGreaterThan(0)
