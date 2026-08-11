@@ -313,7 +313,7 @@ const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
   }, [running, scheduleSummaryScroll, summary])
   return (
     <div className={css.thinkWrap} data-state={running ? 'running' : 'ok'}>
-      {running && <span className={css.visuallyHidden}>{t('tool.running')}</span>}
+      {running && <span className={css.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.thinkRow}
         rowClassName={css.thinkRowInner}
@@ -1425,7 +1425,7 @@ const CommandRow = memo(function CommandRow({ item, runningSummary, t }: {
   const open = expanded && body !== null
   return (
     <div className={css.commandRow} data-state={item.running ? 'running' : item.outcomeError ? 'error' : 'ok'}>
-      {item.running && <span className={css.visuallyHidden}>{t('tool.running')}</span>}
+      {item.running && <span className={css.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.commandRowInner}
         icon={item.outcomeError ? <StateDot state="error" /> : <IconApiOutline14 size={14} />}
@@ -1574,12 +1574,14 @@ const RetryRow = memo(function RetryRow({ item, t }: {
     return () => { window.clearInterval(timer) }
   }, [item.retryState, deadline])
 
-  const label = item.retryState === 'scheduled'
-    ? t('retry.scheduled')
+  // The active countdown reads as the retrying label (the chat ModelRetryItem
+  // rule); the scheduled label is the non-counting fallback.
+  const active = item.retryState === 'scheduled'
+  const label = active
+    ? t('retry.active')
     : item.retryState === 'cancelled'
       ? t('retry.cancelled')
       : t('retry.started')
-  const active = item.retryState === 'scheduled'
   const seconds = active ? remainingSeconds : scheduledSeconds
 
   return (
@@ -1674,6 +1676,10 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
     case 'context-fold':
       return <ContextFoldRow item={item} t={t} codeLabels={codeLabels} />
     case 'assistant': {
+      // The chat assistant's shell rule: a node that is only tool-call heads
+      // (or empty) paints nothing, so the flow shows no dead gap.
+      if (!item.running && !item.interrupted
+        && !item.blocks.some(block => block.kind !== 'tool-call')) return null
       // Blocks render in their logged order — the chat AssistantMarkdown
       // rule — so a reasoning block preceding the reply sits above the text
       // ("Thought for Ns" above the final output, never below it).
@@ -1710,7 +1716,7 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
                 return (
                   <JsonBlock
                     key={index}
-                    label={t('tool.output')}
+                    label={t('unknownBlock')}
                     payload={block.block}
                     truncatedLabel={jsonTruncated(t)}
                   />

@@ -172,7 +172,7 @@ describe('FocusView flow rows', () => {
     renderView([
       assistantNode('a1', 'running', 'streaming', 100),
     ])
-    expect(screen.getByText('思考')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
   })
 
   it('keeps the Think row to one line, tail-previewing the streaming text, and settles to the first line', () => {
@@ -322,7 +322,7 @@ describe('FocusView flow rows', () => {
 
   it('marks the running Think row with the sweep animation state', () => {
     renderView([assistantNode('a1', 'running', 'streaming', 100)])
-    const row = screen.getByText('思考')
+    const row = screen.getByText('Think')
     const wrap = row.closest('[data-state]')
     expect(wrap?.getAttribute('data-state')).toBe('running')
     expect(wrap?.querySelector('.thinkRowInner, [data-disclosure-row]')).toBeTruthy()
@@ -335,14 +335,14 @@ describe('FocusView flow rows', () => {
     ])
     // Collapsed: one summary line only — no standalone Think row remains.
     expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
-    expect(screen.queryByText('思考')).toBeNull()
+    expect(screen.queryByText('Think')).toBeNull()
     fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 1 个命令'))
     // The Think row sits inside the group: plain title, one-line summary.
-    expect(screen.getByText('思考')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('think text')).toBeTruthy()
     expect(screen.queryByText('more')).toBeNull()
     // Expanding the Think row reveals the reasoning body next to the call row.
-    fireEvent.click(screen.getByText('思考'))
+    fireEvent.click(screen.getByText('Think'))
     expect(screen.getByText(/more/)).toBeTruthy()
   })
 
@@ -359,14 +359,14 @@ describe('FocusView flow rows', () => {
     ])
     // The reply text stays as its own flow row; no standalone Think row.
     expect(screen.getByText('answer text')).toBeTruthy()
-    expect(screen.queryByText('思考')).toBeNull()
+    expect(screen.queryByText('Think')).toBeNull()
     // The folded group renders ABOVE the reply (thinking precedes the text);
     // the reply keeps the runs around it from merging.
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
     expect(column.indexOf('运行了 1 个命令')).toBeLessThan(column.indexOf('answer text'))
     fireEvent.click(screen.getByText('运行了 1 个命令'))
     // The Think row lives inside the expanded group.
-    expect(screen.getByText('思考')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('think text')).toBeTruthy()
   })
 
@@ -597,8 +597,8 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('上下文已压缩')).toBeTruthy()
     expect(screen.getByText('已压缩 4 条历史记录（约 5 tokens）')).toBeTruthy()
     // The retry row counts down (scheduled → shimmer) and expands to details.
-    expect(screen.getByText('等待重试模型请求（1/3） · 3s')).toBeTruthy()
-    fireEvent.click(screen.getByText('等待重试模型请求（1/3） · 3s'))
+    expect(screen.getByText('正在重试模型请求（1/3） · 3s')).toBeTruthy()
+    fireEvent.click(screen.getByText('正在重试模型请求（1/3） · 3s'))
     expect(screen.getByText('重试延迟：')).toBeTruthy()
     expect(screen.getByText('失败原因：')).toBeTruthy()
     // The failure message appears in the retry details and the turn error.
@@ -694,7 +694,7 @@ describe('FocusView flow rows', () => {
     fireEvent.click(screen.getByText('上下文注入'))
     expect(screen.getByText('injected rules')).toBeTruthy()
     fireEvent.click(screen.getByText('思考了 0.5 秒，运行了 1 个命令'))
-    expect(screen.getByText('思考')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
   })
 
   it("folds the closing reply's own reasoning into the worked line", () => {
@@ -728,7 +728,7 @@ describe('FocusView flow rows', () => {
     // row beside the reply.
     expect(screen.getByText('工作了 7 秒')).toBeTruthy()
     expect(screen.getByText('all done')).toBeTruthy()
-    expect(screen.queryByText('思考')).toBeNull()
+    expect(screen.queryByText('Think')).toBeNull()
     // Expanding the fold reveals the folded reasoning with its duration.
     fireEvent.click(screen.getByText('工作了 7 秒'))
     expect(screen.getByText('思考了 1.6 秒')).toBeTruthy()
@@ -1184,7 +1184,7 @@ describe('FocusView flow rows', () => {
       }),
     ])
     expect(screen.getByText('已停止')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /输出/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /未知内容块/ })).toBeTruthy()
   })
 
   it('renders the terminal card and the recursive sub-call tree in an expanded call', () => {
