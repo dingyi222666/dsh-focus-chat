@@ -1296,7 +1296,6 @@ const MessageRow = memo(function MessageRow({ item, t, codeLabels }: {
   const others = item.content.filter(block => block.type !== 'text')
   return (
     <div className={css.userRow} data-role={item.role} data-time-hover-root>
-      {item.role === 'steering' && <span className={css.steeringMark} data-steering-mark>{t('steering')}</span>}
       <div className={css.bubble}>
         {projectUserText(text)}
         {others.map((block, index) => (
@@ -1382,7 +1381,6 @@ const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t }
   const others = content.filter(block => block.type !== 'text')
   return (
     <div className={css.userRow} data-pending-steering data-time-hover-root>
-      <span className={css.steeringMark} data-steering-mark>{t('steering')}</span>
       <div className={css.bubble}>
         {projectUserText(text)}
         {others.map((block, index) => (

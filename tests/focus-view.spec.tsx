@@ -974,7 +974,8 @@ describe('FocusView flow rows', () => {
         }],
       }),
     })
-    expect(screen.getByText('插话')).toBeTruthy()
+    // The bubble renders without the steering caption (the chat's current rule).
+    expect(screen.queryByText('插话')).toBeNull()
     expect(screen.getByText('hold on')).toBeTruthy()
   })
 
