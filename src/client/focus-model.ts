@@ -1014,10 +1014,11 @@ export function buildFocusFlow(
           || adjacentAssistant.interrupted
           || blocks.some(block => block.kind !== 'tool-call')
         if (visible) {
-          // The folded group precedes the assistant's visible reply: the
-          // thinking and the step-summary line render above the text, matching
-          // the chat order (reasoning → reply → tool rows). The visible reply
-          // also keeps the runs either side of it from merging.
+          // The visible reply keeps its chronological position — the
+          // assistant emitted it before dispatching the tools — so the
+          // step-summary line follows it (the chat order: reply → tool
+          // rows). The visible reply also keeps the runs either side of
+          // it from merging.
           trailingAssistant = { ...adjacentAssistant, blocks }
         }
         if (pendingFold.length > 0) {
@@ -1060,7 +1061,15 @@ export function buildFocusFlow(
       const previousItem = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
-      if (trailingAssistant === null && previousItem !== undefined && previousItem.kind === 'tools') {
+      if (trailingAssistant !== null) {
+        // The visible reply precedes the folded group: the text keeps its
+        // chronological position (the assistant emitted it before dispatching
+        // the tools) and the step-summary line follows it, matching the chat
+        // order (reply → tool rows). The visible reply also keeps the runs
+        // either side of it from merging.
+        pushItem(trailingAssistant)
+        pushItem({ kind: 'tools', group: folded })
+      } else if (previousItem !== undefined && previousItem.kind === 'tools') {
         const prev = previousItem.group
         const merged: FocusToolGroup = {
           nodeKeys: [...prev.nodeKeys, ...folded.nodeKeys],
@@ -1090,7 +1099,6 @@ export function buildFocusFlow(
       } else {
         pushItem({ kind: 'tools', group: folded })
       }
-      if (trailingAssistant !== null) pushItem(trailingAssistant)
     }
     pending = null
   }

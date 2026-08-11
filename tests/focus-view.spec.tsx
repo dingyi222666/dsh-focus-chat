@@ -360,10 +360,11 @@ describe('FocusView flow rows', () => {
     // The reply text stays as its own flow row; no standalone Think row.
     expect(screen.getByText('answer text')).toBeTruthy()
     expect(screen.queryByText('Think')).toBeNull()
-    // The folded group renders ABOVE the reply (thinking precedes the text);
-    // the reply keeps the runs around it from merging.
+    // The folded group renders BELOW the reply: the text keeps its
+    // chronological position (emitted before the tools ran) and the
+    // step-summary line follows it (the chat order: reply → tool rows).
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('运行了 1 个命令')).toBeLessThan(column.indexOf('answer text'))
+    expect(column.indexOf('answer text')).toBeLessThan(column.indexOf('运行了 1 个命令'))
     fireEvent.click(screen.getByText('运行了 1 个命令'))
     // The Think row lives inside the expanded group.
     expect(screen.getByText('Think')).toBeTruthy()
