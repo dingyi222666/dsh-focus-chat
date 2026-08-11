@@ -79,11 +79,12 @@ export type FocusGroupItem = FocusContextItem | FocusGroupThink | FocusToolRow
 export type FocusMetricKey =
   | 'commands' | 'edits' | 'searches' | 'files' | 'dirs'
   | 'subagents' | 'todos' | 'goals' | 'workflows'
+  | 'skills' | 'questions' | 'plans'
 
 /** Tool name → metric family; unknown tools carry no metric. Writes fold
  *  into the edit family (the summary line reads one "edited" segment); the
- *  agentic families (delegation, todo, goal, workflow) replace the generic
- *  "called N tools" remainder for their own tools. */
+ *  agentic families (delegation, todo, goal, workflow, skill, question,
+ *  plan) replace the generic "called N tools" remainder for their own tools. */
 const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   bash: 'commands',
   pwsh: 'commands',
@@ -110,6 +111,9 @@ const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   get_goal: 'goals',
   workflow: 'workflows',
   ralph: 'workflows',
+  skill: 'skills',
+  ask_user_question: 'questions',
+  plan: 'plans',
 }
 
 /** Per-family call counts and their error rows ("Ran N commands (M failed)"). */
@@ -119,14 +123,20 @@ export interface FocusGroupMetrics {
   searches: number
   files: number
   dirs: number
-  /** Delegation calls (subagent / subagent_fork): "launched N subagents". */
+  /** Delegation calls (subagent / subagent_fork): "forked N subagents". */
   subagents: number
-  /** Todo mutations (todo_write): "updated N todos". */
+  /** Todo mutations (todo_write): "更新了待办 / updated todos". */
   todos: number
-  /** Goal mutations (create/update/get_goal): "updated N goals". */
+  /** Goal mutations (create/update/get_goal): "更新了目标 / updated goals". */
   goals: number
   /** Orchestration calls (workflow / ralph): "ran N workflows". */
   workflows: number
+  /** Skill loads (skill): "loaded N skills". */
+  skills: number
+  /** User questions (ask_user_question): "asked N questions". */
+  questions: number
+  /** Plan-mode entries (plan): "planned N times". */
+  plans: number
   /** Failed calls in the failure-aware families (error-state rows). */
   commandsFailed: number
   editsFailed: number
@@ -628,6 +638,7 @@ function toolGroup(
   const metrics: FocusGroupMetrics = {
     commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,
     subagents: 0, todos: 0, goals: 0, workflows: 0,
+    skills: 0, questions: 0, plans: 0,
     commandsFailed: 0, editsFailed: 0, searchesFailed: 0,
   }
   for (const row of rows) {
@@ -1106,6 +1117,9 @@ export function buildFocusFlow(
             todos: prev.metrics.todos + folded.metrics.todos,
             goals: prev.metrics.goals + folded.metrics.goals,
             workflows: prev.metrics.workflows + folded.metrics.workflows,
+            skills: prev.metrics.skills + folded.metrics.skills,
+            questions: prev.metrics.questions + folded.metrics.questions,
+            plans: prev.metrics.plans + folded.metrics.plans,
             commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
             editsFailed: prev.metrics.editsFailed + folded.metrics.editsFailed,
             searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,

@@ -427,7 +427,7 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('调用了 1 个工具')).toBeTruthy()
   })
 
-  it('reads delegation, todo, goal, and workflow calls as their own segments', () => {
+  it('reads delegation, todo, goal, workflow, skill, question, and plan calls as their own segments', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'subagent', '{}') }),
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'subagent_fork', '{}') }),
@@ -437,11 +437,14 @@ describe('FocusView flow rows', () => {
       chatNode('t6', 'tool-call', { root: settledCall('c6', 'get_goal', '{}') }),
       chatNode('t7', 'tool-call', { root: settledCall('c7', 'workflow', '{}') }),
       chatNode('t8', 'tool-call', { root: settledCall('c8', 'ralph', '{}') }),
-      chatNode('t9', 'tool-call', { root: settledCall('c9', 'run_code', '{}') }),
+      chatNode('t9', 'tool-call', { root: settledCall('c9', 'skill', '{}') }),
+      chatNode('t10', 'tool-call', { root: settledCall('c10', 'ask_user_question', '{}') }),
+      chatNode('t11', 'tool-call', { root: settledCall('c11', 'plan', '{}') }),
+      chatNode('t12', 'tool-call', { root: settledCall('c12', 'run_code', '{}') }),
     ])
-    // The agentic families read their own segments; the metric-less
-    // remainder keeps the generic "called N tools" count.
-    expect(fullText('启动了 2 个子代理，更新了 1 个待办，更新了 3 个目标，运行了 2 个工作流，调用了 1 个工具')).toBeTruthy()
+    // The agentic families read their own segments (todo and goal drop the
+    // count); the metric-less remainder keeps the generic "called N tools".
+    expect(fullText('Fork 了 2 个子代理，更新了待办，更新了目标，运行了 2 个工作流，载入了 1 个技能，问了 1 个问题，计划了 1 次，调用了 1 个工具')).toBeTruthy()
   })
 
   it('folds a run of tool calls into one summary line and expands into call rows', () => {
@@ -485,7 +488,7 @@ describe('FocusView flow rows', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 次，搜索了 1 个正则，更新了 1 个待办，读取了 1 个文件，调用了 1 个工具'))
+    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 次，搜索了 1 个正则，更新了待办，读取了 1 个文件，调用了 1 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
