@@ -98,7 +98,7 @@ function scrollPosition(list: HTMLElement, scrollport: HTMLElement): FocusScroll
 
 export function FocusView({
   useSession, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
-  isLoopback, useHostDescription, scroll, t,
+  isLoopback, scroll, t,
 }: FocusViewProps) {
   // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
   // the flow fresh on every publication — including assistant-only updates
@@ -356,7 +356,6 @@ export function FocusView({
               mentionsByKey={mentionsByKey}
               loadImage={loadImage}
               isLoopback={isLoopback}
-              useHostDescription={useHostDescription}
             />
           </div>
         ))}

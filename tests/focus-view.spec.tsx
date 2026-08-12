@@ -10,7 +10,6 @@ import type {
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
-import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { FocusView } from '../src/client/view/FocusView.tsx'
 import type { FocusViewProps } from '../src/client/contract/props.ts'
 import type { FocusScrollPosition } from '../src/client/contract/props.ts'
@@ -22,7 +21,7 @@ afterEach(() => {
 })
 
 const SID = 's1' as SessionId
-const t = makeTranslate(zh, commonZh)
+const t = makeTranslate(zh)
 
 /** Minimal chat view node: FocusView only reads key/kind/visibility/data. */
 function chatNode(
@@ -58,7 +57,6 @@ function sessionsStore(cwd: string | undefined) {
     current: SID,
     phase: 'ready',
     subagentsByParent: {},
-    tasksBySession: {},
     currentAddress: undefined,
   })
 }
@@ -124,7 +122,6 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     forkAt: opts.forkAt ?? (() => {}),
     fileMentions: opts.fileMentions ?? (() => undefined),
     isLoopback: opts.isLoopback ?? true,
-    useHostDescription: () => true,
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
     t: opts.t ?? t,
   } as unknown as FocusViewProps
@@ -367,11 +364,10 @@ describe('FocusView flow rows', () => {
     // The reply text stays as its own flow row; no standalone Think row.
     expect(screen.getByText('answer text')).toBeTruthy()
     expect(screen.queryByText('Think')).toBeNull()
-    // The folded group renders BELOW the reply: the text keeps its
-    // chronological position (emitted before the tools ran) and the
-    // step-summary line follows it (the chat order: reply → tool rows).
+    // The folded group renders ABOVE the reply (the chat order: tool rows
+    // precede the reply); the reply keeps the runs around it from merging.
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('answer text')).toBeLessThan(column.indexOf('运行了 1 个命令'))
+    expect(column.indexOf('运行了 1 个命令')).toBeLessThan(column.indexOf('answer text'))
     fireEvent.click(screen.getByText('运行了 1 个命令'))
     // The Think row lives inside the expanded group.
     expect(screen.getByText('Think')).toBeTruthy()
@@ -1394,7 +1390,7 @@ describe('FocusView flow rows', () => {
 
 describe('plugin apply', () => {
   it('registers the focus tab on a real slot ring and disposes with the fiber', async () => {
-    const { Context } = await import('cordis')
+    const { Context } = await import('@deepseek-ai/cordis')
     const { SlotsService } = await import('@deepseek-ai/dsh-client-runtime/client')
     const { apply, inject } = await import('../src/client/index.ts')
     const ctx = new Context()

@@ -4,7 +4,7 @@
  */
 
 /* jscpd:ignore-start */
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import type { InvariantInstaller } from '@deepseek-ai/dsh-invariants'
 // Type-only: pulls the invariants package's cordis Context merge (ctx.invariants).
 import type {} from '@deepseek-ai/dsh-invariants'

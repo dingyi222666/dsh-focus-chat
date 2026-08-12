@@ -1,5 +1,4 @@
 import { memo, useLayoutEffect, useRef, useState } from 'react'
-import type { HostDescription } from '@deepseek-ai/dsh-client-connection/client'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { basename } from '../helpers/format.ts'
@@ -8,20 +7,17 @@ import { MessageActions } from '../chrome/MessageActions.tsx'
 import css from './TurnTailRow.module.css'
 
 /** One completed turn's footer: the measured produced-files lane and the chat actions chrome. */
-export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t, isLoopback, useHostDescription }: {
+export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t, isLoopback }: {
   item: Extract<FocusFlowItem, { kind: 'turn-tail' }>
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   t: FocusTranslate
   isLoopback: boolean
-  useHostDescription: (selector: (description: HostDescription | undefined) => boolean) => boolean
 }) {
   const paths = item.produced
   const closingSeq = item.closingSeq
-  // Chips open and the show-in-folder action appears only when the browser is
-  // loopback and the Host can open native paths (the chat lane's rule).
-  const hostCanOpenPath = useHostDescription(description => description?.canOpenPath === true)
-  const canOpenPath = isLoopback && hostCanOpenPath
+  // Chips open and the show-in-folder action appears only when the browser
+  // is connected over loopback (the chat lane's rule on the npm rc.1 line).
   const limit = Math.min(paths.length, PRODUCED_SHOWN)
   const [shownCount, setShownCount] = useState(limit)
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -79,7 +75,7 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t
             ))}
             {hidden > 0 && <span className={css.producedMore}>{moreLabel(t, hidden)}</span>}
           </div>
-          {hidden > 0 && canOpenPath && (
+          {hidden > 0 && isLoopback && (
             <button type="button" className={css.producedShowFolder} onClick={() => { openFile('.') }}>
               {t('produced.showInFolder')}
             </button>

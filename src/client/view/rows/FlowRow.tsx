@@ -2,7 +2,6 @@ import { memo } from 'react'
 import { ImageGallery, type ImageLoader } from '@deepseek-ai/dsh-client-ui-attachment'
 import { JsonBlock, MarkdownText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { HostDescription } from '@deepseek-ai/dsh-client-connection/client'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -20,7 +19,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback, useHostDescription }: {
+export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback }: {
   item: FocusFlowItem
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -30,7 +29,6 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
   isLoopback: boolean
-  useHostDescription: (selector: (description: HostDescription | undefined) => boolean) => boolean
 }) {
   switch (item.kind) {
     case 'message':
@@ -114,7 +112,6 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
           mentionsByKey={mentionsByKey}
           loadImage={loadImage}
           isLoopback={isLoopback}
-          useHostDescription={useHostDescription}
         />
       )
     case 'turn-tail':
@@ -125,7 +122,6 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
           forkAt={forkAt}
           t={t}
           isLoopback={isLoopback}
-          useHostDescription={useHostDescription}
         />
       )
     case 'command':

@@ -1,7 +1,7 @@
 {
   "name": "dsh-focus-chat",
   "version": "0.1.0",
-  "description": "Claude Code-style focus view for the dsh web GUI: the conversation's condensed reading surface — tool calls folded into expandable metric summaries, chat 1:1 row chrome, and streaming think rows",
+  "description": "Claude Code-style focus view for the dsh web GUI: the conversation's condensed reading surface \u2014 tool calls folded into expandable metric summaries, chat 1:1 row chrome, and streaming think rows",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -48,14 +48,24 @@
     "watch": "tsdown --watch",
     "build": "tsc -p tsconfig.build.json && tsdown",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "prepare": "pnpm run build"
+    "test": "vitest run"
   },
   "devDependencies": {
     "@testing-library/react": "^16.1.0",
+    "@types/node": "^22.0.0",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.0",
-    "cordis": "4.0.0-rc.7",
+    "@deepseek-ai/cordis": "^4.0.1-rc.1",
+    "@deepseek-ai/dsh-attachment": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-connection": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-locale": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-runtime": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-attachment": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-primitives": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-invariants": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-llm": "^0.0.1-rc.1",
     "jsdom": "^25.0.0",
     "lightningcss": "^1.25.0",
     "react": "^18.2.0",
@@ -63,7 +73,9 @@
     "tsdown": "^0.22.2",
     "typescript": "^6.0.3",
     "use-sync-external-store": "1.2.0",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.8",
+    "@deepseek-ai/dsh-client-web-react": "^0.0.1-rc.1",
+    "@deepseek-ai/dsh-client-test-runtime": "^0.0.1-rc.1"
   },
   "license": "BSD-3-Clause",
   "private": true,
@@ -72,6 +84,7 @@
     "lib/index.js",
     "lib/invariant.js",
     "lib/client.js",
-    "lib/types/**/*.d.ts"
+    "lib/types/**/*.d.ts",
+    "cordis.patch.yml"
   ]
 }

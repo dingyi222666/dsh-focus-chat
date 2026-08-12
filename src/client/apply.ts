@@ -3,7 +3,7 @@
 
 /** Required services: the view slot, the locale registry, sessions, the host opener, and the connection facts. */
 export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'connection']
-import type { Context } from 'cordis'
+import type { Context } from '@deepseek-ai/cordis'
 import { resolveWorkspacePath, type ClientContext, type SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConversationService, IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
@@ -87,10 +87,6 @@ export function apply(ctx: Context): void {
       },
       // Whether the browser itself is connected over loopback (produced-chip gating).
       isLoopback: connection.isLoopback,
-      hooks: {
-        // Current generation's Host description, bound by the slot renderer.
-        hostDescription: connection.hostDescription,
-      },
       scroll: {
         save: (position) => { focusScrollPositions.set(sessionId, position) },
         read: () => focusScrollPositions.get(sessionId) ?? null,

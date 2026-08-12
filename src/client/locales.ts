@@ -135,7 +135,7 @@ export type FocusKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  'view.label': 'Focus chat',
+  'view.label': 'Focus Chat',
   'copy': 'Copy',
   'copied': 'Copied',
   'tool.group': 'ran {n} commands',

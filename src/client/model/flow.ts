@@ -438,13 +438,13 @@ export function buildFocusFlow(
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
       if (trailingAssistant !== null) {
-        // The visible reply precedes the folded group: the text keeps its
-        // chronological position (the assistant emitted it before dispatching
-        // the tools) and the step-summary line follows it, matching the chat
-        // order (reply → tool rows). The visible reply also keeps the runs
-        // either side of it from merging.
-        pushItem(trailingAssistant)
+        // The folded group precedes the assistant's visible reply: the tool
+        // content keeps its chronological position and the step-summary line
+        // renders above the text, matching the chat order (tool rows →
+        // reply). The visible reply also keeps the runs either side of it
+        // from merging.
         pushItem({ kind: 'tools', group: folded })
+        pushItem(trailingAssistant)
       } else if (previousItem !== undefined && previousItem.kind === 'tools') {
         const prev = previousItem.group
         const merged: FocusToolGroup = {
