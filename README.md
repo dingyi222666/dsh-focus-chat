@@ -60,10 +60,10 @@ Notes:
 
 ## Development
 
-- `pnpm run build` — builds the browser bundle and the Node half.
+- `yarn run build` — builds the browser bundle and the Node half.
 - `src/client/focus-model.ts` — the pure logic (folding, merging, row models); `src/client/FocusView.tsx` — the view.
-- `pnpm exec vitest run tests/` — behavior tests; `pnpm exec tsc --noEmit` — type gate.
-- A `--dev` `dsh web` server hot-reloads rebuilt bundles — `pnpm run build` alone is usually enough to see changes.
+- `yarn test` — behavior tests; `yarn run typecheck` — type gate.
+- A `--dev` `dsh web` server hot-reloads rebuilt bundles — `yarn run build` alone is usually enough to see changes.
 
 ## Model Experience
 

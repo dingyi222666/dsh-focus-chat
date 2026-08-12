@@ -60,10 +60,10 @@ dsh web
 
 ## 开发
 
-- `pnpm run build` — 产出浏览器 bundle 和 Node 半边。
+- `yarn run build` — 产出浏览器 bundle 和 Node 半边。
 - `src/client/focus-model.ts` — 纯逻辑（折叠、合并、行模型）；`src/client/FocusView.tsx` — 视图。
-- `pnpm exec vitest run tests/` — 行为测试；`pnpm exec tsc --noEmit` — 类型门禁。
-- `--dev` 的 `dsh web` 会自动热加载重建的 bundle——改完 `pnpm run build` 一般就能看到效果。
+- `yarn test` — 行为测试；`yarn run typecheck` — 类型门禁。
+- `--dev` 的 `dsh web` 会自动热加载重建的 bundle——改完 `yarn run build` 一般就能看到效果。
 
 ## 模型体验
 
