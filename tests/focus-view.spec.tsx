@@ -11,8 +11,9 @@ import type {
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
-import { FocusView, type FocusViewProps } from '../src/client/FocusView.tsx'
-import type { FocusScrollPosition } from '../src/client/FocusView.tsx'
+import { FocusView } from '../src/client/view/FocusView.tsx'
+import type { FocusViewProps } from '../src/client/contract/props.ts'
+import type { FocusScrollPosition } from '../src/client/contract/props.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(() => {
@@ -57,6 +58,7 @@ function sessionsStore(cwd: string | undefined) {
     current: SID,
     phase: 'ready',
     subagentsByParent: {},
+    tasksBySession: {},
     currentAddress: undefined,
   })
 }

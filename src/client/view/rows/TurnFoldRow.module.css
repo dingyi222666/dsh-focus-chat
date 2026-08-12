@@ -1,0 +1,19 @@
+.turnFold {
+  display: flex;
+  flex-direction: column;
+}
+
+.turnFoldRow {
+  display: flex;
+  flex-direction: column;
+}
+
+.turnFoldBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 14px;
+}
+
+/* Tool group: the step-summary line and its folded calls. */

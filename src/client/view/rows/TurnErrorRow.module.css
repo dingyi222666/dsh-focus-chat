@@ -1,0 +1,36 @@
+.turnErrorRow {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 2px 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.turnErrorDot {
+  margin-top: 5px;
+}
+
+.turnErrorCopy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.turnErrorTitle {
+  margin-right: 6px;
+  color: var(--dsw-alias-state-error-primary);
+  font-weight: 600;
+}
+
+.turnErrorMessage {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.turnErrorCode {
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-markdown-code-block-small);
+}
+
+/* Assistant narration column (the chat AssistantMarkdown root): 16px block
+   rhythm, full-width 16/28 body face. */

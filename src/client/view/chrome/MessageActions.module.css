@@ -1,0 +1,84 @@
+.messageActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 28px;
+}
+
+/* Clock paddings (the chat MessageIconActions rule): the start clock pads
+   right, the end clock pads left, both 12px. */
+.messageActions[data-clock='start'] .messageClock {
+  padding-right: 12px;
+}
+
+.messageActions[data-clock='end'] .messageClock {
+  padding-left: 12px;
+}
+
+/* The turn-tail footer's optical offset (the chat turn-tail rule). */
+.messageActions[data-clock='end'] {
+  margin-left: -6px;
+}
+
+.messageClock {
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Message containers opt in with data-time-hover-root: the time label fades
+   in on message hover (or keyboard focus within). Opacity keeps the layout
+   stable, and devices without hover keep the label always visible. */
+@media (hover: hover) {
+  [data-time-hover-root] .messageClock {
+    opacity: 0;
+    transition: opacity 80ms ease;
+  }
+
+  [data-time-hover-root]:hover .messageClock,
+  [data-time-hover-root]:focus-within .messageClock {
+    opacity: 1;
+  }
+}
+
+/* The dot is decorative and stays hidden, but its margins separate the
+   readings only on screen: without the flanking spaces a reader hears one
+   run-on string instead of three facts (the chat row's rule). */
+.messageClockDot {
+  margin: 0 10px;
+}
+
+.messageAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 6px;
+  border: none;
+  border-radius: 28px;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.messageAction:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.messageAction[data-unavailable] {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.messageAction[data-unavailable]:hover {
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Turn tail: the produced-files row and the actions footer a finished turn
+   ends with (the chat turn-tail chrome: 16px root gap, produced row sits
+   off the tail's own 16px top margin). */

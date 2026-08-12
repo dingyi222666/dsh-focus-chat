@@ -1,0 +1,218 @@
+.callRow {
+  display: flex;
+  flex-direction: column;
+}
+
+/* One tool call inside an expanded group (the chat ToolRow chrome). */
+.callRow {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Running sweep (the chat row's glare band) on the TITLE row only — the
+   expanded card content stays sweep-free. */
+.callRow[data-state='running'] [data-disclosure-row]::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 300px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--dsw-alias-bg-base) 60%, transparent) 55%,
+    transparent 100%
+  );
+  animation: dsh-focus-tool-row-sweep 2.6s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes dsh-focus-tool-row-sweep {
+  0% { left: -300px; }
+  90%, 100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .callRow[data-state='running'] [data-disclosure-row]::after {
+    animation: none;
+  }
+}
+
+/* Cordis lifecycle tools retain their generic row mechanics while carrying a
+   shared product accent and tool-owned action title (the chat row's rule). */
+.callRow[data-tool^='cordis_'] .callLeading,
+.callRow[data-tool^='cordis_'] .callTitle {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.callRow[data-tool^='cordis_'] .callTitle {
+  font-weight: 500;
+}
+
+.callRow[data-tool^='cordis_'] .callSeparator {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.callChevron {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.callSeparator {
+  flex: none;
+  width: 2px;
+  height: 2px;
+  border-radius: 1px;
+  margin: 0 8px;
+  background: var(--dsw-alias-label-caption);
+}
+
+.callSummary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* File-tool path: same geometry as the summary, with a persistent link. */
+.callFileLink {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--dsw-alias-label-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--dsw-alias-label-quaternary);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.callFileLink:hover {
+  color: var(--dsw-alias-label-primary);
+  text-decoration-color: currentColor;
+}
+
+/* Error row's collapsed summary: the failure's first line in the error color. */
+.callErrorSummary {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* Expanded body wrapper (sibling of the row: clicks never toggle). */
+.callBodyWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Expanded-body scroll wrapper for the run_code CodeBlock; the IN/OUT card
+   and the terminal card scroll INSIDE their own surface instead. */
+.bodyScroll {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+/* Expanded input/output card (figma 1249:35657): the code-block surface and
+   radius from the TerminalBlock/CodeBlock family. */
+.ioCard {
+  display: flex;
+  flex-direction: column;
+  margin: 4px 0 4px 4px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-markdown-code-block);
+  font: var(--dsw-font-markdown-code-block-small);
+}
+
+/* One card section (IN or OUT): the gutter-label grid, capped and scrolling
+   independently so a long input never buries a short output. */
+.ioSection {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 14px;
+  align-items: baseline;
+  padding: 12px 16px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.ioLabel {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  color: var(--dsw-alias-label-caption);
+}
+
+.ioDivider {
+  flex: none;
+  height: 1px;
+  background: var(--dsw-alias-border-l2);
+}
+
+.ioText {
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* A failed call's OUT text shares the collapsed summary's error color. */
+.ioText[data-error] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* The block-shaped expanded bodies: cards drawn by the shared primitive, with
+   only the row's indentation as this file's concern. */
+.codeBody,
+.terminalBody,
+.diffBody,
+.readBody,
+.searchBody,
+.webBody {
+  margin: 4px 0 4px 4px;
+}
+
+/* The recovery footer for a capped search: the result text (its `Full …
+   stored at …` locator) below the card in the muted tone. */
+.searchRecovery {
+  margin: 4px 0 4px 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: var(--dsw-font-xs-13);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* In-row code renders at the smaller code size via the primitive's seam. */
+.codeBody {
+  --dsl-code-block-content-font: var(--dsw-font-markdown-code-block-small);
+}
+
+/* The terminal card scrolls its OUTPUT inside its own surface: the banner
+   stays pinned and the scrollbar never rides over it. */
+.terminalBody {
+  --dsl-terminal-font: var(--dsw-font-markdown-code-block-small);
+  --dsl-terminal-line-height: 18px;
+  --dsl-terminal-output-max-height: 224px;
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+
+/* Recursive sub-call tree inside an expanded call body (the chat subCall
+   tree geometry: 22px indent, 8px gutter, l2 hairline). */
+.subcalls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 2px 22px;
+  padding-left: 8px;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+}

@@ -1,0 +1,69 @@
+import { Fragment, memo, useState } from 'react'
+import { DisclosureRow, IconSparkle16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusToolGroup } from '../../model/types.ts'
+import { caseSegments, groupTitleParts } from './group-title.ts'
+import { ContextRow } from './ContextRow.tsx'
+import { ThinkRow } from './ThinkRow.tsx'
+import { ToolCallRow } from './ToolCallRow.tsx'
+import css from './ToolGroupRow.module.css'
+
+/** One folded run of Tool calls: the step-summary line with its metrics. */
+export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile }: {
+  group: FocusToolGroup
+  t: FocusTranslate
+  codeLabels: MarkdownCodeLabels
+  openFile: (path: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  // The summary line reads the settled metrics only — a running call joins
+  // the line once it settles (the think lifecycle) and renders as a live
+  // row at the end of the flow meanwhile. Failure tallies render in the
+  // error color, parentheses included.
+  const segments = caseSegments(groupTitleParts(group, t))
+  return (
+    <div className={css.groupRow} data-state={group.running ? 'running' : 'ok'}>
+    <DisclosureRow
+      className={css.groupRowInner}
+      icon={<IconSparkle16 size={16} />}
+      title=""
+      open={expanded}
+      expandable
+      expandOnRowClick
+      keepContentWhenOpen
+      onToggle={() => { setExpanded(value => !value) }}
+      collapsedContent={(
+        <span className={css.groupTitleLine} data-group-title>
+          {segments.map((segment, index) => (
+            <Fragment key={index}>
+              {index > 0 && t('tool.separator')}
+              {segment.text}
+              {segment.failed !== undefined && (
+                <span className={css.groupTitleFailed} data-group-title-failed>{segment.failed}</span>
+              )}
+            </Fragment>
+          ))}
+        </span>
+      )}
+    >
+      <div className={css.calls} data-calls>
+        {group.items.map((item, index) => (
+          'callId' in item ? (
+            <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} />
+          ) : 'kind' in item ? (
+            // An absorbed context injection expands to its chat row.
+            <ContextRow key={item.nodeKey} item={item} t={t} codeLabels={codeLabels} />
+          ) : (
+            // The absorbed thinking keeps its running sweep while any call in
+            // the group executes, not only while the assistant streams.
+            <ThinkRow key={index} text={item.text} running={item.running || group.running} title={t('think')} t={t} />
+          )
+        ))}
+      </div>
+    </DisclosureRow>
+    </div>
+  )
+})
+
+/** The chat IconActions chrome: copy, optional branch, and an optional date-aware clock. */

@@ -1,0 +1,96 @@
+.retryRow {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.retrySummary {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 0;
+  gap: 7px;
+  border-radius: 3px;
+  color: inherit;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.retrySummary::-webkit-details-marker {
+  display: none;
+}
+
+.retrySummary::after {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid currentcolor;
+  border-bottom: 1.5px solid currentcolor;
+  content: '';
+  opacity: 0.8;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+
+.retrySummary:hover {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.retrySummary:focus-visible {
+  outline: 1.5px solid var(--dsw-alias-button-info-fill);
+  outline-offset: 2px;
+}
+
+.retryText {
+  color: inherit;
+}
+
+.retryRow[data-active] .retryText {
+  background:
+    linear-gradient(
+      90deg,
+      var(--dsw-alias-label-tertiary) 0%,
+      var(--dsw-alias-label-tertiary) 40%,
+      var(--dsw-alias-label-secondary) 50%,
+      var(--dsw-alias-label-tertiary) 60%,
+      var(--dsw-alias-label-tertiary) 100%
+    );
+  background-position: 100% 50%;
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: dsh-focus-retry-shimmer 1.6s ease-in-out infinite;
+}
+
+.retryRow[open] .retrySummary::after {
+  transform: rotate(45deg);
+}
+
+.retryDetails {
+  display: grid;
+  gap: 2px;
+  margin-top: 3px;
+  padding-left: 14px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.retryDetailLabel {
+  color: var(--dsw-alias-label-secondary);
+}
+
+@keyframes dsh-focus-retry-shimmer {
+  from { background-position: 100% 50%; }
+  to { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retryRow[data-active] .retryText {
+    background: none;
+    color: inherit;
+    animation: none;
+  }
+}
+
+/* History open hints and the floating to-bottom control (the chat chrome). */

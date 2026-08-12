@@ -1,0 +1,45 @@
+.groupRow {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The group's summary line: one flexible ellipsizing run; failure tallies
+   (parentheses included) render in the error color. */
+.groupTitleLine {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.groupTitleFailed {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* The current step's running calls at the END of the flow (the chat live
+   row's position): the same 16px rhythm as every flow row — between the
+   parallel running calls and around the section — so the running row's
+   vertical spacing matches the summary lines'. It folds into its group's
+   summary line once settled. */
+
+.groupRowInner {
+  display: flex;
+  flex-direction: column;
+}
+
+.calls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 14px;
+  /* The summary line's second-level content keeps one continuous indent
+     line; only the worked-fold expansion is line-free. */
+  border-left: 1px solid var(--dsw-alias-border-l2);
+}
+
+/* One running turn's context batch: the collapsed line and its rows. */

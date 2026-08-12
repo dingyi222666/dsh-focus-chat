@@ -1,0 +1,141 @@
+/* Focus flow: the same width and 16px rhythm as the chat column; the host
+   scrollport owns overflow and this view is ordinary flow content. */
+
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* The focus view's own scroll container; under the conversation column host
+   ([data-conversation-scroll]) the host owns overflow and this becomes
+   ordinary flow (ChatView's scroll split). */
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+:global([data-conversation-scroll]) .root {
+  flex: 0 0 auto;
+  min-height: auto;
+  height: auto;
+}
+
+:global([data-conversation-scroll]) .scroll {
+  overflow: visible;
+  flex: 0 0 auto;
+  min-height: auto;
+}
+
+.column {
+  max-width: var(--dsh-chat-content-width);
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.flowItem {
+  min-width: 0;
+}
+
+.flowItem:empty {
+  display: none;
+}
+
+
+.older {
+  display: flex;
+  justify-content: center;
+}
+
+/* The chat pager's quiet solid pill. */
+.olderButton {
+  border: none;
+  border-radius: 14px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-interactive-bg-hover-solid);
+  cursor: pointer;
+}
+
+.olderButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.empty {
+  align-self: center;
+  padding: 24px 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+
+.hint {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.openError {
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.toBottomSlot {
+  position: sticky;
+  bottom: 16px;
+  z-index: 8;
+  height: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding-right: max(0px, calc((100% - var(--dsh-chat-content-width)) / 2));
+  pointer-events: none;
+}
+
+:global([data-conversation-scroll]) .toBottomSlot {
+  /* Clears the sticky composer stack (the chat rule): under the conversation
+     column host the control rides above the input card, not under it. */
+  bottom: calc(var(--dsh-composer-height, 152px) + 16px);
+}
+
+.toBottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-top: -34px;
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 100px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-button-floating-fill);
+  box-shadow: var(--dsw-shadow-lv2);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.toBottom:hover {
+  background: var(--dsw-alias-button-floating-hover);
+}
+
+/* Command row: name · settlement with an expandable multiline body. */
+
+.runningCalls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+

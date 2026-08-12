@@ -1,0 +1,22 @@
+.assistant {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 16px;
+  line-height: 28px;
+  color: var(--dsw-alias-label-primary);
+}
+
+/* Interrupted-turn terminal marker: quiet inline tag, no animation (the chat
+   assistant's stopped chip). */
+.stopped {
+  align-self: flex-start;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 18px;
+}
+
+/* Think disclosure (the reasoning row): the chat view's running sweep. */
