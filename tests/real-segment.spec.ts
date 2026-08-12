@@ -103,9 +103,10 @@ it('renders reply → its own tool rows (chronological)', () => {
   expect(rows[0]).toBe('text: 56 个测试在 npm rc.1 线上全绿！继续：typecheck → build → pack：')
   expect(rows[1]).toContain('Typecheck and build on the npm line')
   expect(rows[1]).toContain('Pack the plugin tarball')
-  // think90 + bash#3 fold into the group below text90.
+  // think90 folds into the group below text88 (its line leads with the
+  // thinking metric); think91 and the consumer-setup run merge into the
+  // group below text90 the same way.
   expect(rows[2]).toBe('text: tarball 生成（59KB）。做消费验证——先看 rc.1 CLI 的用法：')
   expect(rows[3]).toContain('Show the rc.1 dsh CLI help')
-  // think91's run stays a separate group (its think is the chat's barrier).
-  expect(rows[4]).toContain('Set up the consumer and show the CLI help')
+  expect(rows[3]).toContain('Set up the consumer and show the CLI help')
 })

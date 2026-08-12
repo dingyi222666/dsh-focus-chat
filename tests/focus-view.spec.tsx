@@ -754,7 +754,7 @@ describe('FocusView flow rows', () => {
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
-  it('merges directly-consecutive runs into one summary line, keeping the folded think as the barrier', () => {
+  it('merges directly-consecutive runs into one summary line, keeping the folded think inside', () => {
     renderView([
       assistantNode('a1', 'settled', 'first think\nmore one', 3000),
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }),
@@ -763,21 +763,18 @@ describe('FocusView flow rows', () => {
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'bash', '{"command":"lint"}') }),
     ])
     // The leading think stays on its assistant; the second think folds into
-    // the preceding group (the chat order: the run ran, then the next
-    // step's Think disclosure). The runs either side of a folded think keep
-    // their own summary lines; the runs after it merge.
+    // the group (the chat order: the run ran, then the next step's Think
+    // disclosure) and the directly-consecutive runs all merge into one
+    // line whose thinking metric leads.
     expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
-    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
-    expect(screen.getByText('运行了 2 个命令')).toBeTruthy()
-    fireEvent.click(screen.getByText('运行了 1 个命令'))
-    // The folded rows keep flow order: the call, then the absorbed think.
+    expect(screen.getByText('思考了 1.3 秒，运行了 3 个命令')).toBeTruthy()
+    fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 3 个命令'))
+    // The folded rows keep flow order: the calls and the absorbed think.
     const calls = document.querySelector('[data-calls]')
     const text = calls?.textContent ?? ''
     expect(text.indexOf('build')).toBeLessThan(text.indexOf('second think'))
-    fireEvent.click(screen.getByText('运行了 2 个命令'))
-    const second = document.querySelectorAll('[data-calls]')[1]
-    const text2 = second?.textContent ?? ''
-    expect(text2.indexOf('test')).toBeLessThan(text2.indexOf('lint'))
+    expect(text.indexOf('second think')).toBeLessThan(text.indexOf('test'))
+    expect(text.indexOf('test')).toBeLessThan(text.indexOf('lint'))
   })
 
   it('folds a completed turn into one worked line, keeping the closing reply', () => {

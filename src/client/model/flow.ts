@@ -292,6 +292,12 @@ export function buildFocusFlow(
                 text: (block as { text: string }).text,
                 running: false,
               }))],
+              // The folded think leads the group's summary line (the
+              // step-summary line keeps its thinking metric at the front);
+              // a group already carrying a think sums the durations.
+              thoughtMs: group.thoughtMs === null ? item.thoughtMs
+                : item.thoughtMs === null ? group.thoughtMs
+                  : group.thoughtMs + item.thoughtMs,
             },
           }
           if (pendingFold.length > 0) {
@@ -428,14 +434,14 @@ export function buildFocusFlow(
         context: absorbedContext,
       }
       // Merge directly-consecutive runs — in the flow or in the turn-fold
-      // buffer — into one summary line: metrics aggregate, the rows keep
-      // flow order. Anything between two runs — an assistant row (its Think
-      // disclosure or its reply), a command, a message, or a think folded
-      // into the previous group — keeps them separate.
+      // buffer — into one summary line: metrics and thinking time aggregate,
+      // the rows keep flow order. Anything between two runs — an assistant
+      // row (its Think disclosure or its reply), a command, a message —
+      // keeps them separate.
       const previousItem = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
-      if (previousItem !== undefined && previousItem.kind === 'tools' && !hasFoldedThink(previousItem.group)) {
+      if (previousItem !== undefined && previousItem.kind === 'tools') {
         const prev = previousItem.group
         const merged: FocusToolGroup = {
           nodeKeys: [...prev.nodeKeys, ...folded.nodeKeys],
@@ -512,11 +518,4 @@ function stepInterrupted(node: ChatConversationViewNode): boolean {
     return 'kind' in root && root.error?.code === 'interrupted'
   }
   return false
-}
-
-/** Whether a group carries a folded Think row: a step boundary the chat
- *  discloses as its own Think row, so the runs either side of it keep
- *  their own summary lines. */
-function hasFoldedThink(group: FocusToolGroup): boolean {
-  return group.items.some(item => 'text' in item && !('callId' in item))
 }
