@@ -364,11 +364,17 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
     output,
     errorSummary,
     errorCode,
+    time: done ? null : block.time,
     body: deriveBody(variant, argsRaw),
     card,
     subcalls: block.subCalls.map(child => toolRowModel(child, cwd)),
   }
 }
+
+/** A running call paints no live row until it has run this long: fast
+ *  calls (a few hundred ms) would otherwise flash a live row that settles
+ *  into the summary a moment later — the debounce skips the flash. */
+export const LIVE_ROW_THRESHOLD_MS = 400
 
 /** Fold one consecutive run of root calls into a group model. */
 export function toolGroup(

@@ -38,6 +38,9 @@ export interface FocusToolRow {
   /** Settled call's structured error code; null while running or when the
    *  result carries no error (the ask-question row's verdict codes). */
   errorCode: string | null
+  /** Call start wall-clock time; null once settled. The view's live-row
+   *  debounce reads it (a young running call paints nothing). */
+  time: number | null
   /** Expanded-body input text (pretty args); null = no input section. */
   body: string | null
   /** Card render material from the host-computed views; null = generic sections. */

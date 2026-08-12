@@ -1,6 +1,6 @@
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusToolGroup, FocusToolRow } from '../../model/types.ts'
-import { METRIC_BY_TOOL } from '../../model/tools.ts'
+import { LIVE_ROW_THRESHOLD_MS, METRIC_BY_TOOL } from '../../model/tools.ts'
 import { formatSeconds } from '../../model/text.ts'
 
 /** The step-summary line parts (pre-casing): the thinking duration leads,
@@ -15,7 +15,13 @@ export interface GroupTitleSegment {
   failed?: string | undefined
 }
 
-export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSegment[] {
+export function groupTitleParts(
+  group: FocusToolGroup,
+  t: FocusTranslate,
+  /** Render-time clock for the live-row debounce; omitted keeps the running
+   *  fallback live (tests and settled-only callers). */
+  now = Infinity,
+): GroupTitleSegment[] {
   const { commands, edits, searches, files, dirs } = group.metrics
   const { subagents, todos, goals, workflows } = group.metrics
   const { skills, questions, plans } = group.metrics
@@ -62,9 +68,12 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
   if (parts.length === 0) {
     // A group whose calls all still run reads as its live call's own row
     // (the chat running row's title); the settled metrics replace the line
-    // once a call completes.
+    // once a call completes. A call younger than the live-row debounce
+    // paints nothing — the summary gains the entry directly once it
+    // settles, so a fast call never flashes a row (the flicker fix).
     const running = group.items.find((item): item is FocusToolRow =>
-      'callId' in item && item.state === 'running')
+      'callId' in item && item.state === 'running'
+      && (item.time === null || now - item.time >= LIVE_ROW_THRESHOLD_MS))
     if (running !== undefined) {
       // The live ask-question call reads as its waiting composer (the chat
       // running row); every other family uses its row title and args summary.
@@ -73,10 +82,6 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
           ? `${t('ask.rowTitle')} · ${t('ask.waiting')}`
           : running.summary === '' ? running.title : `${running.title} · ${running.summary}`,
       })
-    } else {
-      // Unreachable: a tools group always folds at least one call, so an
-      // empty part list means every call is still running.
-      parts.push({ text: t('tool.group', { n: 0 }) })
     }
   }
   return parts

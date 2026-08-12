@@ -557,6 +557,31 @@ it('renders the empty hint for an empty conversation', () => {
     expect(row?.getAttribute('data-state')).toBe('running')
   })
 
+  it('holds a young running call back from the live row until the debounce window passes', () => {
+    vi.useFakeTimers()
+    const young = { ...runningCall('c1', 'bash', '{"command":"fast"}'), time: Date.now() }
+    const { source } = renderView([
+      chatNode('t1', 'tool-call', { root: young }),
+    ])
+    // A call younger than the live-row debounce paints nothing — no live
+    // row and no running fallback line (a fast call would flash both and
+    // settle into the summary a moment later).
+    expect(screen.queryByText('Bash')).toBeNull()
+    expect(screen.queryByText(/fast/)).toBeNull()
+    act(() => { vi.advanceTimersByTime(500) })
+    // Past the window the live row appears.
+    expect(screen.getByText('Bash · fast')).toBeTruthy()
+    expect(screen.getByText('Bash')).toBeTruthy()
+    act(() => {
+      source.set(chatOf([
+        chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"fast"}') }),
+      ]))
+    })
+    // Settled: the summary gains the entry directly, no live row.
+    expect(screen.queryByText('Bash')).toBeNull()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+  })
+
   it('keeps the running call as a live row and folds it into the summary once settled', () => {
     const { source } = renderView([
       assistantNode('a1', 'settled', 't', 3000),

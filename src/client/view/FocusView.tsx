@@ -3,7 +3,7 @@ import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
-import { buildFocusFlow } from '../model/index.ts'
+import { buildFocusFlow, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
 import type { FocusFlowItem, FocusToolRow } from '../model/index.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
 import { PendingSteeringBubble } from './rows/UserBubble.tsx'
@@ -116,19 +116,41 @@ export function FocusView({
     () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd),
     [chat, cwd],
   )
+  // The live-row debounce: a running call paints nothing until it has run
+  // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
+  // that settles into the summary a moment later (the flicker fix). The
+  // clock advances on snapshot changes and once the youngest call crosses
+  // the window.
+  const [liveNow, setLiveNow] = useState(() => Date.now())
+  useEffect(() => {
+    let remaining = Infinity
+    for (const item of flow) {
+      if (item.kind !== 'tools' || !item.group.running) continue
+      for (const row of item.group.items) {
+        if (!('callId' in row) || row.state !== 'running' || row.time === null) continue
+        const left = LIVE_ROW_THRESHOLD_MS - (Date.now() - row.time)
+        if (left > 0 && left < remaining) remaining = left
+      }
+    }
+    if (remaining === Infinity) return
+    const timer = window.setTimeout(() => { setLiveNow(Date.now()) }, remaining + 16)
+    return () => { window.clearTimeout(timer) }
+  }, [flow, liveNow])
   // The current step's running calls: live rows at the END of the flow —
   // below the model's output text — that fold into their group's summary
   // line once settled (the chat live row's position, the think lifecycle).
+  // Young calls are held back by the debounce.
   const runningCalls = useMemo(() => {
     const rows: FocusToolRow[] = []
     for (const item of flow) {
       if (item.kind !== 'tools' || !item.group.running) continue
       for (const row of item.group.items) {
-        if ('callId' in row && row.state === 'running') rows.push(row)
+        if (!('callId' in row) || row.state !== 'running') continue
+        if (row.time === null || liveNow - row.time >= LIVE_ROW_THRESHOLD_MS) rows.push(row)
       }
     }
     return rows
-  }, [flow])
+  }, [flow, liveNow])
   const runningTurnStart = useMemo(() => runningTurnStartTime(chat.timeline), [chat.timeline])
   const codeLabels = useMemo<MarkdownCodeLabels>(
     () => ({ copyLabel: t('copy'), copiedLabel: t('copied') }),
@@ -356,6 +378,7 @@ export function FocusView({
               mentionsByKey={mentionsByKey}
               loadImage={loadImage}
               isLoopback={isLoopback}
+              now={liveNow}
             />
           </div>
         ))}
