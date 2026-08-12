@@ -332,25 +332,23 @@ describe('FocusView flow rows', () => {
     expect(wrap?.querySelector('.thinkRowInner, [data-disclosure-row]')).toBeTruthy()
   })
 
-  it('absorbs the preceding reasoning into the group and lets its line carry the thinking metric', () => {
+  it('keeps the leading Think row standalone above the folded run', () => {
     renderView([
       assistantNode('a1', 'settled', 'think text\nmore', 3000),
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }),
     ])
-    // Collapsed: one summary line only — no standalone Think row remains.
-    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
-    expect(screen.queryByText('Think')).toBeNull()
-    fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 1 个命令'))
-    // The Think row sits inside the group: plain title, one-line summary.
-    expect(screen.getByText('Think')).toBeTruthy()
-    expect(screen.getByText('think text')).toBeTruthy()
-    expect(screen.queryByText('more')).toBeNull()
-    // Expanding the Think row reveals the reasoning body next to the call row.
-    fireEvent.click(screen.getByText('Think'))
+    // A leading think — no preceding run to fold into — stays on its
+    // assistant: the duration title row above, the run's group below.
+    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
+    expect(column.indexOf('思考了 1.3 秒')).toBeLessThan(column.indexOf('运行了 1 个命令'))
+    // The Think row expands to its reasoning body.
+    fireEvent.click(screen.getByText('思考了 1.3 秒'))
     expect(screen.getByText(/more/)).toBeTruthy()
   })
 
-  it('keeps the assistant text beside the group while its reasoning moves inside', () => {
+  it('keeps the leading Think row above the reply with the run below', () => {
     renderView([
       chatNode('a1', 'assistant-step', {
         status: 'settled', turn: 1, step: 1, time: 3000,
@@ -361,17 +359,16 @@ describe('FocusView flow rows', () => {
       }),
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
     ])
-    // The reply text stays as its own flow row; no standalone Think row.
+    // The Think row stays on the assistant, above the reply; the run folds
+    // into the group below (the chat order: think → reply → tool rows).
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('answer text')).toBeTruthy()
-    expect(screen.queryByText('Think')).toBeNull()
-    // The folded group renders BELOW the reply (the chat order: reply →
-    // tool rows — the assistant emitted the text before dispatching the
-    // tools); the reply keeps the runs around it from merging.
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
+    expect(column.indexOf('Think')).toBeLessThan(column.indexOf('answer text'))
     expect(column.indexOf('answer text')).toBeLessThan(column.indexOf('运行了 1 个命令'))
     fireEvent.click(screen.getByText('运行了 1 个命令'))
-    // The Think row lives inside the expanded group.
-    expect(screen.getByText('Think')).toBeTruthy()
+    // The group holds the call row only — the think did not fold in.
+    expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('think text')).toBeTruthy()
   })
 
@@ -568,9 +565,10 @@ describe('FocusView flow rows', () => {
       ]))
     })
     // Once settled the call folds in: the summary line now counts it, the
-    // live row is gone.
+    // live row is gone; the leading think keeps its own duration row.
     expect(screen.queryByText('Bash')).toBeNull()
-    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
   })
 
   it('keeps the streaming Think row standalone and folds it once the step settles', () => {
@@ -756,7 +754,7 @@ describe('FocusView flow rows', () => {
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
-  it('merges directly-consecutive runs into one summary line, keeping an absorbed think as the barrier', () => {
+  it('merges directly-consecutive runs into one summary line, keeping the folded think as the barrier', () => {
     renderView([
       assistantNode('a1', 'settled', 'first think\nmore one', 3000),
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }),
@@ -764,16 +762,22 @@ describe('FocusView flow rows', () => {
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'bash', '{"command":"test"}') }),
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'bash', '{"command":"lint"}') }),
     ])
-    // Runs either side of an absorbed think keep their own summary lines
-    // (the chat discloses the step boundary as its own Think row); the
-    // runs after the second think merge.
-    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
-    fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 2 个命令'))
-    // The folded rows keep flow order: each think sits above its own calls.
+    // The leading think stays on its assistant; the second think folds into
+    // the preceding group (the chat order: the run ran, then the next
+    // step's Think disclosure). The runs either side of a folded think keep
+    // their own summary lines; the runs after it merge.
+    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('运行了 2 个命令')).toBeTruthy()
+    fireEvent.click(screen.getByText('运行了 1 个命令'))
+    // The folded rows keep flow order: the call, then the absorbed think.
     const calls = document.querySelector('[data-calls]')
     const text = calls?.textContent ?? ''
-    expect(text.indexOf('second think')).toBeLessThan(text.indexOf('test'))
-    expect(text.indexOf('test')).toBeLessThan(text.indexOf('lint'))
+    expect(text.indexOf('build')).toBeLessThan(text.indexOf('second think'))
+    fireEvent.click(screen.getByText('运行了 2 个命令'))
+    const second = document.querySelectorAll('[data-calls]')[1]
+    const text2 = second?.textContent ?? ''
+    expect(text2.indexOf('test')).toBeLessThan(text2.indexOf('lint'))
   })
 
   it('folds a completed turn into one worked line, keeping the closing reply', () => {
@@ -821,16 +825,17 @@ describe('FocusView flow rows', () => {
     expect(screen.queryByText(/运行了 1 个命令/)).toBeNull()
     expect(screen.queryByText('injected rules')).toBeNull()
     expect(screen.queryByText('go')).toBeTruthy()
-    // Expanding the fold reveals the folded rows — the context injection
-    // and the group; expanding the group reveals the absorbed think.
+    // Expanding the fold reveals the folded rows — the leading think (its
+    // own duration row), the group, and the context injection.
     fireEvent.click(screen.getByText('工作了 7 秒'))
-    expect(screen.getByText('思考了 0.5 秒，运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     // The context injection row is inside the fold; expanding it reveals its
     // code-block card body.
     fireEvent.click(screen.getByText('上下文注入'))
     expect(screen.getByText('injected rules')).toBeTruthy()
-    fireEvent.click(screen.getByText('思考了 0.5 秒，运行了 1 个命令'))
-    expect(screen.getByText('Think')).toBeTruthy()
+    fireEvent.click(screen.getByText('运行了 1 个命令'))
+    expect(screen.getByText('Bash')).toBeTruthy()
   })
 
   it("folds the closing reply's own reasoning into the worked line", () => {
@@ -1004,7 +1009,7 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('rules text')).toBeTruthy()
   })
 
-  it('absorbs a preceding context batch into the group summary line', () => {
+  it('keeps the context batch on its own line when the assistant row sits between it and the run', () => {
     const turn = {
       turn: 1,
       start: { time: 1000 },
@@ -1032,13 +1037,16 @@ describe('FocusView flow rows', () => {
       }),
       at('t1', 'tool-call', { root: settledCall('c1x', 'bash', '{}') }),
     ])
-    // One summary line: the context batch folds into it, no separate row.
-    expect(screen.getByText('思考了 0.5 秒，载入了 2 项上下文，运行了 1 个命令')).toBeTruthy()
-    expect(screen.queryByText(/上下文注入/)).toBeNull()
+    // The context batch keeps its own collapsed line; the leading think
+    // stays on its assistant; the run folds below (the assistant row sits
+    // between the context and the run, so neither absorbs the other).
+    expect(screen.getByText('上下文注入 · 2 项')).toBeTruthy()
+    expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     expect(screen.queryByText('AGENTS.md')).toBeNull()
-    // Expanding reveals the absorbed rows inside the group: the context
-    // rows first (session order), each expanding to its body.
-    fireEvent.click(screen.getByText('思考了 0.5 秒，载入了 2 项上下文，运行了 1 个命令'))
+    // Expanding the context line reveals the injected rows, each expanding
+    // to its body.
+    fireEvent.click(screen.getByText('上下文注入 · 2 项'))
     expect(screen.getByText('AGENTS.md')).toBeTruthy()
     fireEvent.click(screen.getByText('AGENTS.md'))
     expect(screen.getByText('rules text')).toBeTruthy()
@@ -1065,8 +1073,10 @@ describe('FocusView flow rows', () => {
       }),
       at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
     ])
-    // No fold while the turn is open: the group line stays visible.
-    expect(screen.getByText('思考了 0.5 秒，运行了 1 个命令')).toBeTruthy()
+    // No fold while the turn is open: the leading think keeps its own row
+    // and the group line stays visible.
+    expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     expect(screen.queryByText(/工作了/)).toBeNull()
   })
 
@@ -1294,9 +1304,10 @@ describe('FocusView flow rows', () => {
     fireEvent.scroll(el)
     expect(ledger.position).not.toBeNull()
     expect(ledger.position?.scrollTop).toBe(120)
-    // The reasoning shell was absorbed into the group: the group's first
-    // node key is the flow's leading anchor.
-    expect(ledger.position?.anchorKey).toBe('t1')
+    // The leading Think row anchors the flow (the reasoning stays on its
+    // assistant — no preceding run to fold into — so the assistant's key
+    // leads).
+    expect(ledger.position?.anchorKey).toBe('a1')
     cleanup()
     renderView(nodes, { scroll, chat: chatOf(nodes, { openState: 'open' }) })
     expect((document.querySelector('[data-focus-scroll]') as HTMLElement).scrollTop).toBe(120)

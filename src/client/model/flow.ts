@@ -265,6 +265,48 @@ export function buildFocusFlow(
    *  arrives. User and steering messages stay visible — they are the
    *  conversation's anchors. */
   const pushItem = (item: FocusFlowItem): void => {
+    // A settled assistant that paints nothing — only tool-call heads, the
+    // chat shell rule — is a dead gap: drop it so no empty row sits between
+    // the runs it separates (they still merge).
+    if (item.kind === 'assistant' && !item.running && !item.interrupted
+      && !item.blocks.some(block => block.kind !== 'tool-call')) return
+    // A settled assistant's reasoning that directly follows a folded run
+    // folds into that group: the tools ran first, then the next step's
+    // Think disclosure, so the group carries both in flow order (the chat
+    // order: think → reply → tool rows → next think). A leading think —
+    // no preceding run — stays on the assistant and renders above its
+    // reply; the streaming tail stays on the running assistant.
+    if (item.kind === 'assistant' && !item.running && !item.interrupted) {
+      const reasoning = item.blocks.filter(block => block.kind === 'reasoning')
+      if (reasoning.length > 0) {
+        const previous = pendingFold.length > 0
+          ? pendingFold[pendingFold.length - 1]
+          : flow.at(-1)
+        if (previous !== undefined && previous.kind === 'tools') {
+          const group = previous.group
+          const folded = {
+            ...previous,
+            group: {
+              ...group,
+              items: [...group.items, ...reasoning.map(block => ({
+                text: (block as { text: string }).text,
+                running: false,
+              }))],
+            },
+          }
+          if (pendingFold.length > 0) {
+            pendingFold[pendingFold.length - 1] = folded
+          } else {
+            flow[flow.length - 1] = folded
+          }
+          const blocks = item.blocks.filter(block => block.kind !== 'reasoning')
+          // A step left with nothing but tool-call heads paints nothing
+          // (the chat shell rule) — the run that follows folds on its own.
+          if (!blocks.some(block => block.kind !== 'tool-call')) return
+          item = { ...item, blocks }
+        }
+      }
+    }
     const key = keyOf(item)
     const turnId = nodeTurn.get(key)
     if (item.kind === 'message' && item.role === 'context') {
@@ -354,65 +396,18 @@ export function buildFocusFlow(
     if (pending === null) return
     // v8 ignore next -- unreachable: pending is created only by a visible tool-call node
     if (pending.blocks.length > 0) {
-      // The step summary borrows the thinking metric only from an
-      // immediately-preceding assistant (anything between them — a command,
-      // a steering message — keeps the Think row owning its own duration).
-      // With turn folding the preceding assistant may already sit in the
-      // fold buffer rather than the emitted flow. A running assistant keeps
-      // its streaming Think row standalone (the chat live row); only a
-      // settled step's reasoning folds into the group.
-      const previous = pendingFold.length > 0
-        ? pendingFold[pendingFold.length - 1]
-        : flow.at(-1)
-      const adjacentAssistant = previous !== undefined && previous.kind === 'assistant' && !previous.running
-        ? previous
-        : null
-      const thoughtMs = adjacentAssistant === null ? null : adjacentAssistant.thoughtMs
-      const think: FocusGroupThink[] = []
-      let trailingAssistant: FocusFlowItem | null = null
-      if (adjacentAssistant !== null) {
-        // Absorb the settled assistant's reasoning into the group (the chat
-        // Think disclosure becomes the first row of the expanded group); the
-        // streaming tail stays on the standalone Think row while the step
-        // runs. Blocks that remain stay on the assistant item, and an item
-        // left with nothing visible is dropped entirely.
-        const blocks: AssistantBlock[] = []
-        for (let i = 0; i < adjacentAssistant.blocks.length; i += 1) {
-          const block = adjacentAssistant.blocks[i]
-          if (block.kind === 'reasoning') {
-            think.push({
-              text: block.text,
-              running: false,
-            })
-          } else {
-            blocks.push(block)
-          }
-        }
-        const visible = adjacentAssistant.running
-          || adjacentAssistant.interrupted
-          || blocks.some(block => block.kind !== 'tool-call')
-        if (visible) {
-          // The visible reply keeps its chronological position — the
-          // assistant emitted it before dispatching the tools — so the
-          // step-summary line follows it (the chat order: reply → tool
-          // rows). The visible reply also keeps the runs either side of
-          // it from merging.
-          trailingAssistant = { ...adjacentAssistant, blocks }
-        }
-        if (pendingFold.length > 0) {
-          pendingFold.pop()
-        } else {
-          flow.pop()
-        }
-      }
-      // Absorb a context batch directly preceding the run into the group as
-      // well: its count leads a segment of the summary line, its rows expand
-      // inside the group (session order: context → thinking → calls). A
-      // context batch with no adjacent run keeps its own folded line.
+      // The run's tools fold into one group. The assistant rows that precede
+      // the run keep their chronological positions — the Think row above its
+      // reply — so the group follows them (the chat order: think → reply →
+      // tool rows); the group line carries the tool metrics only.
       const groupTurn = nodeTurn.get(pending.keys[0]) ?? null
       const previousAfterAssistant = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
+      // Absorb a context batch directly preceding the run into the group:
+      // its count leads a segment of the summary line, its rows expand
+      // inside the group (session order: context → thinking → calls). A
+      // context batch with no adjacent run keeps its own folded line.
       let absorbedContext: readonly FocusContextItem[] = []
       if (previousAfterAssistant !== undefined
         && previousAfterAssistant.kind === 'context-fold'
@@ -424,7 +419,7 @@ export function buildFocusFlow(
           flow.pop()
         }
       }
-      const group = toolGroup(pending.blocks, cwd, thoughtMs, think)
+      const group = toolGroup(pending.blocks, cwd, null, [])
       const folded: FocusToolGroup = {
         ...group,
         nodeKeys: pending.keys,
@@ -433,24 +428,14 @@ export function buildFocusFlow(
         context: absorbedContext,
       }
       // Merge directly-consecutive runs — in the flow or in the turn-fold
-      // buffer — into one summary line: metrics and thinking time aggregate,
-      // the rows keep flow order. Anything visible between two runs — an
-      // assistant reply, a command, a message — keeps them separate, and so
-      // does an absorbed think: it marks the step boundary the chat
-      // discloses as its own Think row, so the runs either side of it keep
-      // their own summary lines.
+      // buffer — into one summary line: metrics aggregate, the rows keep
+      // flow order. Anything between two runs — an assistant row (its Think
+      // disclosure or its reply), a command, a message, or a think folded
+      // into the previous group — keeps them separate.
       const previousItem = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
-      if (trailingAssistant !== null) {
-        // The visible reply precedes the folded group: the assistant emitted
-        // the text before dispatching the tools, so the reply keeps its
-        // chronological position and the step-summary line follows it (the
-        // chat order: reply → tool rows). The visible reply also keeps the
-        // runs either side of it from merging.
-        pushItem(trailingAssistant)
-        pushItem({ kind: 'tools', group: folded })
-      } else if (previousItem !== undefined && previousItem.kind === 'tools' && think.length === 0) {
+      if (previousItem !== undefined && previousItem.kind === 'tools' && !hasFoldedThink(previousItem.group)) {
         const prev = previousItem.group
         const merged: FocusToolGroup = {
           nodeKeys: [...prev.nodeKeys, ...folded.nodeKeys],
@@ -527,4 +512,11 @@ function stepInterrupted(node: ChatConversationViewNode): boolean {
     return 'kind' in root && root.error?.code === 'interrupted'
   }
   return false
+}
+
+/** Whether a group carries a folded Think row: a step boundary the chat
+ *  discloses as its own Think row, so the runs either side of it keep
+ *  their own summary lines. */
+function hasFoldedThink(group: FocusToolGroup): boolean {
+  return group.items.some(item => 'text' in item && !('callId' in item))
 }
