@@ -7,13 +7,11 @@
  */
 import * as cordis from '@deepseek-ai/cordis'
 import * as uiSlots from '@deepseek-ai/dsh-client-ui-slots'
-import * as schemaForm from '@deepseek-ai/dsh-client-schema-form'
 
 /** Platform externals the bundled factories require by bare specifier. */
 const EXTERNALS: Readonly<Record<string, unknown>> = {
   '@deepseek-ai/cordis': cordis,
   '@deepseek-ai/dsh-client-ui-slots': uiSlots,
-  '@deepseek-ai/dsh-client-schema-form': schemaForm,
 }
 
 /** Exports of every bundle the loader has executed, by bundle id. */

@@ -4,10 +4,11 @@ import { METRIC_BY_TOOL } from '../../model/tools.ts'
 import { formatSeconds } from '../../model/text.ts'
 
 /** The step-summary line parts (pre-casing): the thinking duration leads,
- *  then the absorbed context count, the metric families with per-family
- *  failure tallies, and the metric-less tool calls as a "called N tools"
- *  segment. While the run executes the line is replaced by the running
- *  call's own row title. */
+ *  then the absorbed context count, any injected notice summaries (a
+ *  tool-tasks settlement's own one-line account), the metric families with
+ *  per-family failure tallies, and the metric-less tool calls as a "called
+ *  N tools" segment. While the run executes the line is replaced by the
+ *  running call's own row title. */
 /** One summary-line segment: plain text plus an optional failure tally
  *  (parentheses included) rendered in the error color. */
 export interface GroupTitleSegment {
@@ -28,6 +29,14 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
     parts.push({ text: t(group.contextCount === 1 ? 'tool.context.one' : 'tool.context', {
       n: group.contextCount,
     }) })
+  }
+  // A notice-form injection (a tool-tasks settlement) carries its own
+  // one-line account: surface each such summary as its own segment so the
+  // line reads the injected content, not just the count.
+  for (const item of group.context) {
+    if (item.context?.form !== 'notice') continue
+    const summary = noticeSummary(item.context.source)
+    if (summary !== null) parts.push({ text: t('tool.context.notice', { summary }) })
   }
   metricPart(parts, commands, commandsFailed, 'commands', t)
   metricPart(parts, edits, editsFailed, 'edits', t)
@@ -127,5 +136,15 @@ export function agentPart(
 /** The count segment of one metric family, with the singular form for one. */
 export function countSegment(family: MetricFamily, n: number, t: FocusTranslate): string {
   return t(n === 1 ? `tool.${family}.one` : `tool.${family}`, { n })
+}
+
+/** The one-line account a `notice` form's source records (the notice body's
+ *  collapsed summary), or null when the record carries none. A tool-tasks
+ *  settlement injects one — "bash pnpm install [status: completed]" — and the
+ *  summary line surfaces it instead of burying it behind the count. */
+function noticeSummary(source: unknown): string | null {
+  if (typeof source !== 'object' || source === null || Array.isArray(source)) return null
+  const summary = (source as Record<string, unknown>)['summary']
+  return typeof summary === 'string' && summary !== '' ? summary : null
 }
 

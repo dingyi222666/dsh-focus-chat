@@ -57,6 +57,7 @@ function sessionsStore(cwd: string | undefined) {
     current: SID,
     phase: 'ready',
     subagentsByParent: {},
+    tasksBySession: {},
     currentAddress: undefined,
   })
 }
@@ -1090,6 +1091,43 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('AGENTS.md')).toBeTruthy()
     fireEvent.click(screen.getByText('AGENTS.md'))
     expect(screen.getByText('rules text')).toBeTruthy()
+  })
+
+  it('surfaces a tool-tasks notice injection as a segment of the summary line', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: undefined,
+      status: 'open',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('c1', 'context', {
+        kind: 'context', seq: 5, time: 1500,
+        content: [{ type: 'text', text: 'background task t1 (bash: pnpm install) finished [status: completed]. Read its output with task_output.' }],
+        source: { kind: 'plugin', plugin: 'tool-tasks', form: 'notice', summary: 'bash pnpm install [status: completed]' },
+        provenance: { role: 'inject', label: 'tool-tasks' },
+        form: 'notice',
+      }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 2000,
+        blocks: [{ kind: 'reasoning', text: 'thinking' }],
+        finalNode: {
+          kind: 'assistant', seq: 10, time: 2000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 1500, completedTime: 2000 },
+        },
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1x', 'bash', '{}') }),
+    ])
+    // The notice's own one-line account rides the summary line beside the
+    // count, not just "loaded 1 context item".
+    expect(screen.getByText('载入了 1 项上下文，注入了 bash pnpm install [status: completed]，运行了 1 个命令')).toBeTruthy()
+    expect(screen.queryByText(/上下文注入/)).toBeNull()
+    // Expanding the group reveals the absorbed context row with its notice body.
+    fireEvent.click(screen.getByText('载入了 1 项上下文，注入了 bash pnpm install [status: completed]，运行了 1 个命令'))
+    expect(screen.getByText('tool-tasks')).toBeTruthy()
   })
 
   it('keeps the running turn unfolded until it completes', () => {

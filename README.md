@@ -19,7 +19,7 @@ Instead of watching every step live, one assistant turn collapses into a single 
 > 思考了 36 秒，载入了 3 项上下文，运行了 2 个命令，编辑了 8 次，读取了 17 个文件，列出了 18 个目录
 > (Thought for 36s, loaded 3 context items, ran 2 shell commands, edited 8 files, read 17 files, listed 18 directories)
 
-…and the whole turn can fold into one `工作了 X 分 Y 秒` / `Worked for Xm Ys` line. Click any line to expand the full detail — tool cards, thinking, context injections, produced files, copy/fork actions — all drawn the same way as the normal chat rows. Your mid-turn interjections split the fold into per-stretch lines, each carrying its own duration, and a stopped turn reads `用户 X 后停止` / `Stopped after X` instead of "worked".
+…and the whole turn can fold into one `工作了 X 分 Y 秒` / `Worked for Xm Ys` line. Click any line to expand the full detail — tool cards, thinking, context injections, produced files, copy/fork actions — all drawn the same way as the normal chat rows. Your mid-turn interjections split the fold into per-stretch lines, each carrying its own duration, and a stopped turn reads `用户 X 后停止` / `Stopped after X` instead of "worked". When a context injection records its own one-line account — a tool-tasks background-task settlement like `bash pnpm install [status: completed]` — that account rides the summary line too (`注入了 …` / `injected …`), not just the `loaded N context items` count.
 
 Switch to it whenever you want the "what happened?" view, and flip back for the full transcript.
 
