@@ -4,6 +4,7 @@ import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
 import { CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES, terminalLabels } from '../helpers/terminal.ts'
+import a11yCss from '../accessibility.module.css'
 import css from './ToolCallRow.module.css'
 
 /** One call's card material through the shared card primitives (the same family the chat rows draw). */
@@ -68,7 +69,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   const cardBody = row.variant === 'code' ? null : row.body
   return (
     <div className={css.callRow} data-variant={row.variant} data-tool={row.name || undefined} data-state={row.state}>
-      {status !== null && <span className={css.visuallyHidden}>{status}</span>}
+      {status !== null && <span className={a11yCss.visuallyHidden}>{status}</span>}
       <DisclosureRow
         className={css.callRowInner}
         leadingClassName={css.callLeading}

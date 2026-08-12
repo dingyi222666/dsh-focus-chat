@@ -31,7 +31,7 @@ export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
   }, [running, scheduleSummaryScroll, summary])
   return (
     <div className={css.thinkWrap} data-state={running ? 'running' : 'ok'}>
-      {running && <span className={css.visuallyHidden}>{t('row.running')}</span>}
+      {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.thinkRow}
         rowClassName={css.thinkRowInner}

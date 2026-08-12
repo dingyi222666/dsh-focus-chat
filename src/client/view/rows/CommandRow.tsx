@@ -25,7 +25,7 @@ export const CommandRow = memo(function CommandRow({ item, runningSummary, t }: 
   const open = expanded && body !== null
   return (
     <div className={css.commandRow} data-state={item.running ? 'running' : item.outcomeError ? 'error' : 'ok'}>
-      {item.running && <span className={css.visuallyHidden}>{t('row.running')}</span>}
+      {item.running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.commandRowInner}
         icon={item.outcomeError ? <StateDot state="error" /> : <IconApiOutline14 size={14} />}

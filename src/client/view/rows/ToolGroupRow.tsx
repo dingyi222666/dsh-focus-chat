@@ -49,8 +49,12 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, o
     >
       <div className={css.calls} data-calls>
         {group.items.map((item, index) => (
+          // A running call renders as the flow-end live row, not here too
+          // (the settled calls only appear in the expanded group).
           'callId' in item ? (
-            <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} />
+            item.state === 'running'
+              ? null
+              : <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} />
           ) : 'kind' in item ? (
             // An absorbed context injection expands to its chat row.
             <ContextRow key={item.nodeKey} item={item} t={t} codeLabels={codeLabels} />
