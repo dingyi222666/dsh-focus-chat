@@ -412,6 +412,35 @@ it('renders the empty hint for an empty conversation', () => {
     expect(fullText('运行了 2 个命令（全部失败）')).toBeTruthy()
   })
 
+  it('never reads a failure tally for the edit family — a retried file reads one edited file', () => {
+    // The same file edited twice, the first call failing: the edit family
+    // counts the file's outcome (one successful call ⇒ one edited file), so
+    // the summary must read a plain count — never "全部失败", which the
+    // call-level failure cannot claim against the file-level count.
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"/ws/a.ts"}', {
+        isError: true, error: { name: 'Error', code: 'boom' },
+      }) }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'edit', '{"file_path":"/ws/a.ts"}') }),
+    ])
+    expect(fullText('编辑了 1 个文件')).toBeTruthy()
+    expect(screen.queryByText('全部失败', { selector: '[data-group-title-failed]' })).toBeNull()
+    expect(screen.queryByText('编辑失败', { selector: '[data-group-title-failed]' })).toBeNull()
+  })
+
+  it('drops files whose only edit calls failed from the edited count', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"/ws/a.ts"}', {
+        isError: true, error: { name: 'Error', code: 'boom' },
+      }) }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'write', '{"path":"/ws/b.ts"}') }),
+    ])
+    // Only b.ts was actually edited; the failed a.ts never counts toward
+    // "edited N files", and no failure annotation rides the line.
+    expect(fullText('编辑了 1 个文件')).toBeTruthy()
+    expect(screen.queryByText('全部失败', { selector: '[data-group-title-failed]' })).toBeNull()
+  })
+
   it('shows a dirs-only exploration metric, the edit family folding writes, and the total-count fallback', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'glob', '{}') }),

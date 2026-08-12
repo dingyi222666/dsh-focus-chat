@@ -389,13 +389,17 @@ export function toolGroup(
     commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,
     subagents: 0, todos: 0, goals: 0, workflows: 0,
     skills: 0, questions: 0, plans: 0,
-    commandsFailed: 0, editsFailed: 0, searchesFailed: 0,
+    commandsFailed: 0, searchesFailed: 0,
   }
-  // The edit family counts the distinct files the calls touched — the
-  // summary line reads "edited N files" (the chat copy). A call whose args
-  // carry no derivable path counts as its own entry; a running call joins
-  // only once it settles (the think metric's lifecycle: "完成了才收进去
-  // 摘要行"), rendering as the flow-end live row meanwhile.
+  // The edit family counts the distinct files ACTUALLY edited — a file with
+  // at least one successful call — so the summary line reads "edited N
+  // files" (the chat copy) as an outcome. A failed attempt followed by a
+  // successful retry counts the file once; a file whose only calls failed
+  // never counts, because the file-level count cannot carry a call-level
+  // failure tally without lying ("all failed" after a successful retry). A
+  // call whose args carry no derivable path counts as its own entry; a
+  // running call joins only once it settles (the think metric's lifecycle:
+  // "完成了才收进去摘要行"), rendering as the flow-end live row meanwhile.
   const editFiles = new Set<string>()
   for (let i = 0; i < rows.length; i += 1) {
     const row = rows[i]
@@ -403,16 +407,17 @@ export function toolGroup(
     const key = METRIC_BY_TOOL[row.name]
     if (key === undefined) continue
     if (key === 'edits') {
-      editFiles.add(fileMutationPath(blocks[i]) ?? row.callId)
+      if (row.state === 'ok') editFiles.add(fileMutationPath(blocks[i]) ?? row.callId)
     } else {
       metrics[key] += 1
     }
-    // Failure tallies only for the families whose summary line carries them:
-    // a failing exit status settles a terminal card's row to the error state.
-    if (row.state === 'error' && (key === 'commands' || key === 'searches' || key === 'edits')) {
+    // Failure tallies only for the families whose summary line carries them
+    // — command execution and other tools. File operations never annotate
+    // failures (the edit count is the outcome); a failing exit status
+    // settles a terminal card's row to the error state.
+    if (row.state === 'error' && (key === 'commands' || key === 'searches')) {
       if (key === 'commands') metrics.commandsFailed += 1
-      else if (key === 'searches') metrics.searchesFailed += 1
-      else metrics.editsFailed += 1
+      else metrics.searchesFailed += 1
     }
   }
   metrics.edits = editFiles.size

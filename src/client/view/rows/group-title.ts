@@ -20,7 +20,7 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
   const { commands, edits, searches, files, dirs } = group.metrics
   const { subagents, todos, goals, workflows } = group.metrics
   const { skills, questions, plans } = group.metrics
-  const { commandsFailed, editsFailed, searchesFailed } = group.metrics
+  const { commandsFailed, searchesFailed } = group.metrics
   const parts: GroupTitleSegment[] = []
   if (group.thoughtMs !== null) {
     parts.push({ text: t('tool.thought', { n: formatSeconds(group.thoughtMs) }) })
@@ -39,7 +39,9 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
     if (summary !== null) parts.push({ text: t('tool.context.notice', { summary }) })
   }
   metricPart(parts, commands, commandsFailed, 'commands', t)
-  metricPart(parts, edits, editsFailed, 'edits', t)
+  // File operations never read failure tallies: the edit count is the
+  // outcome, so the segment is always the plain count.
+  metricPart(parts, edits, 0, 'edits', t)
   metricPart(parts, searches, searchesFailed, 'searches', t)
   // The agentic families replace the generic "called N tools" remainder for
   // their own tools: delegation, todo, goal, workflow, skill, question, and
@@ -89,10 +91,23 @@ export function caseSegments(segments: GroupTitleSegment[]): GroupTitleSegment[]
   })
 }
 
-/** One metric family's summary segment with PR67 failure semantics: the
- *  count reads successful calls, a mixed family appends its failure tally
- *  (red, parentheses included), and a family that failed outright reads its
- *  singular failed phrase or the count with an all-failed suffix. */
+/** The metric families whose summary segment carries failure tallies:
+ *  command execution and other tools. File operations (the edit family,
+ *  reads) never annotate failures — the edit count reads the outcome, so a
+ *  failed attempt then a successful retry shows "edited 1 file", never a
+ *  red "all failed". */
+const FAILURE_FAMILIES: ReadonlySet<MetricFamily> = new Set<MetricFamily>(['commands', 'searches'])
+
+/** The failure-carrying families (the subset metricPart's failure branches
+ *  reach, after the FAILURE_FAMILIES gate). */
+type FailureMetricFamily = 'commands' | 'searches'
+
+/** One metric family's summary segment with PR67 failure semantics for the
+ *  failure-carrying families: the count reads successful calls, a mixed
+ *  family appends its failure tally (red, parentheses included), and a
+ *  family that failed outright reads its singular failed phrase or the count
+ *  with an all-failed suffix. The file families read a plain count — their
+ *  tallies are never shown. */
 export function metricPart(
   parts: GroupTitleSegment[],
   total: number,
@@ -100,18 +115,18 @@ export function metricPart(
   family: MetricFamily,
   t: FocusTranslate,
 ): void {
-  const ok = total - failed
-  if (ok === 0 && failed === 0) return
-  if (ok > 0 && failed === 0) {
-    parts.push({ text: countSegment(family, ok, t) })
+  if (total === 0) return
+  if (!FAILURE_FAMILIES.has(family) || failed === 0) {
+    parts.push({ text: countSegment(family, total, t) })
     return
   }
+  const ok = total - failed
   if (ok > 0) {
     parts.push({ text: countSegment(family, ok, t), failed: t('tool.failedSuffix', { n: failed }) })
     return
   }
   if (failed === 1) {
-    parts.push({ text: '', failed: t(`tool.failed.${family}.one`) })
+    parts.push({ text: '', failed: t(`tool.failed.${family as FailureMetricFamily}.one`) })
     return
   }
   parts.push({ text: countSegment(family, failed, t), failed: t('tool.failedAll') })

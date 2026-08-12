@@ -469,7 +469,6 @@ export function buildFocusFlow(
             questions: prev.metrics.questions + folded.metrics.questions,
             plans: prev.metrics.plans + folded.metrics.plans,
             commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
-            editsFailed: prev.metrics.editsFailed + folded.metrics.editsFailed,
             searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,
           },
           contextCount: prev.contextCount + folded.contextCount,

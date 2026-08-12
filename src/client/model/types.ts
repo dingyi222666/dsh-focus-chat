@@ -91,9 +91,10 @@ export interface FocusGroupMetrics {
   questions: number
   /** Plan-mode entries (plan): "planned N times". */
   plans: number
-  /** Failed calls in the failure-aware families (error-state rows). */
+  /** Failed calls in the failure-aware families (error-state rows): command
+   *  execution and other tools. File operations never carry a failure tally —
+   *  the edit family's count is the outcome (distinct files actually edited). */
   commandsFailed: number
-  editsFailed: number
   searchesFailed: number
 }
 
