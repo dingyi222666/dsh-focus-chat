@@ -20,6 +20,12 @@ import {
   WebBlock, writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions, TerminalBlockLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ImageGallery } from '@deepseek-ai/dsh-client-ui-attachment'
+import type { ImageLightboxLabels, ImageLoader, MessageImageLabels } from '@deepseek-ai/dsh-client-ui-attachment'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { HostDescription, HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
+import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ConversationTimelineSnapshot, TurnLocation } from '@deepseek-ai/dsh-client-runtime/client'
@@ -55,12 +61,20 @@ export interface FocusTurnTailOwner {
 export interface FocusViewInjected {
   /** Load one older page of history into the session window (chat-view semantics). */
   loadOlder: () => void
+  /** Resolve a session-authorized historical image for inline display. */
+  loadImage: (attachment: ImageAttachmentRef) => Promise<string>
   /** Open a workspace path through the Host (tool-row semantics). */
   openFile: (path: string) => void
   /** Fork the session at one message seq (turn-tail branch semantics). */
   forkAt: (seq: number) => void
   /** Prose file-mention vocabulary for a closing assistant (optional service). */
   fileMentions: (owner: FocusTurnTailOwner) => MarkdownFileMentions | undefined
+  /** Whether the browser itself is connected over loopback (produced-chip gating). */
+  isLoopback: boolean
+  /** Reserved hooks compartment: the Host description, bound as `useHostDescription`. */
+  hooks: {
+    hostDescription: HostDescriptionSource
+  }
   /** Per-session scroll-position ledger (the chat view's persistence). */
   scroll: {
     save: (position: FocusScrollPosition | null) => void
@@ -68,8 +82,8 @@ export interface FocusViewInjected {
   }
 }
 
-/** Full props of the focus view entry: the conversation view kit, the injected face, and the focus locale seat. */
-export type FocusViewProps = ConvViewProps & FocusViewInjected & { t: FocusTranslate }
+/** Full props of the focus view entry: the conversation view kit, the injected face (hooks bound), and the focus locale seat. */
+export type FocusViewProps = ConvViewProps & InjectFace<FocusViewInjected> & { t: FocusTranslate }
 
 /** First line of a multi-line string; the text itself when single-line. */
 function firstLine(text: string): string {
@@ -87,6 +101,32 @@ function latestLine(text: string): string {
 /** Zero-padded two-digit number (the chat clock's rhythm). */
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
+}
+
+/** The original-image lightbox strings (the chat image-labels bridge). */
+function lightboxLabels(t: FocusTranslate): ImageLightboxLabels {
+  return { dialog: t('image.preview'), close: t('image.closePreview') }
+}
+
+/** The message-image strings, including the forwarded lightbox strings. */
+function messageImageLabels(t: FocusTranslate): MessageImageLabels {
+  return {
+    image: t('image.label'),
+    open: t('image.openOriginal'),
+    openNamed: label => t('image.openOriginalLabel', { label }),
+    loading: t('image.loading'),
+    loadFailed: t('image.loadFailed'),
+    lightbox: lightboxLabels(t),
+  }
+}
+
+/** Image blocks of one user message, in order (the chat gallery's input). */
+function userImages(content: readonly ContentBlock[]): { attachment: ImageAttachmentRef }[] {
+  const images: { attachment: ImageAttachmentRef }[] = []
+  for (const block of content) {
+    if (block.type === 'image') images.push({ attachment: block.attachment })
+  }
+  return images
 }
 
 /** Trailing path segment, the part that identifies a produced file at a glance. */
@@ -1280,10 +1320,11 @@ const ContextRow = memo(function ContextRow({ item, t, codeLabels }: {
 /** One running turn's context batch: consecutive context injections under a
  *  single collapsed line (the completed turn folds them into the turn fold
  *  instead; expanding here reveals the individual ContextRows). */
-const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels }: {
+const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels, loadImage }: {
   item: Extract<FocusFlowItem, { kind: 'context-fold' }>
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
+  loadImage: ImageLoader
 }) {
   const [open, setOpen] = useState(false)
   const title = item.items.length === 1 ? t('contextInjection') : t('context.fold', {
@@ -1303,7 +1344,7 @@ const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels }: {
       >
         <div className={css.contextFoldBody} data-context-fold-body>
           {item.items.map(inner => (
-            <MessageRow key={inner.nodeKey} item={inner} t={t} codeLabels={codeLabels} />
+            <MessageRow key={inner.nodeKey} item={inner} t={t} codeLabels={codeLabels} loadImage={loadImage} />
           ))}
         </div>
       </DisclosureRow>
@@ -1311,27 +1352,38 @@ const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels }: {
   )
 })
 
-/** User / steering bubble row (the chat UserStyleBubble chrome: chips, clock, copy). */
-const MessageRow = memo(function MessageRow({ item, t, codeLabels }: {
+/** User / steering bubble row (the chat UserStyleBubble chrome: image gallery, chips, clock, copy). */
+const MessageRow = memo(function MessageRow({ item, t, codeLabels, loadImage }: {
   item: Extract<FocusFlowItem, { kind: 'message' }>
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
+  loadImage: ImageLoader
 }) {
   if (item.role === 'context') return <ContextRow item={item} t={t} codeLabels={codeLabels} />
   const text = useMemo(() => messageText(item.content), [item.content])
-  const others = item.content.filter(block => block.type !== 'text')
+  const images = useMemo(() => userImages(item.content), [item.content])
+  const others = item.content.filter(block => block.type !== 'text' && block.type !== 'image')
+  // An image-only message renders just the gallery, no bubble (the chat rule).
+  const showBubble = text !== '' || others.length > 0
   return (
     <div className={css.userRow} data-role={item.role} data-time-hover-root>
-      <div className={css.bubble}>
-        {projectUserText(text)}
-        {others.map((block, index) => (
-          <JsonBlock
-            key={index}
-            label={t('extraBlock')}
-            payload={block}
-            truncatedLabel={jsonTruncated(t)}
-          />
-        ))}
+      <div className={css.userStack}>
+        {images.length > 0 && (
+          <ImageGallery images={images} load={loadImage} align="end" labels={messageImageLabels(t)} />
+        )}
+        {showBubble && (
+          <div className={css.bubble}>
+            {projectUserText(text)}
+            {others.map((block, index) => (
+              <JsonBlock
+                key={index}
+                label={t('extraBlock')}
+                payload={block}
+                truncatedLabel={jsonTruncated(t)}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <MessageActions
         text={text}
@@ -1349,36 +1401,133 @@ const MessageRow = memo(function MessageRow({ item, t, codeLabels }: {
 /** Files past this stay counted but unlisted: a refactor turn must not bury the answer. */
 const PRODUCED_SHOWN = 6
 
-/** One completed turn's footer: the produced-files row and the chat actions chrome. */
-const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t }: {
+/**
+ * Select the largest prefix whose measured chips and exact remainder fit.
+ * @param available - usable width of the one-line file lane.
+ * @param gap - computed flex gap between adjacent visible items.
+ * @param chipWidths - measured widths for the candidate file chips.
+ * @param moreWidthsByShown - exact localized remainder width for each shown count.
+ * @returns Number of leading chips to render.
+ */
+function fitProducedFiles(
+  available: number,
+  gap: number,
+  chipWidths: readonly number[],
+  moreWidthsByShown: readonly (number | undefined)[],
+): number {
+  if (available <= 0) return chipWidths.length
+  const prefix = [0]
+  let prefixWidth = 0
+  for (const width of chipWidths) {
+    prefixWidth += width
+    prefix.push(prefixWidth)
+  }
+  let largestFit = 0
+  for (const [shown, width] of prefix.entries()) {
+    const more = moreWidthsByShown[shown]
+    const items = shown + (more !== undefined ? 1 : 0)
+    const needed = width + (more ?? 0) + Math.max(0, items - 1) * gap
+    if (needed <= available) largestFit = shown
+  }
+  return largestFit
+}
+
+/** The exact localized overflow remainder ("+ N 个文件" / "+ N files"). */
+function moreLabel(t: FocusTranslate, count: number): string {
+  return count === 1 ? t('produced.moreOne') : t('produced.more', { count: String(count) })
+}
+
+/** One completed turn's footer: the measured produced-files lane and the chat actions chrome. */
+const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t, isLoopback, useHostDescription }: {
   item: Extract<FocusFlowItem, { kind: 'turn-tail' }>
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   t: FocusTranslate
+  isLoopback: boolean
+  useHostDescription: (selector: (description: HostDescription | undefined) => boolean) => boolean
 }) {
-  const shown = item.produced.slice(0, PRODUCED_SHOWN)
-  const hidden = item.produced.length - shown.length
+  const paths = item.produced
   const closingSeq = item.closingSeq
+  // Chips open and the show-in-folder action appears only when the browser is
+  // loopback and the Host can open native paths (the chat lane's rule).
+  const hostCanOpenPath = useHostDescription(description => description?.canOpenPath === true)
+  const canOpenPath = isLoopback && hostCanOpenPath
+  const limit = Math.min(paths.length, PRODUCED_SHOWN)
+  const [shownCount, setShownCount] = useState(limit)
+  const rowRef = useRef<HTMLDivElement | null>(null)
+  const chipProbes = useRef<Array<HTMLButtonElement | null>>([])
+  const moreProbe = useRef<HTMLSpanElement | null>(null)
+
+  useLayoutEffect(() => {
+    const row = rowRef.current
+    const remainderProbe = moreProbe.current
+    /* v8 ignore next -- refs attach before layout effects run. */
+    if (row === null || remainderProbe === null) return
+    const measure = (): void => {
+      const styles = getComputedStyle(row)
+      const gap = Number.parseFloat(styles.columnGap || styles.gap) || 0
+      const activeChipProbes = chipProbes.current.slice(0, limit) as HTMLButtonElement[]
+      const chips = activeChipProbes.map(probe => probe.getBoundingClientRect().width)
+      const more = Array.from({ length: limit + 1 }, (_, candidate) => {
+        if (paths.length === candidate) return undefined
+        remainderProbe.textContent = moreLabel(t, paths.length - candidate)
+        return remainderProbe.getBoundingClientRect().width
+      })
+      setShownCount(fitProducedFiles(row.clientWidth, gap, chips, more))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(row)
+    for (const probe of [...chipProbes.current, moreProbe.current]) {
+      if (probe !== null) observer.observe(probe)
+    }
+    return () => { observer.disconnect() }
+  }, [limit, paths, t])
+
+  const shown = paths.slice(0, shownCount)
+  const hidden = paths.length - shownCount
   return (
     <div className={css.turnTail} data-turn-tail={item.turn} data-time-hover-root>
-      {shown.length > 0 && (
-        <div className={css.producedRow}>
+      {paths.length > 0 && (
+        <div className={css.producedRow} ref={rowRef} data-produced-row>
           <span className={css.producedLabel}>{t('produced.label')}</span>
-          {shown.map(path => (
-            <button
-              key={path}
-              type="button"
-              className={css.producedFile}
-              // The full path is the disambiguator when two turns produce files
-              // that share a basename; the chip itself stays short.
-              title={path}
-              aria-label={t('produced.open', { name: path })}
-              onClick={() => { openFile(path) }}
-            >
-              {basename(path)}
+          <div className={css.producedLane}>
+            {shown.map(path => (
+              <button
+                key={path}
+                type="button"
+                className={css.producedFile}
+                // The full path is the disambiguator when two turns produce files
+                // that share a basename; the chip itself stays short.
+                title={path}
+                aria-label={t('produced.open', { name: path })}
+                onClick={() => { openFile(path) }}
+              >
+                {basename(path)}
+              </button>
+            ))}
+            {hidden > 0 && <span className={css.producedMore}>{moreLabel(t, hidden)}</span>}
+          </div>
+          {hidden > 0 && canOpenPath && (
+            <button type="button" className={css.producedShowFolder} onClick={() => { openFile('.') }}>
+              {t('produced.showInFolder')}
             </button>
-          ))}
-          {hidden > 0 && <span className={css.producedMore}>{t('produced.more', { count: String(hidden) })}</span>}
+          )}
+          <div className={css.producedMeasure} aria-hidden="true">
+            {paths.slice(0, limit).map((path, index) => (
+              <button
+                key={path}
+                ref={(node) => { chipProbes.current[index] = node }}
+                type="button"
+                tabIndex={-1}
+                className={`${css.producedFile} ${css.producedProbe}`}
+              >
+                {basename(path)}
+              </button>
+            ))}
+            <span ref={moreProbe} className={`${css.producedMore} ${css.producedProbe}`} />
+          </div>
         </div>
       )}
       {closingSeq !== null && (
@@ -1399,24 +1548,34 @@ const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t }: {
 })
 
 /** One Host-authoritative pending steering item (the chat pending bubble shape). */
-const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t }: {
-  content: readonly { type?: string; text?: string }[]
+const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t, loadImage }: {
+  content: readonly ContentBlock[]
   t: FocusTranslate
+  loadImage: ImageLoader
 }) {
   const text = useMemo(() => messageText(content), [content])
-  const others = content.filter(block => block.type !== 'text')
+  const images = useMemo(() => userImages(content), [content])
+  const others = content.filter(block => block.type !== 'text' && block.type !== 'image')
+  const showBubble = text !== '' || others.length > 0
   return (
     <div className={css.userRow} data-pending-steering data-time-hover-root>
-      <div className={css.bubble}>
-        {projectUserText(text)}
-        {others.map((block, index) => (
-          <JsonBlock
-            key={index}
-            label={t('extraBlock')}
-            payload={block}
-            truncatedLabel={jsonTruncated(t)}
-          />
-        ))}
+      <div className={css.userStack}>
+        {images.length > 0 && (
+          <ImageGallery images={images} load={loadImage} align="end" labels={messageImageLabels(t)} />
+        )}
+        {showBubble && (
+          <div className={css.bubble}>
+            {projectUserText(text)}
+            {others.map((block, index) => (
+              <JsonBlock
+                key={index}
+                label={t('extraBlock')}
+                payload={block}
+                truncatedLabel={jsonTruncated(t)}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <MessageActions
         text={text}
@@ -1645,13 +1804,16 @@ function retrySeconds(milliseconds: number): number {
 
 /** One completed turn's work line: every intermediate assistant row and tool
  *  run folded under `工作了 X 分 Y 秒`, expandable back to the full rows. */
-const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey }: {
+const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback, useHostDescription }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
+  loadImage: ImageLoader
+  isLoopback: boolean
+  useHostDescription: (selector: (description: HostDescription | undefined) => boolean) => boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const duration = formatElapsed(item.durationMs, t)
@@ -1678,6 +1840,9 @@ const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, f
               openFile={openFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
+              loadImage={loadImage}
+              isLoopback={isLoopback}
+              useHostDescription={useHostDescription}
             />
           ))}
         </div>
@@ -1687,7 +1852,7 @@ const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, f
 })
 
 /** One condensed flow row, dispatched on kind. */
-const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey }: {
+const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback, useHostDescription }: {
   item: FocusFlowItem
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -1695,12 +1860,15 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
   forkAt: (seq: number) => void
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
+  loadImage: ImageLoader
+  isLoopback: boolean
+  useHostDescription: (selector: (description: HostDescription | undefined) => boolean) => boolean
 }) {
   switch (item.kind) {
     case 'message':
-      return <MessageRow item={item} t={t} codeLabels={codeLabels} />
+      return <MessageRow item={item} t={t} codeLabels={codeLabels} loadImage={loadImage} />
     case 'context-fold':
-      return <ContextFoldRow item={item} t={t} codeLabels={codeLabels} />
+      return <ContextFoldRow item={item} t={t} codeLabels={codeLabels} loadImage={loadImage} />
     case 'assistant': {
       // The chat assistant's shell rule: a node that is only tool-call heads
       // (or empty) paints nothing, so the flow shows no dead gap.
@@ -1736,6 +1904,16 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
                     t={t}
                   />
                 )
+              case 'image':
+                return (
+                  <ImageGallery
+                    key={index}
+                    images={[block]}
+                    load={loadImage}
+                    align="start"
+                    labels={messageImageLabels(t)}
+                  />
+                )
               case 'tool-call':
                 return null
               default:
@@ -1764,10 +1942,22 @@ const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, m
           openFile={openFile}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}
+          loadImage={loadImage}
+          isLoopback={isLoopback}
+          useHostDescription={useHostDescription}
         />
       )
     case 'turn-tail':
-      return <TurnTailRow item={item} openFile={openFile} forkAt={forkAt} t={t} />
+      return (
+        <TurnTailRow
+          item={item}
+          openFile={openFile}
+          forkAt={forkAt}
+          t={t}
+          isLoopback={isLoopback}
+          useHostDescription={useHostDescription}
+        />
+      )
     case 'command':
       return <CommandRow item={item} t={t} />
     case 'manual-compaction':
@@ -1926,7 +2116,8 @@ function scrollPosition(list: HTMLElement, scrollport: HTMLElement): FocusScroll
  * @param props - conversation view standard kit and the focus locale seat.
  */
 export function FocusView({
-  useSession, sessionId, useSessions, loadOlder, openFile, forkAt, fileMentions, scroll, t,
+  useSession, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
+  isLoopback, useHostDescription, scroll, t,
 }: FocusViewProps) {
   // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
   // the flow fresh on every publication — including assistant-only updates
@@ -2182,6 +2373,9 @@ export function FocusView({
               openFile={openFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
+              loadImage={loadImage}
+              isLoopback={isLoopback}
+              useHostDescription={useHostDescription}
             />
           </div>
         ))}
@@ -2199,7 +2393,7 @@ export function FocusView({
         )}
         {running && <RunningStatus startTime={runningTurnStart} t={t} />}
         {pendingSteering.map(item => (
-          <PendingSteeringBubble key={item.id} content={item.content} t={t} />
+          <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
         ))}
         {!atBottom && (
           <div className={css.toBottomSlot}>

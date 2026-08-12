@@ -97,9 +97,11 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
 function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   cwd?: string
   loadOlder?: () => void
+  loadImage?: (attachment: unknown) => Promise<string>
   openFile?: (path: string) => void
   forkAt?: (seq: number) => void
   fileMentions?: (owner: unknown) => unknown
+  isLoopback?: boolean
   chat?: ChatSlice
   t?: FocusViewProps['t']
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
@@ -115,9 +117,12 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     useWorkspaces: bindSnapshotSelector(workspacesStore()),
     useProjection: (() => undefined) as never,
     loadOlder: opts.loadOlder ?? (() => {}),
+    loadImage: opts.loadImage ?? (() => Promise.reject(new Error('no loader'))),
     openFile: opts.openFile ?? (() => {}),
     forkAt: opts.forkAt ?? (() => {}),
     fileMentions: opts.fileMentions ?? (() => undefined),
+    isLoopback: opts.isLoopback ?? true,
+    useHostDescription: () => true,
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
     t: opts.t ?? t,
   } as unknown as FocusViewProps
@@ -641,6 +646,52 @@ describe('FocusView flow rows', () => {
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
+  it('renders user and assistant image blocks through the gallery', async () => {
+    renderView([
+      chatNode('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [
+          { type: 'text', text: 'look' },
+          { type: 'image', attachment: { attachmentId: 'img1', name: 'shot.png' } } as never,
+        ],
+        source: null,
+      }),
+      chatNode('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 3000,
+        blocks: [
+          { kind: 'text', text: 'done' },
+          { kind: 'image', attachment: { attachmentId: 'img2', name: 'out.png' } } as never,
+        ],
+        finalNode: {
+          kind: 'assistant', seq: 5, time: 3000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 1500, completedTime: 3000 },
+        },
+      }),
+    ], { loadImage: () => Promise.resolve('data:image/png;base64,AA==') })
+    // Flush the loader resolution: each MessageImage swaps its loading state
+    // for the decoded <img>.
+    await act(async () => {})
+    expect(screen.getByText('look')).toBeTruthy()
+    expect(screen.getByText('done')).toBeTruthy()
+    expect(screen.getByAltText('shot.png')).toBeTruthy()
+    expect(screen.getByAltText('out.png')).toBeTruthy()
+  })
+
+  it('renders an image-only user message without a bubble shell', async () => {
+    renderView([
+      chatNode('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'image', attachment: { attachmentId: 'img1', name: 'shot.png' } } as never],
+        source: null,
+      }),
+    ], { loadImage: () => Promise.resolve('data:image/png;base64,AA==') })
+    await act(async () => {})
+    // The gallery renders; an image-only message shows no bubble text (the
+    // chat showBubble rule) — only the copy action remains below.
+    expect(screen.getByAltText('shot.png')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
+  })
+
   it('merges directly-consecutive runs into one summary line', () => {
     renderView([
       assistantNode('a1', 'settled', 'first think\nmore one', 3000),
@@ -1093,9 +1144,11 @@ describe('FocusView flow rows', () => {
       }, { kind: 'turn', turn } as never),
     ], { openFile, forkAt })
     // The produced row lists only paths settled at or before the closing seq.
+    // Chip queries go through the accessible name: the measurement probes
+    // duplicate the chip text in an aria-hidden subtree.
     expect(screen.getByText('产物')).toBeTruthy()
-    expect(screen.getByText('report.html')).toBeTruthy()
-    expect(screen.queryByText('a.ts')).toBeNull()
+    expect(screen.getByRole('button', { name: /report\.html/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /a\.ts/ })).toBeNull()
     // The actions footer: clock + turn readings (one clock span), copy, fork.
     expect(screen.getByText(/用时 8 秒/)).toBeTruthy()
     expect(screen.getByText(/首 token 1.2秒/)).toBeTruthy()
@@ -1103,7 +1156,7 @@ describe('FocusView flow rows', () => {
     fireEvent.click(screen.getByRole('button', { name: '在新对话中分支' }))
     expect(forkAt).toHaveBeenCalledWith(20)
     // The produced chip opens through the host opener.
-    fireEvent.click(screen.getByText('report.html'))
+    fireEvent.click(screen.getByRole('button', { name: /report\.html/ }))
     expect(openFile).toHaveBeenCalledWith('out/report.html')
   })
 
@@ -1154,7 +1207,7 @@ describe('FocusView flow rows', () => {
         branchUnavailable: true,
       }, { kind: 'turn', turn } as never),
     ])
-    expect(screen.getByText('report.html')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /report\.html/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: '复制' })).toBeNull()
   })
 
@@ -1354,6 +1407,13 @@ describe('plugin apply', () => {
     })
     ctx.provide('sessions', { scope: () => undefined })
     ctx.provide('workspaces', { openPath: async () => {} })
+    ctx.provide('connection', {
+      isLoopback: true,
+      hostDescription: {
+        getSnapshot: () => undefined,
+        subscribe: () => () => {},
+      },
+    })
     const fiber = ctx.plugin({ apply, inject })
     await fiber.await()
     const entries = slots.entries('conversation.view')

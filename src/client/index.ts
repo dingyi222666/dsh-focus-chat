@@ -15,7 +15,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
-import type { IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationService, IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import { FocusView } from './FocusView.tsx'
 import type { FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected, FocusViewProps } from './FocusView.tsx'
@@ -34,8 +36,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Required services: the conversation view slot, the locale registry, sessions, and the host opener. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces']
+/** Required services: the view slot, the locale registry, sessions, the host opener, and the connection facts. */
+export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'connection']
 
 /**
  * Client plugin body: register the focus view tab.
@@ -55,6 +57,11 @@ export function apply(ctx: Context): void {
   // place (the chat view's persistence shape), never persisted to disk.
   const focusScrollPositions = new Map<SessionId, FocusScrollPosition | null>()
 
+  // Host capability facts for the produced-files lane (the chat rule: chips
+  // and the show-in-folder action need a loopback browser whose Host can
+  // open native paths).
+  const connection = ctx.get('connection') as ConnectionHandle
+
   ctx.slots.inject('conversation.view', () => ctx.slots.register({
     name: 'conversation.view',
     id: 'focus',
@@ -68,6 +75,15 @@ export function apply(ctx: Context): void {
       loadOlder: () => {
         const conversation = ctx.sessions.scope(sessionId)?.get('conversation') as IConversation | undefined
         conversation?.loadOlder()
+      },
+      // Session-authorized historical image resolution (the chat view's
+      // image gallery loader); absent service degrades to a rejection.
+      loadImage: (attachment: ImageAttachmentRef) => {
+        const conversation = ctx.get('conversation') as ConversationService | undefined
+        if (conversation === undefined) {
+          return Promise.reject(new Error('dsh-focus-chat: conversation service unavailable'))
+        }
+        return conversation.resolveImage(sessionId, attachment)
       },
       // Host file opener (the chat view's tool-row semantics).
       openFile: (path) => {
@@ -91,6 +107,12 @@ export function apply(ctx: Context): void {
           | { forClosing: (owner: FocusTurnTailOwner) => MarkdownFileMentions | undefined }
           | undefined
         return service?.forClosing(owner)
+      },
+      // Whether the browser itself is connected over loopback (produced-chip gating).
+      isLoopback: connection.isLoopback,
+      hooks: {
+        // Current generation's Host description, bound by the slot renderer.
+        hostDescription: connection.hostDescription,
       },
       scroll: {
         save: (position) => { focusScrollPositions.set(sessionId, position) },

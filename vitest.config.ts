@@ -13,10 +13,16 @@ export default defineConfig({
     dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'use-sync-external-store'],
     alias: [
       { find: 'cordis', replacement: repo('vendor/cordis/src/index.ts') },
+      // The vendored cordis's rescoped name (current packages import it) and
+      // its rescoped dependency: the plugin has no install of either, so the
+      // repo's vendored copies are the source of truth.
+      { find: '@deepseek-ai/cordis', replacement: repo('vendor/cordis/src/index.ts') },
+      { find: '@deepseek-ai/cosmokit', replacement: repo('vendor/cordis/node_modules/@deepseek-ai/cosmokit/src/index.ts') },
       { find: '@deepseek-ai/dsh-client-runtime/client', replacement: repo('packages/client/runtime/src/client/index.ts') },
       { find: '@deepseek-ai/dsh-client-ui-slots', replacement: repo('packages/client/ui-slots/src/index.ts') },
       { find: '@deepseek-ai/dsh-client-web-react', replacement: repo('packages/client/web-react/src/index.ts') },
       { find: '@deepseek-ai/dsh-client-ui-primitives', replacement: repo('packages/client/ui-primitives/src/index.ts') },
+      { find: '@deepseek-ai/dsh-client-ui-attachment', replacement: repo('packages/client/ui-attachment/src/index.ts') },
       { find: '@deepseek-ai/dsh-client-test-runtime', replacement: repo('packages/client/test-runtime/src/index.ts') },
       { find: '@deepseek-ai/dsh-client-ui-conversation/client', replacement: repo('packages/client/ui-conversation/src/client/index.ts') },
       { find: '@deepseek-ai/dsh-client-connection/client', replacement: repo('packages/client/connection/src/client/index.ts') },
