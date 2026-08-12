@@ -1,7 +1,7 @@
 {
   "name": "dsh-focus-chat",
   "version": "0.1.0",
-  "description": "Claude Code-style focus view for the dsh web GUI: the conversation's condensed reading surface \u2014 tool calls folded into expandable metric summaries, chat 1:1 row chrome, and streaming think rows",
+  "description": "Claude Code-style focus view for the dsh web GUI: the conversation's condensed reading surface — tool calls folded into expandable metric summaries, chat 1:1 row chrome, and streaming think rows",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -44,11 +44,13 @@
     "platform": "web"
   },
   "scripts": {
+    "prepare": "npm run build",
+    "build": "tsc -p tsconfig.build.json && tsdown",
     "bundle": "tsdown",
     "watch": "tsdown --watch",
-    "build": "tsc -p tsconfig.build.json && tsdown",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "clean": "rm -rf lib"
   },
   "devDependencies": {
     "@testing-library/react": "^16.1.0",
