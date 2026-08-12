@@ -410,19 +410,27 @@ export function buildFocusFlow(
       const previousAfterAssistant = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
-      // Absorb a context batch directly preceding the run into the group:
-      // its count leads a segment of the summary line, its rows expand
-      // inside the group (session order: context → thinking → calls). A
-      // context batch with no adjacent run keeps its own folded line.
+      // Absorb a context batch preceding the run into the group: its count
+      // leads a segment of the summary line, its rows expand inside the
+      // group (session order: context → thinking → calls). An assistant row
+      // (its own Think disclosure) may sit between the batch and the run —
+      // look past it, the batch still belongs to the run. A context batch
+      // with no adjacent run keeps its own folded line.
+      let contextProbe = previousAfterAssistant
+      if (contextProbe !== undefined && contextProbe.kind === 'assistant') {
+        contextProbe = pendingFold.length > 1
+          ? pendingFold[pendingFold.length - 2]
+          : flow.at(-2)
+      }
       let absorbedContext: readonly FocusContextItem[] = []
-      if (previousAfterAssistant !== undefined
-        && previousAfterAssistant.kind === 'context-fold'
-        && previousAfterAssistant.turn === groupTurn) {
-        absorbedContext = previousAfterAssistant.items
+      if (contextProbe !== undefined
+        && contextProbe.kind === 'context-fold'
+        && contextProbe.turn === groupTurn) {
+        absorbedContext = contextProbe.items
         if (pendingFold.length > 0) {
-          pendingFold.pop()
+          pendingFold.splice(pendingFold.length - (contextProbe === previousAfterAssistant ? 1 : 2), 1)
         } else {
-          flow.pop()
+          flow.splice(flow.length - (contextProbe === previousAfterAssistant ? 1 : 2), 1)
         }
       }
       const group = toolGroup(pending.blocks, cwd, null, [])

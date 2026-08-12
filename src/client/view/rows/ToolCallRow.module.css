@@ -3,10 +3,28 @@
   flex-direction: column;
 }
 
+.callRowInner {
+  position: relative;
+  overflow: hidden;
+}
+
+.callLeading {
+  flex-shrink: 0;
+}
+
 /* One tool call inside an expanded group (the chat ToolRow chrome). */
 .callRow {
   display: flex;
   flex-direction: column;
+}
+
+.callRowInner {
+  position: relative;
+  overflow: hidden;
+}
+
+.callLeading {
+  flex-shrink: 0;
 }
 
 /* Running sweep (the chat row's glare band) on the TITLE row only — the

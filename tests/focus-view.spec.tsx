@@ -681,6 +681,10 @@ describe('FocusView flow rows', () => {
     // The command row reads `name · settlement` (the chat GenericCommandCard).
     expect(screen.getByText('compact')).toBeTruthy()
     expect(screen.getByText('done line')).toBeTruthy()
+    // The title/summary separator keeps its styled gap (a missing CSS class
+    // would glue the row into `compactdone line`).
+    const separator = document.querySelector('.commandRow [data-disclosure-row] [aria-hidden="true"]')
+    expect(separator?.getAttribute('class') ?? '').not.toBe('undefined')
     // The compaction marker aggregates the structured counts.
     expect(screen.getByText('上下文已压缩')).toBeTruthy()
     expect(screen.getByText('已压缩 4 条历史记录（约 5 tokens）')).toBeTruthy()
@@ -1006,7 +1010,7 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('rules text')).toBeTruthy()
   })
 
-  it('keeps the context batch on its own line when the assistant row sits between it and the run', () => {
+  it('absorbs a preceding context batch into the group summary line', () => {
     const turn = {
       turn: 1,
       start: { time: 1000 },
@@ -1034,16 +1038,17 @@ describe('FocusView flow rows', () => {
       }),
       at('t1', 'tool-call', { root: settledCall('c1x', 'bash', '{}') }),
     ])
-    // The context batch keeps its own collapsed line; the leading think
-    // stays on its assistant; the run folds below (the assistant row sits
-    // between the context and the run, so neither absorbs the other).
-    expect(screen.getByText('上下文注入 · 2 项')).toBeTruthy()
+    // The context batch folds into the group's summary line (its count
+    // leads a segment, its rows expand inside the group — session order:
+    // context → thinking → calls); the assistant's leading think keeps its
+    // own duration row.
+    expect(screen.getByText('载入了 2 项上下文，运行了 1 个命令')).toBeTruthy()
     expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
-    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    expect(screen.queryByText(/上下文注入/)).toBeNull()
     expect(screen.queryByText('AGENTS.md')).toBeNull()
-    // Expanding the context line reveals the injected rows, each expanding
-    // to its body.
-    fireEvent.click(screen.getByText('上下文注入 · 2 项'))
+    // Expanding the group reveals the absorbed context rows first, each
+    // expanding to its body.
+    fireEvent.click(screen.getByText('载入了 2 项上下文，运行了 1 个命令'))
     expect(screen.getByText('AGENTS.md')).toBeTruthy()
     fireEvent.click(screen.getByText('AGENTS.md'))
     expect(screen.getByText('rules text')).toBeTruthy()

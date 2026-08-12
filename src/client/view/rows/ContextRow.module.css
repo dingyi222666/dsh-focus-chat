@@ -228,3 +228,12 @@
 }
 
 /* One tool call inside an expanded group. */
+
+.thinkSeparator {
+  flex: none;
+  width: 2px;
+  height: 2px;
+  margin: 0 8px;
+  border-radius: 1px;
+  background: var(--dsw-alias-label-caption);
+}

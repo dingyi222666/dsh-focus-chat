@@ -87,12 +87,12 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t
                 ref={(node) => { chipProbes.current[index] = node }}
                 type="button"
                 tabIndex={-1}
-                className={`${css.producedFile} ${css.producedProbe}`}
+                className={css.producedFile}
               >
                 {basename(path)}
               </button>
             ))}
-            <span ref={moreProbe} className={`${css.producedMore} ${css.producedProbe}`} />
+            <span ref={moreProbe} className={css.producedMore} />
           </div>
         </div>
       )}

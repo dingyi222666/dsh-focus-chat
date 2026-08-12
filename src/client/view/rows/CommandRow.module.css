@@ -3,6 +3,20 @@
   flex-direction: column;
 }
 
+.commandRowInner {
+  position: relative;
+  overflow: hidden;
+}
+
+.thinkSeparator {
+  flex: none;
+  width: 2px;
+  height: 2px;
+  margin: 0 8px;
+  border-radius: 1px;
+  background: var(--dsw-alias-label-caption);
+}
+
 /* Running sweep (the chat GenericCommandCard glare band) on the TITLE row
    only — the expanded card content stays sweep-free. This is the live
    compaction lifecycle row ("Compacting context…") and every running command. */

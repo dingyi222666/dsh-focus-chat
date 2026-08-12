@@ -20,3 +20,44 @@
 }
 
 /* Think disclosure (the reasoning row): the chat view's running sweep. */
+
+/* Persistent, turn-positioned feedback for a terminal failure (the chat
+   TurnErrorItem chrome). */
+.turnErrorRow {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 2px 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.turnErrorDot {
+  margin-top: 5px;
+}
+
+.turnErrorCopy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.turnErrorTitle {
+  margin-right: 6px;
+  color: var(--dsw-alias-state-error-primary);
+  font-weight: 600;
+}
+
+.turnErrorMessage {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.turnErrorCode {
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-markdown-code-block-small);
+}
+
+/* The unknown-surface fallback row keeps the flow's breathing room. */
+.contextRow {
+  margin: 4px 0;
+}
