@@ -4,7 +4,7 @@ import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-runt
 import type { FocusCard, FocusGroupMetrics, FocusGroupThink, FocusMetricKey, FocusToolGroup, FocusToolRow, FocusToolState, FocusToolVariant } from './types.ts'
 import { flattenText, relativizeToCwd } from './text.ts'
 
-const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
+export const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   bash: 'commands',
   pwsh: 'commands',
   sh: 'commands',
@@ -168,6 +168,28 @@ function deriveSummary(variant: FocusToolVariant, raw: string): string {
 /** Filesystem path from args for a file-tool row; undefined for URL reads and non-file tools. */
 function deriveFilePath(variant: FocusToolVariant, raw: string): string | undefined {
   if (!FILE_PATH_VARIANTS.has(variant)) return undefined
+  const parsed = parseArgs(raw)
+  if (typeof parsed !== 'object' || parsed === null) return undefined
+  for (const key of FILE_PATH_KEYS) {
+    const value = (parsed as Record<string, unknown>)[key]
+    if (typeof value === 'string' && value !== '') return firstLine(value)
+  }
+  return undefined
+}
+
+/** Filesystem path from a settled file-mutation call's args (`path` /
+ *  file_path) for the edit family's distinct-file count. The row variant
+ *  gates filePath on read/write/edit only, so the family's other tools
+ *  (replace, patch, apply_patch, save) derive their path here.
+ * @param block - the settled call block.
+ * @returns the first path value, or undefined when the call is running or
+ *  carries no path. */
+function fileMutationPath(block: ToolCallBlock): string | undefined {
+  if (!('kind' in block)) return undefined
+  const name = block.call?.name ?? ''
+  if (METRIC_BY_TOOL[name] !== 'edits') return undefined
+  const raw = block.call?.argsRaw ?? ''
+  if (raw === '') return undefined
   const parsed = parseArgs(raw)
   if (typeof parsed !== 'object' || parsed === null) return undefined
   for (const key of FILE_PATH_KEYS) {
@@ -363,14 +385,22 @@ export function toolGroup(
     skills: 0, questions: 0, plans: 0,
     commandsFailed: 0, editsFailed: 0, searchesFailed: 0,
   }
-  for (const row of rows) {
-    // A running call joins its group's summary line only once it settles
-    // (the think metric's lifecycle: "完成了才收进去摘要行"); while it runs
-    // it renders as the flow-end live row instead.
+  // The edit family counts the distinct files the calls touched — the
+  // summary line reads "edited N files" (the chat copy). A call whose args
+  // carry no derivable path counts as its own entry; a running call joins
+  // only once it settles (the think metric's lifecycle: "完成了才收进去
+  // 摘要行"), rendering as the flow-end live row meanwhile.
+  const editFiles = new Set<string>()
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i]
     if (row.state === 'running') continue
     const key = METRIC_BY_TOOL[row.name]
     if (key === undefined) continue
-    metrics[key] += 1
+    if (key === 'edits') {
+      editFiles.add(fileMutationPath(blocks[i]) ?? row.callId)
+    } else {
+      metrics[key] += 1
+    }
     // Failure tallies only for the families whose summary line carries them:
     // a failing exit status settles a terminal card's row to the error state.
     if (row.state === 'error' && (key === 'commands' || key === 'searches' || key === 'edits')) {
@@ -379,6 +409,7 @@ export function toolGroup(
       else metrics.editsFailed += 1
     }
   }
+  metrics.edits = editFiles.size
   return { nodeKeys: [], items: [...think, ...rows], running, metrics, thoughtMs, contextCount: 0, context: [] }
 }
 

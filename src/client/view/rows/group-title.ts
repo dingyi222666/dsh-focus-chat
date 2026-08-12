@@ -1,5 +1,6 @@
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusToolGroup, FocusToolRow } from '../../model/types.ts'
+import { METRIC_BY_TOOL } from '../../model/tools.ts'
 import { formatSeconds } from '../../model/text.ts'
 
 /** The step-summary line parts (pre-casing): the thinking duration leads,
@@ -48,12 +49,13 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
   } else if (dirs > 0) {
     parts.push({ text: t(dirs === 1 ? 'tool.explored.dirs.one' : 'tool.explored.dirs', { n: dirs }) })
   }
-  // Settled calls only: a running call is not in the summary line yet ("完成了
-  // 才收进去摘要行"), so the metric-less remainder cannot count it either.
-  const callCount = group.items.reduce((count, item) =>
-    count + ('callId' in item && item.state !== 'running' ? 1 : 0), 0)
-  const others = callCount - commands - edits - searches - files - dirs
-    - subagents - todos - goals - workflows - skills - questions - plans
+  // The metric-less remainder counts the settled calls whose tool has no
+  // metric family directly (the edit family's metric reads distinct files,
+  // not calls, so a subtractive remainder would leak family members).
+  const others = group.items.reduce((count, item) => {
+    if (!('callId' in item) || item.state === 'running') return count
+    return METRIC_BY_TOOL[item.name] === undefined ? count + 1 : count
+  }, 0)
   if (others > 0) {
     parts.push({ text: t(others === 1 ? 'tool.others.one' : 'tool.others', { n: others }) })
   }

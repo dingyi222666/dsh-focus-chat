@@ -153,7 +153,8 @@ function assistantNode(key: string, status: 'running' | 'settled', reasoning: st
 }
 
 describe('FocusView flow rows', () => {
-  it('renders the empty hint for an empty conversation', () => {
+  
+it('renders the empty hint for an empty conversation', () => {
     renderView([])
     expect(screen.getByText('暂无消息')).toBeTruthy()
   })
@@ -416,12 +417,22 @@ describe('FocusView flow rows', () => {
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'write', '{}') }),
     ])
     // A write call counts in the edit family (the summary line reads one
-    // "edited" segment).
-    expect(screen.getByText('编辑了 1 次，列出了 1 个目录')).toBeTruthy()
+    // "edited" segment); a call without a derivable path counts as its own
+    // file entry.
+    expect(screen.getByText('编辑了 1 个文件，列出了 1 个目录')).toBeTruthy()
     renderView([
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'edit', '{}') }),
     ])
-    expect(screen.getByText('编辑了 1 次')).toBeTruthy()
+    expect(screen.getByText('编辑了 1 个文件')).toBeTruthy()
+    // The edit family counts distinct files from the call args: the same
+    // file edited twice reads one file, two files read two.
+    renderView([
+      chatNode('t5', 'tool-call', { root: settledCall('c5', 'edit', '{"file_path":"/ws/a.ts"}') }),
+      chatNode('t6', 'tool-call', { root: settledCall('c6', 'edit', '{"file_path":"/ws/a.ts"}') }),
+      chatNode('t7', 'tool-call', { root: settledCall('c7', 'write', '{"path":"/ws/b.ts"}') }),
+      chatNode('t8', 'tool-call', { root: settledCall('c8', 'patch', '{"file_path":"/ws/a.ts"}') }),
+    ])
+    expect(screen.getByText('编辑了 2 个文件')).toBeTruthy()
     renderView([
       chatNode('t4', 'tool-call', { root: settledCall('c4', 'run_code', '{}') }),
     ])
@@ -516,7 +527,7 @@ describe('FocusView flow rows', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 次，搜索了 1 个正则，更新了待办，读取了 1 个文件，调用了 1 个工具'))
+    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 个文件，搜索了 1 个正则，更新了待办，读取了 1 个文件，调用了 1 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
@@ -1381,7 +1392,7 @@ describe('FocusView flow rows', () => {
         resultView: { card: 'web', kind: 'search', sources: [{ url: 'https://dsh.dev', title: 'DSH' }], truncated: false },
       }) }),
     ])
-    fireEvent.click(screen.getByText('编辑了 1 次，搜索了 1 个正则'))
+    fireEvent.click(screen.getByText('编辑了 1 个文件，搜索了 1 个正则'))
     fireEvent.click(screen.getByText('Edit'))
     expect(screen.getByText('a.ts')).toBeTruthy()
     fireEvent.click(screen.getByText('Search'))
