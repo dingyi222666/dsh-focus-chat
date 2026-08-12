@@ -364,10 +364,11 @@ describe('FocusView flow rows', () => {
     // The reply text stays as its own flow row; no standalone Think row.
     expect(screen.getByText('answer text')).toBeTruthy()
     expect(screen.queryByText('Think')).toBeNull()
-    // The folded group renders ABOVE the reply (the chat order: tool rows
-    // precede the reply); the reply keeps the runs around it from merging.
+    // The folded group renders BELOW the reply (the chat order: reply →
+    // tool rows — the assistant emitted the text before dispatching the
+    // tools); the reply keeps the runs around it from merging.
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('运行了 1 个命令')).toBeLessThan(column.indexOf('answer text'))
+    expect(column.indexOf('answer text')).toBeLessThan(column.indexOf('运行了 1 个命令'))
     fireEvent.click(screen.getByText('运行了 1 个命令'))
     // The Think row lives inside the expanded group.
     expect(screen.getByText('Think')).toBeTruthy()
@@ -690,7 +691,7 @@ describe('FocusView flow rows', () => {
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
-  it('merges directly-consecutive runs into one summary line', () => {
+  it('merges directly-consecutive runs into one summary line, keeping an absorbed think as the barrier', () => {
     renderView([
       assistantNode('a1', 'settled', 'first think\nmore one', 3000),
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }),
@@ -698,14 +699,14 @@ describe('FocusView flow rows', () => {
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'bash', '{"command":"test"}') }),
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'bash', '{"command":"lint"}') }),
     ])
-    // One merged summary line: thought and command metrics aggregate.
-    expect(screen.getByText('思考了 2.6 秒，运行了 3 个命令')).toBeTruthy()
-    fireEvent.click(screen.getByText('思考了 2.6 秒，运行了 3 个命令'))
+    // Runs either side of an absorbed think keep their own summary lines
+    // (the chat discloses the step boundary as its own Think row); the
+    // runs after the second think merge.
+    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
+    fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 2 个命令'))
     // The folded rows keep flow order: each think sits above its own calls.
     const calls = document.querySelector('[data-calls]')
     const text = calls?.textContent ?? ''
-    expect(text.indexOf('first think')).toBeLessThan(text.indexOf('build'))
-    expect(text.indexOf('build')).toBeLessThan(text.indexOf('second think'))
     expect(text.indexOf('second think')).toBeLessThan(text.indexOf('test'))
     expect(text.indexOf('test')).toBeLessThan(text.indexOf('lint'))
   })

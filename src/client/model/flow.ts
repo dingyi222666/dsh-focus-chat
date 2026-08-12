@@ -433,19 +433,22 @@ export function buildFocusFlow(
       // Merge directly-consecutive runs — in the flow or in the turn-fold
       // buffer — into one summary line: metrics and thinking time aggregate,
       // the rows keep flow order. Anything visible between two runs — an
-      // assistant reply, a command, a message — keeps them separate.
+      // assistant reply, a command, a message — keeps them separate, and so
+      // does an absorbed think: it marks the step boundary the chat
+      // discloses as its own Think row, so the runs either side of it keep
+      // their own summary lines.
       const previousItem = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
       if (trailingAssistant !== null) {
-        // The folded group precedes the assistant's visible reply: the tool
-        // content keeps its chronological position and the step-summary line
-        // renders above the text, matching the chat order (tool rows →
-        // reply). The visible reply also keeps the runs either side of it
-        // from merging.
-        pushItem({ kind: 'tools', group: folded })
+        // The visible reply precedes the folded group: the assistant emitted
+        // the text before dispatching the tools, so the reply keeps its
+        // chronological position and the step-summary line follows it (the
+        // chat order: reply → tool rows). The visible reply also keeps the
+        // runs either side of it from merging.
         pushItem(trailingAssistant)
-      } else if (previousItem !== undefined && previousItem.kind === 'tools') {
+        pushItem({ kind: 'tools', group: folded })
+      } else if (previousItem !== undefined && previousItem.kind === 'tools' && think.length === 0) {
         const prev = previousItem.group
         const merged: FocusToolGroup = {
           nodeKeys: [...prev.nodeKeys, ...folded.nodeKeys],
