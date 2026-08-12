@@ -451,6 +451,33 @@ describe('FocusView flow rows', () => {
     expect(fullText('Fork 了 2 个子代理，更新了待办，更新了目标，运行了 2 个工作流，载入了 1 个技能，问了 1 个问题，计划了 1 次，调用了 1 个工具')).toBeTruthy()
   })
 
+  it('renders the ask-question row with its interaction outcome', () => {
+    const at = (overrides: Partial<ToolResultNode> = {}) => chatNode('t1', 'tool-call', {
+      root: settledCall('c1', 'ask_user_question', '{"questions":[]}', overrides),
+    })
+    // Settled with the answer batch: the answered count reads the summary.
+    renderView([at({ content: [{ type: 'text', text: JSON.stringify({ answers: [
+      { id: 'q1', selected: ['a'] }, { id: 'q2', selected: [], custom: '' },
+    ] }) }] })])
+    fireEvent.click(screen.getByText('问了 1 个问题'))
+    expect(screen.getByText('提问')).toBeTruthy()
+    expect(screen.getByText('1/2 已回答')).toBeTruthy()
+    cleanup()
+    // Dismissed set: the verdict names the cancellation.
+    renderView([at({ isError: true, error: { name: 'UserInteractionError', code: 'ASK_CANCELLED' } })])
+    fireEvent.click(screen.getByText('问了 1 个问题'))
+    expect(screen.getByText('已取消')).toBeTruthy()
+    cleanup()
+    // Interrupt while pending: the shared stopped semantics.
+    renderView([at({ isError: true, error: { name: 'UserInteractionError', code: 'ASK_ABORTED' } })])
+    fireEvent.click(screen.getByText('问了 1 个问题'))
+    expect(screen.getByText('已中断')).toBeTruthy()
+    cleanup()
+    // Running: the live row reads as the waiting composer.
+    renderView([chatNode('t1', 'tool-call', { root: runningCall('c1', 'ask_user_question', '{"questions":[]}') })])
+    expect(screen.getByText('提问 · 等待回答')).toBeTruthy()
+  })
+
   it('folds a run of tool calls into one summary line and expands into call rows', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"pnpm build"}', {

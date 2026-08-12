@@ -1,16 +1,17 @@
 /** Tool-family leading icons (the chat GenericToolCard table). */
 import type { ReactNode } from 'react'
-import { IconApiOutline14, IconBrowseOutline16, IconCodeOutline16, IconEditOutline16, IconSearchOutline16, IconSparkle16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconApiOutline14, IconBrowseOutline16, IconCodeOutline16, IconEditOutline16, IconQuestionOutline14, IconSearchOutline16, IconSparkle16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusToolRow } from '../../model/types.ts'
 
 /** Tool-family leading icons, mirroring the chat GenericToolCard table (glyphs at 14). */
-export const VARIANT_ICONS: Record<'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'others', ReactNode> = {
+export const VARIANT_ICONS: Record<'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'others', ReactNode> = {
   search: <IconSearchOutline16 size={14} />,
   read: <IconBrowseOutline16 size={14} />,
   bash: <IconApiOutline14 size={14} />,
   write: <IconEditOutline16 size={14} />,
   edit: <IconEditOutline16 size={14} />,
   code: <IconCodeOutline16 size={14} />,
+  question: <IconQuestionOutline14 size={14} />,
   others: <IconSparkle16 size={14} />,
 }
 
@@ -27,6 +28,7 @@ export const TOOL_VARIANTS: Readonly<Record<string, keyof typeof VARIANT_ICONS>>
   edit: 'edit',
   run_code: 'code',
   cordis_mount: 'code',
+  ask_user_question: 'question',
 }
 
 /** One call's leading glyph: the family icon, or the state dot for failures. */

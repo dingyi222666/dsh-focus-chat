@@ -64,8 +64,12 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
     const running = group.items.find((item): item is FocusToolRow =>
       'callId' in item && item.state === 'running')
     if (running !== undefined) {
+      // The live ask-question call reads as its waiting composer (the chat
+      // running row); every other family uses its row title and args summary.
       parts.push({
-        text: running.summary === '' ? running.title : `${running.title} · ${running.summary}`,
+        text: running.name === 'ask_user_question'
+          ? `${t('ask.rowTitle')} · ${t('ask.waiting')}`
+          : running.summary === '' ? running.title : `${running.title} · ${running.summary}`,
       })
     } else {
       // Unreachable: a tools group always folds at least one call, so an

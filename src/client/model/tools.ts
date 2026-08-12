@@ -105,13 +105,16 @@ const SUMMARY_KEYS: Readonly<Record<FocusToolVariant, readonly string[]>> = {
   write: ['path', 'file_path'],
   edit: ['path', 'file_path'],
   code: ['description'],
+  // The question rows read their interaction outcome, not the args; the
+  // generic derivation still needs a key for the summary fallback.
+  question: ['question', 'header'],
   others: [],
 }
 
 /** Figma row titles per variant (design literals, not translatable copy). */
 const VARIANT_TITLES: Readonly<Record<FocusToolVariant, string>> = {
   search: 'Search', read: 'Read', bash: 'Bash',
-  write: 'Write', edit: 'Edit', code: 'Code', others: 'Tool call',
+  write: 'Write', edit: 'Edit', code: 'Code', question: 'Ask question', others: 'Tool call',
 }
 
 /** Known tool name → row variant (the chat row's classification). */
@@ -123,6 +126,7 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   web_search: 'search',
   grep: 'search',
   glob: 'search',
+  ask_user_question: 'question',
   write: 'write',
   edit: 'edit',
   run_code: 'code',
@@ -296,8 +300,9 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
   const done = 'kind' in block
   const name = done ? block.call?.name ?? '' : block.name
   const argsRaw = done ? block.call?.argsRaw ?? '' : block.argsRaw
+  const errorCode = done && block.error !== undefined ? block.error.code : null
   const state: FocusToolState = !done ? 'running'
-    : block.error?.code === 'interrupted' ? 'stopped'
+    : block.error?.code === 'interrupted' || block.error?.code === 'ASK_ABORTED' ? 'stopped'
       : block.isError ? 'error' : 'ok'
   const variant = TOOL_VARIANTS[name] ?? 'others'
   // The empty string is "no text" for both derived result fields: a settled
@@ -336,6 +341,7 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
     state: rowState,
     output,
     errorSummary,
+    errorCode,
     body: deriveBody(variant, argsRaw),
     card,
     subcalls: block.subCalls.map(child => toolRowModel(child, cwd)),

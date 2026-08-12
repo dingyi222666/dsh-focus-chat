@@ -15,7 +15,7 @@ export type FocusCard =
 export type FocusToolState = 'running' | 'ok' | 'error' | 'stopped'
 
 /** Tool-call row variants selected by the generic renderer (the chat table). */
-export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'others'
+export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'others'
 
 /** One Tool call's condensed row model, derived from the frozen block. */
 export interface FocusToolRow {
@@ -35,6 +35,9 @@ export interface FocusToolRow {
   output: string | null
   /** First result line on an error row; null otherwise. */
   errorSummary: string | null
+  /** Settled call's structured error code; null while running or when the
+   *  result carries no error (the ask-question row's verdict codes). */
+  errorCode: string | null
   /** Expanded-body input text (pretty args); null = no input section. */
   body: string | null
   /** Card render material from the host-computed views; null = generic sections. */

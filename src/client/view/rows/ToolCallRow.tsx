@@ -42,6 +42,46 @@ function CardBody({ card, t }: { card: FocusCard; t: FocusTranslate }) {
   }
 }
 
+/** One parsed answer entry, shape-checked (result JSON crosses the wire). */
+interface AnswerEntry { selected?: unknown; custom?: unknown }
+
+function isAnswer(value: unknown): value is AnswerEntry {
+  return typeof value === 'object' && value !== null
+}
+
+/** Answered-count summary from the result JSON (a skipped question has
+ *  empty `selected` and no `custom`); null when answer fields are invalid. */
+function answeredSummary(text: string | null, t: FocusTranslate): string | null {
+  if (text === null) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return null
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const answers = (parsed as { answers?: unknown }).answers
+  if (!Array.isArray(answers) || !answers.every(isAnswer)) return null
+  const answered = answers.filter(a =>
+    (Array.isArray(a.selected) && a.selected.length > 0)
+    || (typeof a.custom === 'string' && a.custom !== '')).length
+  return t('ask.answered', { answered, total: answers.length })
+}
+
+/** The ask-question row's summary: the composer verdict while pending or
+ *  dismissed, the answered count once settled, the args summary otherwise
+ *  (the chat AskQuestionRow derivation). */
+function questionSummary(row: FocusToolRow, t: FocusTranslate): string {
+  if (row.errorCode === 'ASK_CANCELLED') return t('ask.cancelled')
+  if (row.errorCode === 'ASK_ABORTED') return t('ask.interrupted')
+  if (row.state === 'running') return t('ask.waiting')
+  if (row.state === 'ok') {
+    const answered = answeredSummary(row.output, t)
+    if (answered !== null) return answered
+  }
+  return row.summary
+}
+
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
 export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   row: FocusToolRow
@@ -55,10 +95,13 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   // collapsed by default — expand on click only.
   const expandable = row.body !== null || row.output !== null || card !== null
   const open = expanded && expandable
-  // An error row's collapsed summary IS the failure: the first error line in
-  // the error color outranks the args summary.
-  const failureLine = row.state === 'error' ? row.errorSummary : null
-  const summaryText = failureLine ?? row.summary
+  // The ask-question row reads its own interaction summary (waiting /
+  // answered count / cancelled / interrupted); an error row's collapsed
+  // summary IS the failure — the first error line in the error color
+  // outranks the args summary.
+  const question = row.name === 'ask_user_question'
+  const failureLine = !question && row.state === 'error' ? row.errorSummary : null
+  const summaryText = question ? questionSummary(row, t) : failureLine ?? row.summary
   // The failure line is error prose, not the path: no open-file affordance.
   const fileLink = row.filePath !== undefined && failureLine === null
   const status = row.state === 'running' ? t('row.running')
@@ -76,7 +119,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
         titleClassName={css.callTitle}
         chevronClassName={css.callChevron}
         icon={leadingFor(row)}
-        title={row.title}
+        title={question ? t('ask.rowTitle') : row.title}
         open={open}
         expandable={expandable}
         expandOnRowClick
