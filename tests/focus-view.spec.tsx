@@ -573,6 +573,44 @@ describe('FocusView flow rows', () => {
     expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
   })
 
+  it('keeps the streaming Think row standalone and folds it once the step settles', () => {
+    const running = chatNode('a1', 'assistant-step', {
+      status: 'running', turn: 1, step: 1, time: 3000,
+      blocks: [
+        { kind: 'reasoning', text: 'thinking out loud' },
+        { kind: 'text', text: 'doing it' },
+      ],
+    })
+    const settled = chatNode('a1', 'assistant-step', {
+      status: 'settled', turn: 1, step: 1, time: 3000,
+      blocks: [
+        { kind: 'reasoning', text: 'thinking out loud' },
+        { kind: 'text', text: 'doing it' },
+      ],
+      finalNode: {
+        kind: 'assistant', seq: 5, time: 3000, turn: 1, step: 1, blocks: [],
+        timing: { stepStartTime: 1000, firstTokenTime: 2300, completedTime: 3000 },
+      },
+    })
+    const call = () => chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash', '{"command":"build"}') })
+    const { source } = renderView([running, call()])
+    // While the step streams, the Think row stays standalone above the reply
+    // and the run's group carries no think yet (the chat live row).
+    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('thinking out loud')).toBeTruthy()
+    expect(screen.getByText('doing it')).toBeTruthy()
+    expect(screen.getByText('Bash · build')).toBeTruthy()
+    expect(screen.queryByText('思考了 1.3 秒')).toBeNull()
+    act(() => {
+      source.set(chatOf([settled, call()]))
+    })
+    // Settled: the reasoning folds into the group — the line carries the
+    // thinking metric and no standalone Think row remains.
+    expect(screen.queryByText('Think')).toBeNull()
+    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('doing it')).toBeTruthy()
+  })
+
 
   it('lets the terminal description and search title outrank the args summary', () => {
     renderView([

@@ -358,29 +358,31 @@ export function buildFocusFlow(
       // immediately-preceding assistant (anything between them — a command,
       // a steering message — keeps the Think row owning its own duration).
       // With turn folding the preceding assistant may already sit in the
-      // fold buffer rather than the emitted flow.
+      // fold buffer rather than the emitted flow. A running assistant keeps
+      // its streaming Think row standalone (the chat live row); only a
+      // settled step's reasoning folds into the group.
       const previous = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
-      const adjacentAssistant = previous !== undefined && previous.kind === 'assistant'
+      const adjacentAssistant = previous !== undefined && previous.kind === 'assistant' && !previous.running
         ? previous
         : null
       const thoughtMs = adjacentAssistant === null ? null : adjacentAssistant.thoughtMs
       const think: FocusGroupThink[] = []
       let trailingAssistant: FocusFlowItem | null = null
       if (adjacentAssistant !== null) {
-        // Absorb the assistant's reasoning into the group (the chat Think
-        // disclosure becomes the first row of the expanded group). Only the
-        // last reasoning block keeps the streaming tail; blocks that remain
-        // stay on the assistant item, and an item left with nothing visible
-        // is dropped entirely.
+        // Absorb the settled assistant's reasoning into the group (the chat
+        // Think disclosure becomes the first row of the expanded group); the
+        // streaming tail stays on the standalone Think row while the step
+        // runs. Blocks that remain stay on the assistant item, and an item
+        // left with nothing visible is dropped entirely.
         const blocks: AssistantBlock[] = []
         for (let i = 0; i < adjacentAssistant.blocks.length; i += 1) {
           const block = adjacentAssistant.blocks[i]
           if (block.kind === 'reasoning') {
             think.push({
               text: block.text,
-              running: adjacentAssistant.running && i === adjacentAssistant.blocks.length - 1,
+              running: false,
             })
           } else {
             blocks.push(block)
