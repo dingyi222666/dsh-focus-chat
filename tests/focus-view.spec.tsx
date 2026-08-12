@@ -978,10 +978,10 @@ it('renders the empty hint for an empty conversation', () => {
       }) }),
     ])
     // The user stopped the turn: the fold reads the stop, not "worked".
-    expect(screen.getByText('用户 43 秒后停止')).toBeTruthy()
+    expect(screen.getByText('用户在 43 秒后停止')).toBeTruthy()
     expect(screen.queryByText(/工作了/)).toBeNull()
     // Expanding reveals the stopped turn's rows.
-    fireEvent.click(screen.getByText('用户 43 秒后停止'))
+    fireEvent.click(screen.getByText('用户在 43 秒后停止'))
     expect(screen.getByText(/运行了 1 个命令/)).toBeTruthy()
   })
 

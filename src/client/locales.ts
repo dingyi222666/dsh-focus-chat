@@ -41,7 +41,7 @@ export const zh = {
   'tool.plans': '计划了 {n} 次',
   'tool.plans.one': '计划了 {n} 次',
   'worked': '工作了 {duration}',
-  'turnFold.stopped': '用户 {duration}后停止',
+  'turnFold.stopped': '用户在 {duration}后停止',
   'context.fold': '上下文注入 · {count} 项',
   'tool.explored.files': '读取了 {n} 个文件',
   'tool.explored.files.one': '读取了 {n} 个文件',
