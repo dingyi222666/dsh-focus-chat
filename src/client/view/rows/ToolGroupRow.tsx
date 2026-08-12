@@ -10,23 +10,22 @@ import { ToolCallRow } from './ToolCallRow.tsx'
 import css from './ToolGroupRow.module.css'
 
 /** One folded run of Tool calls: the step-summary line with its metrics. */
-export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile, now = Infinity }: {
+export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile }: {
   group: FocusToolGroup
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
   openFile: (path: string) => void
-  /** Render-time clock for the live-row debounce (the FocusView passes it). */
-  now?: number | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
   // The summary line reads the settled metrics only — a running call joins
   // the line once it settles (the think lifecycle) and renders as a live
   // row at the end of the flow meanwhile. Failure tallies render in the
   // error color, parentheses included.
-  const segments = caseSegments(groupTitleParts(group, t, now))
-  // A group whose calls are all younger than the live-row debounce paints
-  // nothing: the summary gains the entry directly once one settles, so a
-  // fast call never flashes a row.
+  const segments = caseSegments(groupTitleParts(group, t))
+  // A group with no line — every call still running (the live row at the
+  // end of the flow carries the display) or younger than the live-row
+  // debounce — paints nothing: the summary gains the entries directly once
+  // they settle, so a fast call never flashes.
   if (segments.length === 0) return null
   return (
     <div className={css.groupRow} data-state={group.running ? 'running' : 'ok'}>

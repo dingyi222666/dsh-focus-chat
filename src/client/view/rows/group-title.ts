@@ -1,6 +1,6 @@
 import type { FocusTranslate } from '../../contract/props.ts'
-import type { FocusToolGroup, FocusToolRow } from '../../model/types.ts'
-import { LIVE_ROW_THRESHOLD_MS, METRIC_BY_TOOL } from '../../model/tools.ts'
+import type { FocusToolGroup } from '../../model/types.ts'
+import { METRIC_BY_TOOL } from '../../model/tools.ts'
 import { formatSeconds } from '../../model/text.ts'
 
 /** The step-summary line parts (pre-casing): the thinking duration leads,
@@ -15,13 +15,7 @@ export interface GroupTitleSegment {
   failed?: string | undefined
 }
 
-export function groupTitleParts(
-  group: FocusToolGroup,
-  t: FocusTranslate,
-  /** Render-time clock for the live-row debounce; omitted keeps the running
-   *  fallback live (tests and settled-only callers). */
-  now = Infinity,
-): GroupTitleSegment[] {
+export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSegment[] {
   const { commands, edits, searches, files, dirs } = group.metrics
   const { subagents, todos, goals, workflows } = group.metrics
   const { skills, questions, plans } = group.metrics
@@ -65,25 +59,10 @@ export function groupTitleParts(
   if (others > 0) {
     parts.push({ text: t(others === 1 ? 'tool.others.one' : 'tool.others', { n: others }) })
   }
-  if (parts.length === 0) {
-    // A group whose calls all still run reads as its live call's own row
-    // (the chat running row's title); the settled metrics replace the line
-    // once a call completes. A call younger than the live-row debounce
-    // paints nothing — the summary gains the entry directly once it
-    // settles, so a fast call never flashes a row (the flicker fix).
-    const running = group.items.find((item): item is FocusToolRow =>
-      'callId' in item && item.state === 'running'
-      && (item.time === null || now - item.time >= LIVE_ROW_THRESHOLD_MS))
-    if (running !== undefined) {
-      // The live ask-question call reads as its waiting composer (the chat
-      // running row); every other family uses its row title and args summary.
-      parts.push({
-        text: running.name === 'ask_user_question'
-          ? `${t('ask.rowTitle')} · ${t('ask.waiting')}`
-          : running.summary === '' ? running.title : `${running.title} · ${running.summary}`,
-      })
-    }
-  }
+  // A group whose calls are all still running reads no line: the running
+  // call itself renders once as the live row at the end of the flow (the
+  // chat live row's position) — painting its row title here too would show
+  // the same call twice.
   return parts
 }
 

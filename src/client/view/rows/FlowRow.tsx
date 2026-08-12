@@ -19,7 +19,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback, now = Infinity }: {
+export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback }: {
   item: FocusFlowItem
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -29,8 +29,6 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
   isLoopback: boolean
-  /** Render-time clock for the live-row debounce (the FocusView passes it). */
-  now?: number | undefined
 }) {
   switch (item.kind) {
     case 'message':
@@ -102,7 +100,7 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
       )
     }
     case 'tools':
-      return <ToolGroupRow group={item.group} t={t} codeLabels={codeLabels} openFile={openFile} now={now} />
+      return <ToolGroupRow group={item.group} t={t} codeLabels={codeLabels} openFile={openFile} />
     case 'turn-fold':
       return (
         <TurnFoldRow

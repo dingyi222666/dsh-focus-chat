@@ -378,7 +378,6 @@ export function FocusView({
               mentionsByKey={mentionsByKey}
               loadImage={loadImage}
               isLoopback={isLoopback}
-              now={liveNow}
             />
           </div>
         ))}

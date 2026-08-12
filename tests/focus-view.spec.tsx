@@ -481,9 +481,11 @@ it('renders the empty hint for an empty conversation', () => {
     fireEvent.click(screen.getByText('问了 1 个问题'))
     expect(screen.getByText('已中断')).toBeTruthy()
     cleanup()
-    // Running: the live row reads as the waiting composer.
+    // Running: the live row reads as the waiting composer (one row only —
+    // the group line carries no running fallback).
     renderView([chatNode('t1', 'tool-call', { root: runningCall('c1', 'ask_user_question', '{"questions":[]}') })])
-    expect(screen.getByText('提问 · 等待回答')).toBeTruthy()
+    expect(screen.getByText('提问')).toBeTruthy()
+    expect(screen.getByText('等待回答')).toBeTruthy()
   })
 
   it('folds a run of tool calls into one summary line and expands into call rows', () => {
@@ -545,10 +547,9 @@ it('renders the empty hint for an empty conversation', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: runningCall('c1', 'bash') }),
     ])
-    // The group's line reads the settled metrics only — with nothing settled
-    // yet it reads as the live call's own row — and the running call itself
-    // renders at the END of the flow, below the model output text.
-    expect(screen.getByText('Bash · {}')).toBeTruthy()
+    // The running call renders once, as the live row at the END of the flow
+    // (below the model output text): the group paints no line while every
+    // call still runs, so the same call never shows twice.
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getAllByText('{}').length).toBe(1)
     expect(screen.queryByText('运行了 1 个命令')).toBeNull()
@@ -569,9 +570,9 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.queryByText(/fast/)).toBeNull()
     act(() => { vi.advanceTimersByTime(500) })
-    // Past the window the live row appears.
-    expect(screen.getByText('Bash · fast')).toBeTruthy()
+    // Past the window the live row appears (once — the group paints no line).
     expect(screen.getByText('Bash')).toBeTruthy()
+    expect(screen.getByText('fast')).toBeTruthy()
     act(() => {
       source.set(chatOf([
         chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"fast"}') }),
@@ -633,7 +634,8 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('thinking out loud')).toBeTruthy()
     expect(screen.getByText('doing it')).toBeTruthy()
-    expect(screen.getByText('Bash · build')).toBeTruthy()
+    expect(screen.getByText('Bash')).toBeTruthy()
+    expect(screen.getByText('build')).toBeTruthy()
     expect(screen.queryByText('思考了 1.3 秒')).toBeNull()
     act(() => {
       source.set(chatOf([settled, call()]))
