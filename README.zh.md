@@ -24,13 +24,9 @@ dsh web
 
 ## 截图
 
-关闭——普通 chat 视图：
-
-![关闭：普通 chat 视图](screenshots/before.png)
-
-开启——聚焦对话视图：
-
-![开启：聚焦对话视图](screenshots/after.png)
+| 关闭——普通 chat 视图 | 开启——聚焦对话视图 |
+| --- | --- |
+| ![关闭：普通 chat 视图](screenshots/before.png) | ![开启：聚焦对话视图](screenshots/after.png) |
 
 不再一步步盯着过程，一个助手回合会收成一条摘要行：
 

@@ -24,13 +24,9 @@ Notes:
 
 ## Screenshots
 
-Off — the normal chat view:
-
-![Off: the normal chat view](screenshots/before.png)
-
-On — the focus chat view:
-
-![On: the focus chat view](screenshots/after.png)
+| Off — the normal chat view | On — the focus chat view |
+| --- | --- |
+| ![Off: the normal chat view](screenshots/before.png) | ![On: the focus chat view](screenshots/after.png) |
 
 Instead of watching every step live, one assistant turn collapses into a single summary line:
 
