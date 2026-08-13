@@ -6,6 +6,22 @@
 
 一个给 dsh Web GUI 的插件，加了一个 **聚焦对话** 标签页——用 Claude Code 的方式精简地读对话。
 
+## 安装
+
+```sh
+# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
+dsh plugin --profile web add @dingyi222666/dsh-focus-chat
+# 重启 dsh web，工具自动挂载
+dsh web
+```
+
+然后打开任意对话里的 聚焦对话 / Focus chat 标签页。
+
+说明：
+
+- `dsh plugin` 相当于给 web profile 加一个依赖；插件的 bundle patch 会在下次启动时自动生效。
+- 用仓库源码启动的 CLI 时，请直接调用 bin（`node --import tsx/esm apps/cli/src/bin.ts ...`）。
+
 ## 截图
 
 关闭——普通 chat 视图：
@@ -43,22 +59,6 @@
 - **别的插件给 chat 加的工具卡片扩展在这里不渲染。**聚焦视图用内置的卡片渲染。
 - **折叠按连续工具轮次。**两段之间有任何可见内容（回复、命令、你的插话）就保持分开。
 - **行内文件链接依赖可选的文件提及服务**——和 chat 视图同一个开关。
-
-## 安装
-
-```sh
-# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
-dsh plugin --profile web add @dingyi222666/dsh-focus-chat
-# 重启 dsh web，工具自动挂载
-dsh web
-```
-
-然后打开任意对话里的 聚焦对话 / Focus chat 标签页。
-
-说明：
-
-- `dsh plugin` 相当于给 web profile 加一个依赖；插件的 bundle patch 会在下次启动时自动生效。
-- 用仓库源码启动的 CLI 时，请直接调用 bin（`node --import tsx/esm apps/cli/src/bin.ts ...`）。
 
 ## 开发
 

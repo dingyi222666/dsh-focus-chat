@@ -6,6 +6,22 @@ English | [中文](README.zh.md)
 
 A plugin for the dsh web GUI that adds a **focus chat** tab — a condensed, Claude Code–style way to read a conversation.
 
+## Install
+
+```sh
+# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
+dsh plugin --profile web add @dingyi222666/dsh-focus-chat
+# 重启 dsh web，工具自动挂载
+dsh web
+```
+
+Then open the 聚焦对话 / Focus chat tab in any conversation.
+
+Notes:
+
+- `dsh plugin` behaves like adding a dependency to your web profile; the plugin's bundle patch applies automatically on the next boot.
+- With the repo source-launched CLI, run the args through the bin directly (`node --import tsx/esm apps/cli/src/bin.ts ...`).
+
 ## Screenshots
 
 Off — the normal chat view:
@@ -43,22 +59,6 @@ Focus chat is a faithful reading surface, not a second chat view:
 - **Third-party tool-card extensions don't render here.** Cards that other plugins add to the chat view won't appear in the focus view; the built-in card renderers are used instead.
 - **Folding is per consecutive tool-run.** Any visible content between two runs (a reply, a command, your interjection) keeps them separate.
 - **Inline file links need the optional file-mentions service** — the same off switch the chat view uses.
-
-## Install
-
-```sh
-# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
-dsh plugin --profile web add @dingyi222666/dsh-focus-chat
-# 重启 dsh web，工具自动挂载
-dsh web
-```
-
-Then open the 聚焦对话 / Focus chat tab in any conversation.
-
-Notes:
-
-- `dsh plugin` behaves like adding a dependency to your web profile; the plugin's bundle patch applies automatically on the next boot.
-- With the repo source-launched CLI, run the args through the bin directly (`node --import tsx/esm apps/cli/src/bin.ts ...`).
 
 ## Development
 
