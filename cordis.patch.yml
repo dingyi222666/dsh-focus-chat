@@ -4,4 +4,4 @@
 # lib/client.js into the boot graph and the browser shows the 聚焦 tab.
 - insert:
     - id: ui-focus
-      name: 'dsh-focus-chat'
+      name: '@dingyi222666/dsh-focus-chat'

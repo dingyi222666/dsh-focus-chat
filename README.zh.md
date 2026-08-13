@@ -19,7 +19,7 @@ dsh web
 
 说明：
 
-- `dsh plugin` 相当于给 web profile 加一个依赖；插件的 bundle patch 会在下次启动时自动生效。
+- `dsh plugin` 相当于给 web profile 加一个依赖。bundle 型插件需要在 profile 的 `dsh.profile.bundles` 里出现它的完整包名才会被加载（新版本 dsh 会自动加；如果你的版本没加，请手动补上）；bundle patch 在下次启动时生效。
 - 用仓库源码启动的 CLI 时，请直接调用 bin（`node --import tsx/esm apps/cli/src/bin.ts ...`）。
 
 ## 截图

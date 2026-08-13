@@ -19,7 +19,7 @@ Then open the 聚焦对话 / Focus chat tab in any conversation.
 
 Notes:
 
-- `dsh plugin` behaves like adding a dependency to your web profile; the plugin's bundle patch applies automatically on the next boot.
+- `dsh plugin` behaves like adding a dependency to your web profile. A bundle plugin is loaded once its full package name appears in the profile's `dsh.profile.bundles` list (adds automatically on recent dsh builds; add it manually if your build does not); the bundle patch applies on the next boot.
 - With the repo source-launched CLI, run the args through the bin directly (`node --import tsx/esm apps/cli/src/bin.ts ...`).
 
 ## Screenshots

@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url'
 import type { UserConfig } from 'tsdown'
 import { transform } from 'lightningcss'
 
-const PLUGIN_ID = 'dsh-focus-chat'
+const PLUGIN_ID = '@dingyi222666/dsh-focus-chat'
 
 /** The browser platform seed modules the shell shares into the frozen module table. */
 const PLATFORM_MODULES = [
