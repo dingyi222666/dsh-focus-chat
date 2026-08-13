@@ -6,6 +6,21 @@
 
 一个给 dsh Web GUI 的插件，加了一个 **聚焦对话** 标签页——用 Claude Code 的方式精简地读对话。
 
+## 截图
+
+| 关闭——普通 chat 视图 | 开启——聚焦对话视图 |
+| --- | --- |
+| ![关闭：普通 chat 视图](screenshots/before.png) | ![开启：聚焦对话视图](screenshots/after.png) |
+
+不再一步步盯着过程，一个助手回合会收成一条摘要行：
+
+> 思考了 36 秒，载入了 3 项上下文，运行了 2 个命令，编辑了 8 次，读取了 17 个文件，列出了 18 个目录
+> (Thought for 36s, loaded 3 context items, ran 2 shell commands, edited 8 files, read 17 files, listed 18 directories)
+
+整回合还能再收成一条 `工作了 X 分 Y 秒` / `Worked for Xm Ys` 行。点任何一行都能展开成完整细节——工具卡片、思考、上下文注入、产物、复制/fork 操作——全部和普通 chat 行同款画法。中途插话会把折叠按段切开，每段带自己的时长；被停止的回合显示 `用户 X 后停止` / `Stopped after X` 而不是"工作了"。当一条上下文注入自带一句话摘要——比如 tool-tasks 后台任务完成后的 `bash pnpm install [status: completed]`——这条摘要也会写进摘要行（`注入了 …` / `injected …`），而不只是 `载入了 N 项上下文` 的数量。
+
+想看"刚才到底发生了什么"就切过来，想看完整过程就切回 chat。
+
 ## 安装
 
 ```sh
@@ -21,21 +36,6 @@ dsh web
 
 - `dsh plugin` 相当于给 web profile 加一个依赖。bundle 型插件需要在 profile 的 `dsh.profile.bundles` 里出现它的完整包名才会被加载（新版本 dsh 会自动加；如果你的版本没加，请手动补上）；bundle patch 在下次启动时生效。
 - 用仓库源码启动的 CLI 时，请直接调用 bin（`node --import tsx/esm apps/cli/src/bin.ts ...`）。
-
-## 截图
-
-| 关闭——普通 chat 视图 | 开启——聚焦对话视图 |
-| --- | --- |
-| ![关闭：普通 chat 视图](screenshots/before.png) | ![开启：聚焦对话视图](screenshots/after.png) |
-
-不再一步步盯着过程，一个助手回合会收成一条摘要行：
-
-> 思考了 36 秒，载入了 3 项上下文，运行了 2 个命令，编辑了 8 次，读取了 17 个文件，列出了 18 个目录
-> (Thought for 36s, loaded 3 context items, ran 2 shell commands, edited 8 files, read 17 files, listed 18 directories)
-
-整回合还能再收成一条 `工作了 X 分 Y 秒` / `Worked for Xm Ys` 行。点任何一行都能展开成完整细节——工具卡片、思考、上下文注入、产物、复制/fork 操作——全部和普通 chat 行同款画法。中途插话会把折叠按段切开，每段带自己的时长；被停止的回合显示 `用户 X 后停止` / `Stopped after X` 而不是"工作了"。当一条上下文注入自带一句话摘要——比如 tool-tasks 后台任务完成后的 `bash pnpm install [status: completed]`——这条摘要也会写进摘要行（`注入了 …` / `injected …`），而不只是 `载入了 N 项上下文` 的数量。
-
-想看"刚才到底发生了什么"就切过来，想看完整过程就切回 chat。
 
 ## 为什么要单独一个标签页？为什么不直接改 chat？
 
