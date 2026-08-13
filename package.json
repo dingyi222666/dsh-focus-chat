@@ -1,5 +1,5 @@
 {
-  "name": "dsh-focus-chat",
+  "name": "@dingyi222666/dsh-focus-chat",
   "version": "0.1.0",
   "description": "Claude Code-style focus view for the dsh web GUI: the conversation's condensed reading surface — tool calls folded into expandable metric summaries, chat 1:1 row chrome, and streaming think rows",
   "type": "module",
@@ -81,7 +81,6 @@
     "vitest": "^4.1.8"
   },
   "license": "BSD-3-Clause",
-  "private": true,
   "types": "lib/types/index.d.ts",
   "files": [
     "lib/index.js",
@@ -89,5 +88,8 @@
     "lib/client.js",
     "lib/types/**/*.d.ts",
     "cordis.patch.yml"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

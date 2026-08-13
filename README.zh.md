@@ -45,8 +45,8 @@
 ## 安装
 
 ```sh
-# 从 GitHub 安装（需 dsh 内测环境）
-dsh plugin --profile web add github:dingyi222666/dsh-focus-chat
+# 从 npm 安装
+dsh plugin --profile web add @dingyi222666/dsh-focus-chat
 # 重启 dsh web，工具自动挂载
 dsh web
 ```
