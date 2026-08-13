@@ -9,8 +9,8 @@
 ## 安装
 
 ```sh
-# 从 GitHub 安装（需要 dsh >= 0.1.0-rc.6）
-dsh plugin --profile web add github:dingyi222666/dsh-focus-chat
+# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
+npx dsh plugin --profile web add @dingyi222666/dsh-focus-chat
 # 重启 dsh web，工具自动挂载
 dsh web
 ```
