@@ -1,5 +1,7 @@
 # dsh-focus-chat
 
+[![npm version](https://img.shields.io/npm/v/@dingyi222666/dsh-focus-chat.svg)](https://www.npmjs.com/package/@dingyi222666/dsh-focus-chat)
+
 English | [中文](README.zh.md)
 
 A plugin for the dsh web GUI that adds a **focus chat** tab — a condensed, Claude Code–style way to read a conversation.
@@ -45,7 +47,7 @@ Focus chat is a faithful reading surface, not a second chat view:
 ## Install
 
 ```sh
-# 从 npm 安装
+# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
 dsh plugin --profile web add @dingyi222666/dsh-focus-chat
 # 重启 dsh web，工具自动挂载
 dsh web

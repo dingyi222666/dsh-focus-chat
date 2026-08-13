@@ -1,5 +1,7 @@
 # dsh-focus-chat
 
+[![npm version](https://img.shields.io/npm/v/@dingyi222666/dsh-focus-chat.svg)](https://www.npmjs.com/package/@dingyi222666/dsh-focus-chat)
+
 [English](README.md) | 中文
 
 一个给 dsh Web GUI 的插件，加了一个 **聚焦对话** 标签页——用 Claude Code 的方式精简地读对话。
@@ -45,7 +47,7 @@
 ## 安装
 
 ```sh
-# 从 npm 安装
+# 从 npm 安装（需要 dsh >= 0.1.0-rc.6）
 dsh plugin --profile web add @dingyi222666/dsh-focus-chat
 # 重启 dsh web，工具自动挂载
 dsh web
