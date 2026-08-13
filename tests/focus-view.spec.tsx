@@ -57,7 +57,7 @@ function sessionsStore(cwd: string | undefined) {
     current: SID,
     phase: 'ready',
     subagentsByParent: {},
-    tasksBySession: {},
+    jobsBySession: {},
     currentAddress: undefined,
   })
 }
@@ -1575,10 +1575,10 @@ it('renders the empty hint for an empty conversation', () => {
 describe('plugin apply', () => {
   it('registers the focus tab on a real slot ring and disposes with the fiber', async () => {
     const { Context } = await import('@deepseek-ai/cordis')
-    const { SlotsService } = await import('@deepseek-ai/dsh-client-runtime/client')
+    const { SlotRegistry } = await import('@deepseek-ai/dsh-client-runtime/client')
     const { apply, inject } = await import('../src/client/index.ts')
     const ctx = new Context()
-    const slots = new SlotsService(ctx)
+    const slots = new SlotRegistry(ctx)
     slots.register({
       name: 'root',
       children: { 'conversation.view': { kind: 'list', scope: 'session' } },

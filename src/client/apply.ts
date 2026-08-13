@@ -5,7 +5,7 @@
 export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'connection']
 import type { Context } from '@deepseek-ai/cordis'
 import { resolveWorkspacePath, type ClientContext, type SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConversationService, IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { ConversationController, IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -56,7 +56,7 @@ export function apply(ctx: Context): void {
       // Session-authorized historical image resolution (the chat view's
       // image gallery loader); absent service degrades to a rejection.
       loadImage: (attachment: ImageAttachmentRef) => {
-        const conversation = ctx.get('conversation') as ConversationService | undefined
+        const conversation = ctx.get('conversation') as ConversationController | undefined
         if (conversation === undefined) {
           return Promise.reject(new Error('dsh-focus-chat: conversation service unavailable'))
         }
