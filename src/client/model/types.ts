@@ -65,7 +65,7 @@ export type FocusGroupItem = FocusContextItem | FocusGroupThink | FocusToolRow
 export type FocusMetricKey =
   | 'commands' | 'edits' | 'searches' | 'files' | 'dirs'
   | 'subagents' | 'todos' | 'goals' | 'workflows'
-  | 'skills' | 'questions' | 'plans'
+  | 'skills' | 'questions' | 'plans' | 'jobs'
 
 /** Tool name → metric family; unknown tools carry no metric. Writes fold
  *  into the edit family (the summary line reads one "edited" segment); the
@@ -91,6 +91,11 @@ export interface FocusGroupMetrics {
   questions: number
   /** Plan-mode entries (plan): "planned N times". */
   plans: number
+  /** Background-job activity (job_output / job_kill / job_list calls and the
+   *  tool-jobs settlements a `notice` context injection carries): the summary
+   *  line reads "N background jobs" — the settlement's own one-line account
+   *  no longer rides the line verbatim. */
+  jobs: number
   /** Failed calls in the failure-aware families (error-state rows): command
    *  execution and other tools. File operations never carry a failure tally —
    *  the edit family's count is the outcome (distinct files actually edited). */

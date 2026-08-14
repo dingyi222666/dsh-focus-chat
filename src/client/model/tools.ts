@@ -33,6 +33,11 @@ export const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   skill: 'skills',
   ask_user_question: 'questions',
   plan: 'plans',
+  job_output: 'jobs',
+  job_kill: 'jobs',
+  job_list: 'jobs',
+  read_image: 'files',
+  str_replace_editor: 'edits',
 }
 
 /** Per-family call counts and their error rows ("Ran N commands (M failed)"). */
@@ -122,6 +127,7 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   bash: 'bash',
   pwsh: 'bash',
   read: 'read',
+  read_image: 'read',
   web_fetch: 'read',
   web_search: 'search',
   grep: 'search',
@@ -129,8 +135,16 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   ask_user_question: 'question',
   write: 'write',
   edit: 'edit',
+  str_replace_editor: 'edit',
   run_code: 'code',
   cordis_inspect: 'read',
+  cordis_inspect_list: 'read',
+  cordis_inspect_query: 'read',
+  cordis_inspect_self: 'read',
+  cordis_define: 'code',
+  cordis_run: 'code',
+  cordis_stop: 'code',
+  cordis_undefine: 'code',
   cordis_mount: 'code',
   cordis_unmount: 'others',
 }
@@ -138,8 +152,21 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
 /** Tool-owned titles that refine a generic row variant without replacing it. */
 const TOOL_TITLES: Readonly<Record<string, string>> = {
   cordis_inspect: 'Inspect',
+  cordis_inspect_list: 'Inspect',
+  cordis_inspect_query: 'Inspect',
+  cordis_inspect_self: 'Inspect',
+  cordis_define: 'Define Plugin',
+  cordis_run: 'Run Plugin',
+  cordis_stop: 'Stop Plugin',
+  cordis_undefine: 'Undefine Plugin',
   cordis_mount: 'Mount temporary Plugin',
   cordis_unmount: 'Unmount temporary Plugin',
+  job_output: 'Job output',
+  job_kill: 'Kill job',
+  job_list: 'List jobs',
+  send_message: 'Send message',
+  interrupt_agent: 'Interrupt agent',
+  list_agents: 'List agents',
   pwsh: 'Pwsh',
 }
 
@@ -388,7 +415,7 @@ export function toolGroup(
   const metrics: FocusGroupMetrics = {
     commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,
     subagents: 0, todos: 0, goals: 0, workflows: 0,
-    skills: 0, questions: 0, plans: 0,
+    skills: 0, questions: 0, plans: 0, jobs: 0,
     commandsFailed: 0, searchesFailed: 0,
   }
   // The edit family counts the distinct files ACTUALLY edited — a file with

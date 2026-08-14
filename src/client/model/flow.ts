@@ -442,12 +442,19 @@ export function buildFocusFlow(
         }
       }
       const group = toolGroup(pending.blocks, cwd, null, [])
+      // A notice-form injection (a tool-jobs settlement) is background-job
+      // activity, not context the user loaded: it counts into the jobs
+      // family ("后台任务 N 个" / "N background jobs") and leaves the loaded
+      // context count to the non-notice injections. Its row still expands
+      // inside the group with the notice body.
+      const noticeJobs = absorbedContext.filter(item => item.context?.form === 'notice').length
       const folded: FocusToolGroup = {
         ...group,
         nodeKeys: pending.keys,
         items: [...absorbedContext, ...group.items],
-        contextCount: absorbedContext.length,
+        contextCount: absorbedContext.length - noticeJobs,
         context: absorbedContext,
+        metrics: { ...group.metrics, jobs: group.metrics.jobs + noticeJobs },
       }
       // Merge directly-consecutive runs — in the flow or in the turn-fold
       // buffer — into one summary line: metrics and thinking time aggregate,
@@ -476,6 +483,7 @@ export function buildFocusFlow(
             skills: prev.metrics.skills + folded.metrics.skills,
             questions: prev.metrics.questions + folded.metrics.questions,
             plans: prev.metrics.plans + folded.metrics.plans,
+            jobs: prev.metrics.jobs + folded.metrics.jobs,
             commandsFailed: prev.metrics.commandsFailed + folded.metrics.commandsFailed,
             searchesFailed: prev.metrics.searchesFailed + folded.metrics.searchesFailed,
           },

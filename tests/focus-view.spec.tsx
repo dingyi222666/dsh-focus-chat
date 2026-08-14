@@ -441,6 +441,25 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.queryByText('全部失败', { selector: '[data-group-title-failed]' })).toBeNull()
   })
 
+  it('reads background-job calls, image reads, and str_replace edits as their own families', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'job_output', '{"job_id":"j1"}') }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'job_kill', '{"job_id":"j2"}') }),
+    ])
+    // The job control tools fold into the background-jobs family.
+    expect(fullText('后台任务 2 个')).toBeTruthy()
+    renderView([
+      chatNode('t3', 'tool-call', { root: settledCall('c3', 'read_image', '{"path":"/ws/a.png"}') }),
+    ])
+    // An image read counts as a file read.
+    expect(fullText('读取了 1 个文件')).toBeTruthy()
+    renderView([
+      chatNode('t4', 'tool-call', { root: settledCall('c4', 'str_replace_editor', '{"command":"str_replace","path":"/ws/a.ts"}') }),
+    ])
+    // str_replace_editor is an edit tool: the file counts as edited.
+    expect(fullText('编辑了 1 个文件')).toBeTruthy()
+  })
+
   it('shows a dirs-only exploration metric, the edit family folding writes, and the total-count fallback', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'glob', '{}') }),
@@ -1122,7 +1141,7 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('rules text')).toBeTruthy()
   })
 
-  it('surfaces a tool-tasks notice injection as a segment of the summary line', () => {
+  it('classifies a tool-jobs notice injection into the background-jobs family', () => {
     const turn = {
       turn: 1,
       start: { time: 1000 },
@@ -1150,12 +1169,13 @@ it('renders the empty hint for an empty conversation', () => {
       }),
       at('t1', 'tool-call', { root: settledCall('c1x', 'bash', '{}') }),
     ])
-    // The notice's own one-line account rides the summary line beside the
-    // count, not just "loaded 1 context item".
-    expect(screen.getByText('载入了 1 项上下文，注入了 bash pnpm install [status: completed]，运行了 1 个命令')).toBeTruthy()
+    // A settlement counts into the background-jobs family, not as a loaded
+    // context item or a verbatim "injected <summary>" account.
+    expect(screen.getByText('运行了 1 个命令，后台任务 1 个')).toBeTruthy()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
-    // Expanding the group reveals the absorbed context row with its notice body.
-    fireEvent.click(screen.getByText('载入了 1 项上下文，注入了 bash pnpm install [status: completed]，运行了 1 个命令'))
+    expect(screen.queryByText(/注入了/)).toBeNull()
+    // Expanding the group reveals the absorbed notice row with its body.
+    fireEvent.click(screen.getByText('运行了 1 个命令，后台任务 1 个'))
     expect(screen.getByText('tool-tasks')).toBeTruthy()
   })
 
