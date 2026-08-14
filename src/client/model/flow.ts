@@ -377,7 +377,15 @@ export function buildFocusFlow(
         pendingFoldTurn = turnId
         closing = { ...item, blocks }
       }
-      flushFold(null)
+      // A closing reply that lands with nothing buffered still ends the
+      // current stretch — but only when a stretch is actually open. When a
+      // mid-turn steering opened a fresh segment whose rows arrive after this
+      // reply (the chat can emit the closing text, then keep running tools in
+      // the same step), flushing now would clear the segment start and the
+      // later rows would fold from the turn start, misreading the stretch.
+      if (pendingFold.length > 0 || pendingFoldStart === null) {
+        flushFold(null)
+      }
       flow.push(closing)
       return
     }

@@ -1572,6 +1572,111 @@ it('renders the empty hint for an empty conversation', () => {
   })
 })
 
+describe('resubmitted turn durations', () => {
+  it('keeps a short re-submitted turn\'s worked duration short (two turns)', () => {
+    const turn1 = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 8000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const turn2 = {
+      turn: 2,
+      start: { time: 10000 },
+      end: { time: 13000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at1 = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn: turn1 } as never)
+    const at2 = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn: turn2 } as never)
+    renderView([
+      at1('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'first' }], source: null,
+      }),
+      at1('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 4000,
+        blocks: [{ kind: 'text', text: 'first reply' }],
+        finalNode: {
+          kind: 'assistant', seq: 10, time: 4000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 2000, completedTime: 4000 },
+        },
+      }),
+      at1('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      at2('u2', 'user', {
+        kind: 'user', seq: 12, time: 10000,
+        content: [{ type: 'text', text: 'resubmit' }], source: null,
+      }),
+      at2('a2', 'assistant-step', {
+        status: 'settled', turn: 2, step: 1, time: 13000,
+        blocks: [{ kind: 'text', text: 'short reply' }],
+        finalNode: {
+          kind: 'assistant', seq: 20, time: 13000, turn: 2, step: 1, blocks: [],
+          timing: { stepStartTime: 10000, firstTokenTime: 10900, completedTime: 13000 },
+        },
+      }),
+      at2('t2', 'tool-call', { root: settledCall('c2', 'bash', '{}') }),
+    ])
+    // Turn 1 spans 7s (with a tool run); turn 2 spans 3s (with a tool run).
+    // The second worked line must read the re-submitted turn's own duration,
+    // not the first turn's.
+    expect(screen.getByText('工作了 7 秒')).toBeTruthy()
+    expect(screen.getByText('工作了 3 秒')).toBeTruthy()
+  })
+
+  it('keeps the re-submitted stretch short after a mid-turn steering (same turn)', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 8000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 4000,
+        blocks: [{ kind: 'text', text: 'first reply' }],
+        finalNode: {
+          kind: 'assistant', seq: 10, time: 4000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 2000, completedTime: 4000 },
+        },
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      // Mid-turn pause + resubmit: a steering message at t=6000.
+      at('s1', 'steering', {
+        kind: 'steering', seq: 11, time: 6000,
+        content: [{ type: 'text', text: 'wait no' }], source: null,
+      }),
+      // A reply lands before the resumed tool run (the real chat can emit
+      // the closing reply then keep running tools in the same step).
+      at('a2', 'assistant-step', {
+        status: 'settled', turn: 1, step: 2, time: 7000,
+        blocks: [{ kind: 'text', text: 'redone reply' }],
+        finalNode: {
+          kind: 'assistant', seq: 20, time: 7000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 6100, firstTokenTime: 6500, completedTime: 7000 },
+        },
+      }),
+      at('t2', 'tool-call', { root: settledCall('c2', 'bash', '{}') }),
+    ])
+    // First stretch: turn start (1000) → steering (6000) = 5s. Second stretch:
+    // steering (6000) → turn end (8000) = 2s. The second worked line must NOT
+    // reuse the whole-turn 7s.
+    expect(screen.getByText('工作了 5 秒')).toBeTruthy()
+    expect(screen.getByText('工作了 2 秒')).toBeTruthy()
+    expect(screen.queryByText('工作了 7 秒')).toBeNull()
+  })
+})
+
 describe('plugin apply', () => {
   it('registers the focus tab on a real slot ring and disposes with the fiber', async () => {
     const { Context } = await import('@deepseek-ai/cordis')
