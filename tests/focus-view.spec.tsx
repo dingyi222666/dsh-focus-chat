@@ -696,6 +696,25 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('doing it')).toBeTruthy()
   })
 
+  it('keeps a folded think from sweeping while a group call still runs', () => {
+    renderView([
+      // A settled run, then a settled assistant whose reasoning folds into
+      // the group, then a still-running call that merges into the same
+      // group — the group paints a summary and the live row keeps running.
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      assistantNode('a1', 'settled', 'thinking text', 3000),
+      chatNode('t2', 'tool-call', { root: runningCall('c2', 'bash', '{"command":"build"}') }),
+    ])
+    // The folded think's metric rides the line; the settled call counts,
+    // the still-running one does not.
+    expect(fullText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
+    // Expand the group: the folded think is settled reasoning — it must not
+    // carry the sweep animation just because the group's call still runs.
+    fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 1 个命令'))
+    const think = screen.getByText('Think').closest('[data-state]')
+    expect(think?.getAttribute('data-state')).toBe('ok')
+  })
+
 
   it('lets the terminal description and search title outrank the args summary', () => {
     renderView([

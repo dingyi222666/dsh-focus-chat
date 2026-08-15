@@ -64,9 +64,11 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, o
             // An absorbed context injection expands to its chat row.
             <ContextRow key={item.nodeKey} item={item} t={t} codeLabels={codeLabels} />
           ) : (
-            // The absorbed thinking keeps its running sweep while any call in
-            // the group executes, not only while the assistant streams.
-            <ThinkRow key={index} text={item.text} running={item.running || group.running} title={t('think')} t={t} />
+            // The absorbed thinking is settled reasoning — only settled
+            // thinks fold into a group, the streaming tail stays on the
+            // running assistant's own Think row — so it never sweeps, even
+            // while another call in the group is still executing.
+            <ThinkRow key={index} text={item.text} running={item.running} title={t('think')} t={t} />
           )
         ))}
       </div>
