@@ -122,14 +122,15 @@
   transition: background-color .2s;
 }
 
-/* The scroll-spy active entry: brand blue, bolder label, enlarged dash. */
+/* The scroll-spy active entry: the business-primary blue, bolder label,
+   enlarged dash. */
 .item[data-active] .label {
-  color: var(--dsw-alias-brand-text);
+  color: var(--dsw-alias-state-business-primary);
   font-weight: 500;
 }
 
 .item[data-active] .dash {
-  background-color: var(--dsw-alias-brand-text);
+  background-color: var(--dsw-alias-state-business-primary);
   transform-origin: 50%;
   transform: scale(1.5);
 }
