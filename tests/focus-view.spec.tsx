@@ -1532,14 +1532,15 @@ it('renders the empty hint for an empty conversation', () => {
     Object.defineProperty(el, 'clientHeight', { value: 600, configurable: true })
     for (const row of document.querySelectorAll<HTMLElement>('[data-focus-anchor-key]')) {
       const top = row.dataset.focusAnchorKey === 'u1' ? -300
-        : row.dataset.focusAnchorKey === 'u2' ? -100 : 300
+        : row.dataset.focusAnchorKey === 'u2' ? -100 : 700
       Object.defineProperty(row, 'getBoundingClientRect', { value: () => rect(top, top + 40), configurable: true })
     }
     el.scrollTop = 500
     fireEvent.scroll(el)
     const items = [...screen.getByRole('navigation').querySelectorAll('button')]
-    // The active entry is the last whose row cleared the probe line (top + 96):
-    // u1 and u2 have, u3 has not — so u2 is active.
+    // The active entry is the one closest to the input bar — the last whose
+    // row clears the visible bottom edge (top + height = 600): u1 and u2
+    // have, u3 (at 700) has not — so u2 is active.
     expect(items[1].getAttribute('data-active')).toBe('true')
     expect(items[0].getAttribute('data-active')).toBeNull()
     expect(items[2].getAttribute('data-active')).toBeNull()

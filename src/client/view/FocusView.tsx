@@ -27,9 +27,6 @@ function runningTurnStartTime(timeline: ConversationTimelineSnapshot): number | 
 
 const FOLLOW_THRESHOLD = 24
 
-/** The scroll-spy probe: how far below the scrollport top an entry's row
- *  must clear to become the active navigation entry. */
-const NAV_SPY_OFFSET = 96
 /** Where a nav jump places the entry row: a small gap under the scrollport top. */
 const NAV_JUMP_OFFSET = 12
 
@@ -284,9 +281,11 @@ export function FocusView({
 
   /** Cached navigation entry row elements (rebuilt when the entry list changes). */
   const entryElementsRef = useRef<ReadonlyMap<string, HTMLElement>>(new Map())
-  /** Scroll-spy pass: the last entry whose row cleared the probe line is the
-   *  active navigation entry; before the first row clears, the first entry
-   *  is. Runs on scroll, on entry-list change, and after a nav jump. */
+  /** Scroll-spy pass: the active entry is the one closest to the input bar —
+   *  the last entry whose row still clears the visible area's bottom edge
+   *  (the composer seat when present), not the one at the viewport top.
+   *  Before the first row clears, the first entry is. Runs on scroll, on
+   *  entry-list change, and after a nav jump. */
   const updateNavActiveRef = useRef<() => void>(() => {})
   updateNavActiveRef.current = () => {
     const local = listRef.current
@@ -295,11 +294,15 @@ export function FocusView({
       return
     }
     const el = scrollerOf(local)
-    const probe = el.getBoundingClientRect().top + NAV_SPY_OFFSET
+    const viewport = el.getBoundingClientRect()
+    const composer = el.querySelector<HTMLElement>('[data-composer-seat]')
+    const visibleBottom = composer === null
+      ? viewport.bottom
+      : Math.min(viewport.bottom, composer.getBoundingClientRect().top)
     let active: string | null = null
     for (const entry of navEntries) {
       const row = entryElementsRef.current.get(entry.key)
-      if (row !== undefined && row.getBoundingClientRect().top <= probe) active = entry.key
+      if (row !== undefined && row.getBoundingClientRect().top < visibleBottom) active = entry.key
     }
     setActiveNavKey(active ?? navEntries[0].key)
   }
