@@ -1,53 +1,37 @@
-/* The in-view scroll navigation rail: a DeepSeek-chat-style right-edge pill
-   of entry dashes that expands on hover to list every user / steering
-   message. Rendered as the FIRST flow child of the focus scrollport with
-   zero height, so its sticky top:50% engages from the very top of the
-   conversation: the rail floats at the scrollport's right edge, vertically
-   centered, and stays there while scrolling — never a shell overlay, so a
-   right-hand workbench panel cannot cover it. The accent follows the
-   harness controls' brand blue. */
+/* The in-view scroll navigation rail (the DeepSeek chat's page nav): a
+   right-edge strip of entry dashes, position:fixed at the viewport's
+   right-middle (pure CSS — top:50% + translateY(-50%)), that expands on
+   hover to a 240px card listing every user / steering message. Collapsed
+   there is NO capsule: just the blue dash strip. The z-index sits above
+   the conversation's content chrome (the code-block copy banner is 6), so
+   nothing covers the rail. All colors are harness tokens. */
 
 .rail {
   -webkit-user-select: none;
   user-select: none;
-  z-index: 5;
-  position: sticky;
+  z-index: 10;
+  position: fixed;
   top: 50%;
-  height: 0;
-  margin-left: auto;
-  margin-right: 8px;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 292px;
+  max-height: calc(100vh - 48px);
   align-items: center;
   display: flex;
 }
 
-/* The collapsed pill the dashes ride on (behind the panel): the harness
-   active-ghost fill token — the same light brand blue wash the controls
-   use — so it adapts to the theme with the rest of the app. */
-.pill {
-  z-index: -1;
-  background: var(--dsw-alias-button-ghost-active-fill);
-  border-radius: 16px;
-  width: 34px;
-  height: 292px;
-  max-height: calc(100vh - 48px);
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-}
-
-/* The expanded list panel: dashes only while collapsed (pointer-events none,
-   width fits the dash column), a titled 240px card once open. */
+/* The panel is the collapsed strip itself (no capsule): a 34px-wide,
+   transparent, hoverable dash column that opens into a 240px card. */
 .panel {
-  pointer-events: none;
+  pointer-events: auto;
   border: 1px solid transparent;
   border-radius: 16px;
   flex-direction: column;
   align-items: stretch;
-  width: fit-content;
-  max-width: 240px;
+  width: 34px;
   max-height: 292px;
-  transition: background .2s, box-shadow .2s;
+  transition: background .2s, box-shadow .2s, width .2s;
   display: flex;
   position: absolute;
   right: 0;
@@ -57,7 +41,6 @@
 }
 
 .rail[data-open] .panel {
-  pointer-events: auto;
   background: var(--dsw-alias-bg-layer-1);
   box-shadow: var(--dsw-shadow-lv3);
   border-color: var(--dsw-alias-border-inverted);
@@ -74,7 +57,9 @@
   overflow-y: auto;
 }
 
-/* One entry: the label left of its dash, right-aligned on the rail edge. */
+/* One entry: collapsed the row is right-aligned (the label is clipped, only
+   the dash shows); open the card text reads left-aligned with the dash at
+   the row's end. */
 .item {
   cursor: pointer;
   height: 30px;
@@ -92,6 +77,10 @@
   text-align: inherit;
 }
 
+.rail[data-open] .item {
+  justify-content: flex-start;
+}
+
 .item:hover {
   color: var(--dsw-alias-label-primary);
 }
@@ -104,8 +93,8 @@
   background-color: var(--dsw-alias-brand-text);
 }
 
-/* The label fades in only while the rail is open (the collapsed rail shows
-   the dash column only). */
+/* The label fades in only while the rail is open; open rows keep the text
+   left-aligned and let the ellipsis own the tail. */
 .label {
   font: var(--dsw-font-xs-13);
   text-overflow: ellipsis;
@@ -118,17 +107,23 @@
 
 .rail[data-open] .label {
   opacity: 1;
+  flex: 1;
+  text-align: left;
 }
 
-/* The entry dashes ride in the harness brand blue: the ghost-button active
-   border token while idle, the brand text token on hover / scroll-spy. */
+/* The dashes are the harness brand blue; once the white card opens they
+   step down to the ghost-button border blue until hover / scroll-spy. */
 .dash {
-  background-color: var(--dsw-alias-button-ghost-active-border);
+  background-color: var(--dsw-alias-brand-text);
   border-radius: 4px;
   flex-shrink: 0;
   width: 8px;
   height: 2px;
   transition: background-color .2s;
+}
+
+.rail[data-open] .dash {
+  background-color: var(--dsw-alias-button-ghost-active-border);
 }
 
 /* The scroll-spy active entry: brand blue, bolder label, enlarged dash. */

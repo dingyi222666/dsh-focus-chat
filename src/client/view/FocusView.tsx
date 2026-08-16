@@ -430,12 +430,9 @@ export function FocusView({
   return (
     <div className={css.root}>
       <div ref={listRef} className={css.scroll} data-focus-scroll="">
-        {/* The in-view navigation rail floats at the scrollport's right edge,
-            vertically centered. It sits FIRST in the scroll flow (zero
-            height) so its sticky top:50% engages from the very top of the
-            conversation — the rail stays visible at right-middle while
-            scrolling, and it never leaves the focus view, so a right-hand
-            workbench panel cannot cover it. */}
+        {/* The in-view navigation rail floats at the conversation's right
+            edge, vertically centered, via pure CSS (position:fixed,
+            top:50%) — no measuring, no scroll-following bookkeeping. */}
         <NavRail entries={navEntries} activeKey={activeNavKey} onSelect={jumpToNav} t={t} />
         <div ref={columnRef} className={css.column} data-focus-flow="">
         {openState === 'loading' && <div className={css.hint}>{t('loadingHistory')}</div>}

@@ -10,10 +10,10 @@ export interface FocusNavEntry {
 }
 
 /**
- * The in-view scroll navigation rail (the DeepSeek chat's page nav, moved
- * inside the focus scrollport so a right-hand workbench panel can never
- * cover it): a right-edge pill of entry dashes that expands on hover to
- * list every user / steering message. Clicking an entry jumps the focus
+ * The in-view scroll navigation rail (the DeepSeek chat's page nav): a
+ * right-edge strip of entry dashes, position:fixed at the scrollport's
+ * right-middle (pure CSS, no measuring), that expands on hover to list
+ * every user / steering message. Clicking an entry jumps the focus
  * scrollport to that row; the active entry follows the reader (scroll-spy).
  */
 export const NavRail = memo(function NavRail({ entries, activeKey, onSelect, t }: {
@@ -40,7 +40,6 @@ export const NavRail = memo(function NavRail({ entries, activeKey, onSelect, t }
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
       }}
     >
-      <div className={css.pill} aria-hidden />
       <div className={css.panel}>
         <div className={css.list}>
           {entries.map(entry => (
