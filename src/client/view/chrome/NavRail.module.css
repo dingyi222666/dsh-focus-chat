@@ -48,7 +48,7 @@
 
 /* Every entry renders — the card grows to fit, no scrollbar, no clipping. */
 .list {
-  padding: 15px 0 15px 24px;
+  padding: 12px 0 12px 24px;
   flex-direction: column;
   align-items: flex-end;
   display: flex;
@@ -59,7 +59,7 @@
    the row's end. */
 .item {
   cursor: pointer;
-  height: 30px;
+  height: 26px;
   color: var(--dsw-alias-label-tertiary);
   justify-content: flex-end;
   align-items: center;
