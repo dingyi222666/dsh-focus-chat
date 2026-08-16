@@ -12,10 +12,10 @@
   z-index: 10;
   position: fixed;
   top: 50%;
-  right: 8px;
+  right: 16px;
   transform: translateY(-50%);
   width: 34px;
-  height: 292px;
+  height: 300px;
   max-height: calc(100vh - 48px);
   align-items: center;
   display: flex;
@@ -30,7 +30,6 @@
   flex-direction: column;
   align-items: stretch;
   width: 34px;
-  max-height: 292px;
   transition: background .2s, box-shadow .2s, width .2s;
   display: flex;
   position: absolute;
@@ -47,22 +46,20 @@
   width: 240px;
 }
 
+/* Every entry renders — the card grows to fit, no scrollbar, no clipping. */
 .list {
-  max-height: 250px;
-  padding: 15px 0 15px 24px;
-  overscroll-behavior: contain;
+  padding: 20px 0 20px 24px;
   flex-direction: column;
   align-items: flex-end;
   display: flex;
-  overflow-y: auto;
 }
 
 /* One entry: collapsed the row is right-aligned (the label is clipped, only
    the dash shows); open the card text reads left-aligned with the dash at
-   the row's end. */
+   the row's end. The 36px rows give the text vertical breathing room. */
 .item {
   cursor: pointer;
-  height: 30px;
+  height: 36px;
   color: var(--dsw-alias-label-tertiary);
   justify-content: flex-end;
   align-items: center;
