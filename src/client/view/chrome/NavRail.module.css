@@ -46,12 +46,18 @@
   width: 240px;
 }
 
-/* Every entry renders — the card grows to fit, no scrollbar, no clipping. */
+/* Every entry renders — the card grows to fit, no scrollbar, no clipping.
+   The collapsed strip keeps its narrow right-gap layout; the open card uses
+   15px on all four sides, so the text start and the dash inset align. */
 .list {
   padding: 15px 8px 15px 8px;
   flex-direction: column;
   align-items: flex-end;
   display: flex;
+}
+
+.rail[data-open] .list {
+  padding: 15px;
 }
 
 /* One entry: collapsed the row is right-aligned (the label is clipped, only
@@ -76,6 +82,8 @@
 
 .rail[data-open] .item {
   justify-content: flex-start;
+  width: 100%;
+  margin-right: 0;
 }
 
 .item:hover {
