@@ -48,7 +48,7 @@
 
 /* Every entry renders — the card grows to fit, no scrollbar, no clipping. */
 .list {
-  padding: 20px 0 20px 24px;
+  padding: 15px 0 15px 24px;
   flex-direction: column;
   align-items: flex-end;
   display: flex;
@@ -56,10 +56,10 @@
 
 /* One entry: collapsed the row is right-aligned (the label is clipped, only
    the dash shows); open the card text reads left-aligned with the dash at
-   the row's end. The 36px rows give the text vertical breathing room. */
+   the row's end. */
 .item {
   cursor: pointer;
-  height: 36px;
+  height: 30px;
   color: var(--dsw-alias-label-tertiary);
   justify-content: flex-end;
   align-items: center;
