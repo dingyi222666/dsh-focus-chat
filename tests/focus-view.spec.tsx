@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** FocusView behavior: condensed flow rows, Think auto-expand/fold, running status, folded tool groups with full card expansion. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type {
@@ -169,7 +169,8 @@ it('renders the empty hint for an empty conversation', () => {
         blocks: [{ kind: 'text', text: 'answer text' }],
       }),
     ])
-    expect(screen.getByText('hello')).toBeTruthy()
+    // The user bubble renders the text (the nav rail duplicates the label).
+    expect(within(document.querySelector('[data-focus-anchor-key="u1"]') as HTMLElement).getByText('hello')).toBeTruthy()
     expect(screen.getByText('answer text')).toBeTruthy()
     expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
   })
@@ -843,7 +844,8 @@ it('renders the empty hint for an empty conversation', () => {
     // Flush the loader resolution: each MessageImage swaps its loading state
     // for the decoded <img>.
     await act(async () => {})
-    expect(screen.getByText('look')).toBeTruthy()
+    // The user caption renders in its bubble (the rail duplicates the label).
+    expect(within(document.querySelector('[data-focus-anchor-key="u1"]') as HTMLElement).getByText('look')).toBeTruthy()
     expect(screen.getByText('done')).toBeTruthy()
     expect(screen.getByAltText('shot.png')).toBeTruthy()
     expect(screen.getByAltText('out.png')).toBeTruthy()
@@ -931,7 +933,8 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('all done')).toBeTruthy()
     expect(screen.queryByText(/运行了 1 个命令/)).toBeNull()
     expect(screen.queryByText('injected rules')).toBeNull()
-    expect(screen.queryByText('go')).toBeTruthy()
+    // The user message stays visible outside the fold (the rail duplicates its label).
+    expect(within(document.querySelector('[data-focus-anchor-key="u1"]') as HTMLElement).getByText('go')).toBeTruthy()
     // Expanding the fold reveals the folded rows — the leading think (its
     // own duration row), the group, and the context injection.
     fireEvent.click(screen.getByText('工作了 7 秒'))
@@ -1035,7 +1038,8 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('工作了 2 秒')).toBeTruthy()
     expect(screen.getByText('工作了 5 秒')).toBeTruthy()
     expect(screen.queryByText('工作了 7 秒')).toBeNull()
-    expect(screen.getByText('wait no')).toBeTruthy()
+    // The steering stays visible (the rail duplicates its label).
+    expect(within(document.querySelector('[data-focus-anchor-key="s1"]') as HTMLElement).getByText('wait no')).toBeTruthy()
     expect(screen.getByText('fixed it')).toBeTruthy()
     expect(screen.queryByText('think two')).toBeNull()
     fireEvent.click(screen.getByText('工作了 5 秒'))
@@ -1457,6 +1461,88 @@ it('renders the empty hint for an empty conversation', () => {
     cleanup()
     renderView(nodes, { scroll, chat: chatOf(nodes, { openState: 'open' }) })
     expect((document.querySelector('[data-focus-scroll]') as HTMLElement).scrollTop).toBe(120)
+  })
+
+  it('lists user and steering messages in the in-view navigation rail', () => {
+    renderView([
+      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'first question\nmore' }], source: null }),
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      chatNode('s1', 'steering', { kind: 'steering', seq: 2, time: 2, content: [{ type: 'text', text: 'hold on' }] }),
+      chatNode('u2', 'user', { kind: 'user', seq: 3, time: 3, content: [{ type: 'text', text: 'second question' }], source: null }),
+      chatNode('c1', 'context', { kind: 'context', seq: 4, time: 4, content: [{ type: 'text', text: 'context text' }], source: { kind: 'file' }, provenance: { role: 'instructions', label: 'AGENTS.md' }, form: null }),
+      assistantNode('a1', 'settled', 'thinking', 3000),
+    ])
+    const nav = screen.getByRole('navigation')
+    // One entry per user / steering message, first line only, in flow order;
+    // tool runs, context injections, and assistant rows never join the rail.
+    const labels = [...nav.querySelectorAll('button')].map(button => button.textContent)
+    expect(labels).toEqual(['first question', 'hold on', 'second question'])
+    expect(nav.textContent).not.toContain('context text')
+    expect(nav.textContent).not.toContain('thinking')
+    // No rail on an empty conversation.
+    cleanup()
+    renderView([])
+    expect(screen.queryByRole('navigation')).toBeNull()
+  })
+
+  it('expands the rail on hover and collapses on leave', () => {
+    renderView([
+      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'hello' }], source: null }),
+    ])
+    const nav = screen.getByRole('navigation')
+    expect(nav.getAttribute('data-open')).toBeNull()
+    fireEvent.mouseEnter(nav)
+    expect(nav.getAttribute('data-open')).toBe('true')
+    fireEvent.mouseLeave(nav)
+    expect(nav.getAttribute('data-open')).toBeNull()
+  })
+
+  it('jumps the focus scrollport to the selected navigation entry', () => {
+    const saved = vi.fn()
+    const rect = (top: number, bottom: number) => ({
+      top, bottom, left: 0, right: 400, width: 400, height: bottom - top, x: 0, y: 0, toJSON: () => ({}),
+    })
+    renderView([
+      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'first' }], source: null }),
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      chatNode('u2', 'user', { kind: 'user', seq: 2, time: 2, content: [{ type: 'text', text: 'second' }], source: null }),
+    ], { scroll: { save: saved, read: () => null } })
+    const el = document.querySelector('[data-focus-scroll]') as HTMLElement
+    Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect(0, 600), configurable: true })
+    const target = document.querySelector('[data-focus-anchor-key="u2"]') as HTMLElement
+    Object.defineProperty(target, 'getBoundingClientRect', { value: () => rect(200, 240), configurable: true })
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'second' }))
+    // The row lands NAV_JUMP_OFFSET (12px) below the scrollport top.
+    expect(el.scrollTop).toBe(188)
+    expect(saved).toHaveBeenCalledWith(expect.objectContaining({ anchorKey: 'u2' }))
+  })
+
+  it('highlights the active navigation entry as the reader scrolls', () => {
+    const rect = (top: number, bottom: number) => ({
+      top, bottom, left: 0, right: 400, width: 400, height: bottom - top, x: 0, y: 0, toJSON: () => ({}),
+    })
+    renderView([
+      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'one' }], source: null }),
+      chatNode('u2', 'user', { kind: 'user', seq: 2, time: 2, content: [{ type: 'text', text: 'two' }], source: null }),
+      chatNode('u3', 'user', { kind: 'user', seq: 3, time: 3, content: [{ type: 'text', text: 'three' }], source: null }),
+    ])
+    const el = document.querySelector('[data-focus-scroll]') as HTMLElement
+    Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect(0, 600), configurable: true })
+    Object.defineProperty(el, 'scrollHeight', { value: 2000, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { value: 600, configurable: true })
+    for (const row of document.querySelectorAll<HTMLElement>('[data-focus-anchor-key]')) {
+      const top = row.dataset.focusAnchorKey === 'u1' ? -300
+        : row.dataset.focusAnchorKey === 'u2' ? -100 : 300
+      Object.defineProperty(row, 'getBoundingClientRect', { value: () => rect(top, top + 40), configurable: true })
+    }
+    el.scrollTop = 500
+    fireEvent.scroll(el)
+    const items = [...screen.getByRole('navigation').querySelectorAll('button')]
+    // The active entry is the last whose row cleared the probe line (top + 96):
+    // u1 and u2 have, u3 has not — so u2 is active.
+    expect(items[1].getAttribute('data-active')).toBe('true')
+    expect(items[0].getAttribute('data-active')).toBeNull()
+    expect(items[2].getAttribute('data-active')).toBeNull()
   })
 
   it('expands a Think row into its reasoning body', () => {

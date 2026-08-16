@@ -4,11 +4,14 @@ import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
+import { flattenText } from '../model/text.ts'
 import type { FocusFlowItem, FocusToolRow } from '../model/index.ts'
+import { firstLine } from './helpers/format.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
 import { PendingSteeringBubble } from './rows/UserBubble.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
+import { NavRail, type FocusNavEntry } from './chrome/NavRail.tsx'
 import css from './FocusView.module.css'
 
 /** Latest open turn's logged start time, mirroring the chat view's clock anchor. */
@@ -23,6 +26,12 @@ function runningTurnStartTime(timeline: ConversationTimelineSnapshot): number | 
 /** Elapsed clock copy: whole seconds, minute-padded past 60 (the chat view's rhythm). */
 
 const FOLLOW_THRESHOLD = 24
+
+/** The scroll-spy probe: how far below the scrollport top an entry's row
+ *  must clear to become the active navigation entry. */
+const NAV_SPY_OFFSET = 96
+/** Where a nav jump places the entry row: a small gap under the scrollport top. */
+const NAV_JUMP_OFFSET = 12
 
 /** Active conversation column host when present; otherwise the view-local scroller. */
 function scrollerOf(from: HTMLElement): HTMLElement {
@@ -116,6 +125,21 @@ export function FocusView({
     () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd),
     [chat, cwd],
   )
+  // The in-view navigation rail entries: every user / steering message (its
+  // first text line), in flow order. Context injections, assistant rows, and
+  // tool runs never join the rail; a message without text (image-only) is not
+  // a useful jump target.
+  const navEntries = useMemo(() => {
+    const entries: FocusNavEntry[] = []
+    for (const item of flow) {
+      if (item.kind !== 'message' || (item.role !== 'user' && item.role !== 'steering')) continue
+      const text = firstLine(flattenText(item.content)).replace(/\s+/g, ' ').trim()
+      if (text === '') continue
+      entries.push({ key: flowKey(item), label: text })
+    }
+    return entries
+  }, [flow])
+  const [activeNavKey, setActiveNavKey] = useState<string | null>(null)
   // The live-row debounce: a running call paints nothing until it has run
   // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
   // that settles into the summary a moment later (the flicker fix). The
@@ -258,6 +282,42 @@ export function FocusView({
     if (appendedUser || (tipMoved && atBottomRef.current)) toBottom(el)
   })
 
+  /** Cached navigation entry row elements (rebuilt when the entry list changes). */
+  const entryElementsRef = useRef<ReadonlyMap<string, HTMLElement>>(new Map())
+  /** Scroll-spy pass: the last entry whose row cleared the probe line is the
+   *  active navigation entry; before the first row clears, the first entry
+   *  is. Runs on scroll, on entry-list change, and after a nav jump. */
+  const updateNavActiveRef = useRef<() => void>(() => {})
+  updateNavActiveRef.current = () => {
+    const local = listRef.current
+    if (local === null || navEntries.length === 0) {
+      setActiveNavKey(null)
+      return
+    }
+    const el = scrollerOf(local)
+    const probe = el.getBoundingClientRect().top + NAV_SPY_OFFSET
+    let active: string | null = null
+    for (const entry of navEntries) {
+      const row = entryElementsRef.current.get(entry.key)
+      if (row !== undefined && row.getBoundingClientRect().top <= probe) active = entry.key
+    }
+    setActiveNavKey(active ?? navEntries[0].key)
+  }
+  // Rebuild the entry-row cache and re-run the spy whenever the entry list
+  // changes (new messages, prepend, or a restored mount).
+  useLayoutEffect(() => {
+    const local = listRef.current
+    const map = new Map<string, HTMLElement>()
+    if (local !== null) {
+      for (const entry of navEntries) {
+        const row = anchorElement(local, entry.key)
+        if (row !== null) map.set(entry.key, row)
+      }
+    }
+    entryElementsRef.current = map
+    updateNavActiveRef.current()
+  }, [navEntries])
+
   const onScrollRef = useRef(() => {})
   onScrollRef.current = () => {
     const local = listRef.current
@@ -289,6 +349,7 @@ export function FocusView({
     if (isAtBottom) scroll.save(null)
     else if (position !== null) scroll.save(position)
     observedTopRef.current = el.scrollTop
+    updateNavActiveRef.current()
   }
 
   // Bind the scroll listener on the resolved scrollport once per mount.
@@ -347,6 +408,23 @@ export function FocusView({
       }
     }
     loadOlder()
+  }
+
+  /** Jump the focus scrollport to one navigation entry's row (its top under
+   *  the scrollport edge); the reader is no longer pinned to the bottom. */
+  const jumpToNav = (key: string): void => {
+    const local = listRef.current
+    /* v8 ignore next -- ref-null guard: the rail only renders with the list mounted. */
+    if (local === null) return
+    const el = scrollerOf(local)
+    const row = anchorElement(local, key)
+    if (row === null) return
+    el.scrollTop += flowTop(row, el) - NAV_JUMP_OFFSET
+    observedTopRef.current = el.scrollTop
+    atBottomRef.current = false
+    setAtBottom(false)
+    scroll.save(scrollPosition(local, el))
+    updateNavActiveRef.current()
   }
 
   return (
@@ -414,6 +492,11 @@ export function FocusView({
           </div>
         )}
         </div>
+        {/* The in-view navigation rail rides the same scrollport (last flow
+            child, zero height): it floats over the conversation and sticks to
+            the viewport center while scrolling, and never leaves the view, so
+            a right-hand workbench panel cannot cover it. */}
+        <NavRail entries={navEntries} activeKey={activeNavKey} onSelect={jumpToNav} t={t} />
       </div>
     </div>
   )

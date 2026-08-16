@@ -1,0 +1,150 @@
+/* The in-view scroll navigation rail: a DeepSeek-chat-style right-edge pill
+   of entry dashes that expands on hover to list every user / steering
+   message. Rendered as the last flow child of the focus scrollport with
+   zero height, so it floats over the conversation and sticks to the
+   viewport center while scrolling — never a shell overlay, so a right-hand
+   workbench panel cannot cover it. */
+
+.rail {
+  -webkit-user-select: none;
+  user-select: none;
+  z-index: 5;
+  position: sticky;
+  top: 50%;
+  height: 0;
+  margin-left: auto;
+  margin-right: 8px;
+  align-items: center;
+  display: flex;
+}
+
+/* The collapsed pill the dashes ride on (behind the panel). */
+.pill {
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  z-index: -1;
+  background-color: rgba(255, 255, 255, .8);
+  border-radius: 16px;
+  width: 34px;
+  height: 292px;
+  max-height: calc(100vh - 48px);
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+:global([data-ds-dark-theme]) .pill {
+  background-color: rgba(21, 21, 23, .6);
+}
+
+/* The expanded list panel: dashes only while collapsed (pointer-events none,
+   width fits the dash column), a titled 240px card once open. */
+.panel {
+  pointer-events: none;
+  border: 1px solid transparent;
+  border-radius: 16px;
+  flex-direction: column;
+  align-items: stretch;
+  width: fit-content;
+  max-width: 240px;
+  max-height: 292px;
+  transition: background .2s, box-shadow .2s;
+  display: flex;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  overflow: hidden;
+}
+
+.rail[data-open] .panel {
+  pointer-events: auto;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: var(--dsw-shadow-lv3);
+  border-color: var(--dsw-alias-border-inverted);
+  width: 240px;
+}
+
+.list {
+  max-height: 250px;
+  padding: 15px 0 15px 24px;
+  overscroll-behavior: contain;
+  flex-direction: column;
+  align-items: flex-end;
+  display: flex;
+  overflow-y: auto;
+}
+
+/* One entry: the label left of its dash, right-aligned on the rail edge. */
+.item {
+  cursor: pointer;
+  height: 30px;
+  color: var(--dsw-alias-label-tertiary);
+  justify-content: flex-end;
+  align-items: center;
+  width: calc(100% - 6px);
+  margin-right: 8px;
+  line-height: 20px;
+  display: flex;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  text-align: inherit;
+}
+
+.item:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.item:hover .label {
+  color: var(--dsw-alias-label-primary);
+}
+
+.item:hover .dash {
+  background-color: var(--dsw-alias-label-primary);
+}
+
+/* The label fades in only while the rail is open (the collapsed rail shows
+   the dash column only). */
+.label {
+  font: var(--dsw-font-xs-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  margin-right: 12px;
+  transition: opacity .1s, color .2s;
+  overflow: hidden;
+}
+
+.rail[data-open] .label {
+  opacity: 1;
+}
+
+.dash {
+  background-color: var(--dsw-alias-border-l4);
+  border-radius: 4px;
+  flex-shrink: 0;
+  width: 8px;
+  height: 2px;
+  transition: background-color .2s;
+}
+
+/* The scroll-spy active entry: brand color, bolder label, enlarged dash. */
+.item[data-active] .label {
+  color: var(--dsw-alias-brand-text);
+  font-weight: 500;
+}
+
+.item[data-active] .dash {
+  background-color: var(--dsw-alias-brand-text);
+  transform-origin: 50%;
+  transform: scale(1.5);
+}
+
+@media not all and (min-width: 768px) {
+  .rail {
+    display: none;
+  }
+}
