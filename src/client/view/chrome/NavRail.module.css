@@ -86,11 +86,11 @@
 }
 
 .item:hover .label {
-  color: var(--dsw-alias-brand-text);
+  color: var(--dsw-alias-label-primary);
 }
 
 .item:hover .dash {
-  background-color: var(--dsw-alias-brand-text);
+  background-color: var(--dsw-alias-label-primary);
 }
 
 /* The label fades in only while the rail is open; open rows keep the text
@@ -111,10 +111,10 @@
   text-align: left;
 }
 
-/* The dashes are the harness brand blue throughout — collapsed strip and
-   expanded card alike. */
+/* The DeepSeek reference colors: idle dashes are the neutral border token,
+   only the scroll-spy active entry turns brand blue. */
 .dash {
-  background-color: var(--dsw-alias-brand-text);
+  background-color: var(--dsw-alias-border-l4);
   border-radius: 4px;
   flex-shrink: 0;
   width: 8px;
