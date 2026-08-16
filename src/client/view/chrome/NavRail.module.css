@@ -1,9 +1,11 @@
 /* The in-view scroll navigation rail: a DeepSeek-chat-style right-edge pill
    of entry dashes that expands on hover to list every user / steering
-   message. Rendered as the last flow child of the focus scrollport with
-   zero height, so it floats over the conversation and sticks to the
-   viewport center while scrolling — never a shell overlay, so a right-hand
-   workbench panel cannot cover it. */
+   message. Rendered as the FIRST flow child of the focus scrollport with
+   zero height, so its sticky top:50% engages from the very top of the
+   conversation: the rail floats at the scrollport's right edge, vertically
+   centered, and stays there while scrolling — never a shell overlay, so a
+   right-hand workbench panel cannot cover it. The accent follows the
+   harness controls' brand blue. */
 
 .rail {
   -webkit-user-select: none;
@@ -18,12 +20,12 @@
   display: flex;
 }
 
-/* The collapsed pill the dashes ride on (behind the panel). */
+/* The collapsed pill the dashes ride on (behind the panel): the harness
+   active-ghost fill token — the same light brand blue wash the controls
+   use — so it adapts to the theme with the rest of the app. */
 .pill {
-  -webkit-backdrop-filter: blur(5px);
-  backdrop-filter: blur(5px);
   z-index: -1;
-  background-color: rgba(255, 255, 255, .8);
+  background: var(--dsw-alias-button-ghost-active-fill);
   border-radius: 16px;
   width: 34px;
   height: 292px;
@@ -32,10 +34,6 @@
   top: 50%;
   right: 0;
   transform: translateY(-50%);
-}
-
-:global([data-ds-dark-theme]) .pill {
-  background-color: rgba(21, 21, 23, .6);
 }
 
 /* The expanded list panel: dashes only while collapsed (pointer-events none,
@@ -99,11 +97,11 @@
 }
 
 .item:hover .label {
-  color: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-brand-text);
 }
 
 .item:hover .dash {
-  background-color: var(--dsw-alias-label-primary);
+  background-color: var(--dsw-alias-brand-text);
 }
 
 /* The label fades in only while the rail is open (the collapsed rail shows
@@ -122,8 +120,10 @@
   opacity: 1;
 }
 
+/* The entry dashes ride in the harness brand blue: the ghost-button active
+   border token while idle, the brand text token on hover / scroll-spy. */
 .dash {
-  background-color: var(--dsw-alias-border-l4);
+  background-color: var(--dsw-alias-button-ghost-active-border);
   border-radius: 4px;
   flex-shrink: 0;
   width: 8px;
@@ -131,7 +131,7 @@
   transition: background-color .2s;
 }
 
-/* The scroll-spy active entry: brand color, bolder label, enlarged dash. */
+/* The scroll-spy active entry: brand blue, bolder label, enlarged dash. */
 .item[data-active] .label {
   color: var(--dsw-alias-brand-text);
   font-weight: 500;
