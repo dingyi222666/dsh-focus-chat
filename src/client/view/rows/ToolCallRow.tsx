@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { CodeBlock, DiffBlock, DisclosureRow, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
+import { planSummary } from '../../model/todo.ts'
 import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
 import { CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES, terminalLabels } from '../helpers/terminal.ts'
@@ -82,6 +83,32 @@ function questionSummary(row: FocusToolRow, t: FocusTranslate): string {
   return row.summary
 }
 
+/** The todos array out of a todo_write row's pretty-printed args, shape-checked. */
+function todoItems(body: string | null): { content: unknown; status: unknown }[] | null {
+  if (body === null) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return null
+  }
+  const todos = (parsed as { todos?: unknown } | null)?.todos
+  if (!Array.isArray(todos) || !todos.every(item => typeof item === 'object' && item !== null)) return null
+  return todos as { content: unknown; status: unknown }[]
+}
+
+/** The todo_write row's summary (the official TodoRow derivation): the
+ *  "{done}/{total} completed" count plus the first active item's content and
+ *  a "+N" suffix for any further parallel-active items. */
+function todoSummary(row: FocusToolRow, t: FocusTranslate): string {
+  const todos = todoItems(row.body)
+  if (todos === null) return row.summary
+  const { done, total, activeContent, activeExtra } = planSummary(todos)
+  const head = t('todo.completed', { done, total })
+  const text = activeContent === null ? head : `${head} · ${activeContent}`
+  return activeExtra > 0 ? `${text} +${activeExtra}` : text
+}
+
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
 export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   row: FocusToolRow
@@ -96,12 +123,15 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   const expandable = row.body !== null || row.output !== null || card !== null
   const open = expanded && expandable
   // The ask-question row reads its own interaction summary (waiting /
-  // answered count / cancelled / interrupted); an error row's collapsed
-  // summary IS the failure — the first error line in the error color
-  // outranks the args summary.
+  // answered count / cancelled / interrupted), the todo_write row its
+  // progress counts; an error row's collapsed summary IS the failure — the
+  // first error line in the error color outranks the args summary.
   const question = row.name === 'ask_user_question'
-  const failureLine = !question && row.state === 'error' ? row.errorSummary : null
-  const summaryText = question ? questionSummary(row, t) : failureLine ?? row.summary
+  const todo = row.name === 'todo_write'
+  const failureLine = !question && !todo && row.state === 'error' ? row.errorSummary : null
+  const summaryText = question ? questionSummary(row, t)
+    : todo ? todoSummary(row, t)
+      : failureLine ?? row.summary
   // The failure line is error prose, not the path: no open-file affordance.
   const fileLink = row.filePath !== undefined && failureLine === null
   const status = row.state === 'running' ? t('row.running')
@@ -119,7 +149,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
         titleClassName={css.callTitle}
         chevronClassName={css.callChevron}
         icon={leadingFor(row)}
-        title={question ? t('ask.rowTitle') : row.title}
+        title={question ? t('ask.rowTitle') : todo ? t('todo.rowTitle') : row.title}
         open={open}
         expandable={expandable}
         expandOnRowClick

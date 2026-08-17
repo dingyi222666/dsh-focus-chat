@@ -15,7 +15,7 @@ export type FocusCard =
 export type FocusToolState = 'running' | 'ok' | 'error' | 'stopped'
 
 /** Tool-call row variants selected by the generic renderer (the chat table). */
-export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'others'
+export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'todo' | 'skill' | 'others'
 
 /** One Tool call's condensed row model, derived from the frozen block. */
 export interface FocusToolRow {

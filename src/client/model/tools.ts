@@ -113,16 +113,26 @@ const SUMMARY_KEYS: Readonly<Record<FocusToolVariant, readonly string[]>> = {
   // The question rows read their interaction outcome, not the args; the
   // generic derivation still needs a key for the summary fallback.
   question: ['question', 'header'],
+  // The todo row reads its own plan summary (todo.completed counts + the
+  // first active item); the skill row's name is the args `name` field.
+  todo: ['content'],
+  skill: ['name'],
   others: [],
 }
 
 /** Figma row titles per variant (design literals, not translatable copy). */
 const VARIANT_TITLES: Readonly<Record<FocusToolVariant, string>> = {
   search: 'Search', read: 'Read', bash: 'Bash',
-  write: 'Write', edit: 'Edit', code: 'Code', question: 'Ask question', others: 'Tool call',
+  write: 'Write', edit: 'Edit', code: 'Code', question: 'Ask question', todo: 'Update todo list', skill: 'Skill', others: 'Tool call',
 }
 
-/** Known tool name → row variant (the chat row's classification). */
+/**
+ * Known tool name → row variant (the chat row's classification, rc.7).
+ *
+ * `cordis_define` stays absent from the table exactly as in the official
+ * chat: ui-cordis owns a keyed toolview for it, and a second title here
+ * would be a second answer to the same call.
+ */
 const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   bash: 'bash',
   pwsh: 'bash',
@@ -133,34 +143,29 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   grep: 'search',
   glob: 'search',
   ask_user_question: 'question',
+  todo_write: 'todo',
+  skill: 'skill',
   write: 'write',
   edit: 'edit',
   str_replace_editor: 'edit',
   run_code: 'code',
-  cordis_inspect: 'read',
-  cordis_inspect_list: 'read',
-  cordis_inspect_query: 'read',
-  cordis_inspect_self: 'read',
-  cordis_define: 'code',
-  cordis_run: 'code',
-  cordis_stop: 'code',
-  cordis_undefine: 'code',
-  cordis_mount: 'code',
-  cordis_unmount: 'others',
+  cordis_package_inspect: 'read',
+  cordis_runtime_inspect: 'read',
+  // The three run-control verbs take one package id and produce a receipt,
+  // so the generic row is the decided intent, not an unclassified default:
+  // the id lands in the summary slot and the titles name the act.
+  cordis_run: 'others',
+  cordis_stop: 'others',
+  cordis_undefine: 'others',
 }
 
 /** Tool-owned titles that refine a generic row variant without replacing it. */
 const TOOL_TITLES: Readonly<Record<string, string>> = {
-  cordis_inspect: 'Inspect',
-  cordis_inspect_list: 'Inspect',
-  cordis_inspect_query: 'Inspect',
-  cordis_inspect_self: 'Inspect',
-  cordis_define: 'Define Plugin',
-  cordis_run: 'Run Plugin',
-  cordis_stop: 'Stop Plugin',
-  cordis_undefine: 'Undefine Plugin',
-  cordis_mount: 'Mount temporary Plugin',
-  cordis_unmount: 'Unmount temporary Plugin',
+  cordis_package_inspect: 'Inspect',
+  cordis_runtime_inspect: 'Inspect',
+  cordis_run: 'Run Cordis Plugin',
+  cordis_stop: 'Stop Cordis Plugin',
+  cordis_undefine: 'Remove Cordis Plugin',
   job_output: 'Job output',
   job_kill: 'Kill job',
   job_list: 'List jobs',

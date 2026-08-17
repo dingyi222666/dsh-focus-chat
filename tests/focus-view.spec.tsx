@@ -574,12 +574,14 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t5', 'tool-call', { root: settledCall('c5', 'edit', '{}') }),
       chatNode('t6', 'tool-call', { root: settledCall('c6', 'run_code', '{}') }),
       chatNode('t7', 'tool-call', { root: settledCall('c7', 'todo_write', '{}') }),
-      chatNode('t8', 'tool-call', { root: settledCall('c8', 'bash', '{"command":"x"}', {
+      chatNode('t8', 'tool-call', { root: settledCall('c8', 'skill', '{"name":"browse"}') }),
+      chatNode('t9', 'tool-call', { root: settledCall('c9', 'echo', '{}') }),
+      chatNode('t10', 'tool-call', { root: settledCall('c10', 'bash', '{"command":"x"}', {
         isError: true, error: { name: 'Error', code: 'boom' },
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 个文件，搜索了 1 个正则，更新了待办，读取了 1 个文件，调用了 1 个工具'))
+    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 个文件，搜索了 1 个正则，更新了待办，载入了 1 个技能，读取了 1 个文件，调用了 2 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
@@ -588,9 +590,37 @@ it('renders the empty hint for an empty conversation', () => {
     expect(rowOf('Write')?.querySelector('[data-tool-icon="write"]')).toBeTruthy()
     expect(rowOf('Edit')?.querySelector('[data-tool-icon="edit"]')).toBeTruthy()
     expect(rowOf('Code')?.querySelector('[data-tool-icon="code"]')).toBeTruthy()
+    // The todo and skill rows own their family icons (the chat toolviews).
+    expect(rowOf('更新任务清单')?.querySelector('[data-tool-icon="todo"]')).toBeTruthy()
+    expect(rowOf('Skill')?.querySelector('[data-tool-icon="skill"]')).toBeTruthy()
     expect(rowOf('Tool call')?.querySelector('[data-tool-icon="others"]')).toBeTruthy()
     // The failing call keeps the red state dot, not the family icon.
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
+  })
+
+  it('renders a todo_write row with the plan summary (the chat TodoRow derivation)', () => {
+    const args = JSON.stringify({ todos: [
+      { content: 'Check current working directory and git status, run initial tests as baseline', status: 'in_progress' },
+      { content: 'second parallel task', status: 'in_progress' },
+      { content: 'run the tests', status: 'pending' },
+    ] })
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'todo_write', args) }),
+    ])
+    fireEvent.click(fullText('更新了待办'))
+    // The row reads the localized title + the "{done}/{total} completed ·
+    // <first active> +N" plan summary (the official TodoRow format).
+    expect(screen.getByText('更新任务清单')).toBeTruthy()
+    expect(screen.getByText('0/3 已完成 · Check current working directory and git status, run initial tests as baseline +1')).toBeTruthy()
+  })
+
+  it('renders a skill row with the Skill title and the skill name summary', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'skill', '{"name":"web-browse"}') }),
+    ])
+    fireEvent.click(fullText('载入了 1 个技能'))
+    expect(screen.getByText('Skill')).toBeTruthy()
+    expect(screen.getByText('web-browse')).toBeTruthy()
   })
 
   it('renders the running call as a live row at the end of the flow', () => {
