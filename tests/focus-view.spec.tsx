@@ -836,6 +836,22 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByRole('button', { name: /future-kind/ })).toBeTruthy()
   })
 
+  it('renders a failed manual compaction with the command error state', () => {
+    renderView([
+      chatNode('mc', 'manual-compaction', {
+        kind: 'manual-compaction', seq: 1, time: 1,
+        command: { name: 'compact', outcome: { kind: 'error', text: 'This operation was aborted' } },
+        compaction: null,
+      }),
+    ])
+    // A /compact without a checkpoint keeps the GenericCommandCard treatment
+    // (the official CompactionCommandCard rule): the failed outcome carries
+    // the error state — red summary and the error state dot.
+    const row = screen.getByText('compact').closest('[data-state]')
+    expect(row?.getAttribute('data-state')).toBe('error')
+    expect(screen.getByText('This operation was aborted').closest('[data-error]')).toBeTruthy()
+  })
+
   it('renders the user message as a bubble with ref chips, clock, and copy', () => {
     renderView([
       chatNode('u1', 'user', {

@@ -195,7 +195,7 @@ export type FocusFlowItem =
     produced: readonly string[]
   }
   | { kind: 'command'; nodeKey: string; name: string | null; args: string | null; outcomeText: string | null; outcomeError: boolean; running: boolean }
-  | { kind: 'manual-compaction'; nodeKey: string; name: string | null; outcomeText: string | null; running: boolean; compaction: { summary: string | null; shadowedItemCount: number | null; shadowedTokenCount: number | null } | null }
+  | { kind: 'manual-compaction'; nodeKey: string; name: string | null; outcomeText: string | null; outcomeError: boolean; running: boolean; compaction: { summary: string | null; shadowedItemCount: number | null; shadowedTokenCount: number | null } | null }
   | { kind: 'compaction'; nodeKey: string; summary: string | null; shadowedItemCount: number | null; shadowedTokenCount: number | null }
   | {
     kind: 'retry'

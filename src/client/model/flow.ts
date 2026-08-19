@@ -66,6 +66,7 @@ function flowItemOf(
         nodeKey: key,
         name: command.name,
         outcomeText: outcome === null ? null : outcome.text ?? null,
+        outcomeError: outcome !== null && outcome.kind === 'error',
         running: outcome === null,
         compaction: manual.compaction === null ? null : {
           summary: manual.compaction.summary,

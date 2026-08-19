@@ -87,7 +87,7 @@ export const ManualCompactionRow = memo(function ManualCompactionRow({ item, t, 
         name: item.name,
         args: null,
         outcomeText: item.outcomeText,
-        outcomeError: false,
+        outcomeError: item.outcomeError,
         running: item.running,
       }}
       runningSummary={t('compaction.running')}
