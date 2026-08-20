@@ -45,12 +45,10 @@ export function apply(ctx: Context): void {
     order: 5,
     label: () => t('view.label'),
     locale: NS,
-    // The message-image gallery seat (the chat view's child declaration): the
-    // attachment plugin owns the entry; the focus rows forward their images
-    // through the slot-backed renderer.
-    children: {
-      'conversation.message.images': { kind: 'single', scope: 'session' },
-    },
+    // NOTE: no `children` declaration — the chat view (B5) already declared
+    // 'conversation.message.images', and a second conversation.view entry
+    // cannot re-declare it (the ledger rejects duplicate declarations). The
+    // focus view renders message images with its own gallery instead.
     inject: (sessionId: SessionId): FocusViewInjected & FocusHostDescriptionInjected => ({
       // History paging through the conversation service (chat-view semantics);
       // absent scope/service degrades to a no-op, matching the chat view's

@@ -1,9 +1,8 @@
 /** Shared props of the focus view entry (the contract face between the apply side and the view). */
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { InjectFace, PropsRenderSlots, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
-import type { RenderMessageImages } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { TurnLocation } from '@deepseek-ai/dsh-client-runtime/client'
 
@@ -56,15 +55,16 @@ export interface FocusHostDescriptionInjected {
   }
 }
 
-/** Full props of the focus view entry: the conversation view kit, the image slot render share (the chat view's gallery seat), the injected face (hooks bound), and the focus locale seat. */
+/**
+ * Full props of the focus view entry: the conversation view kit, the
+ * injected face (hooks bound), and the focus locale seat. Message images
+ * render through the view's own gallery (the chat view owns the image slot
+ * declaration, so a second `conversation.view` entry cannot re-declare it).
+ */
 export type FocusViewProps = ConvViewProps
-  & PropsRenderSlots<'conversation.message.images'>
   & FocusViewInjected
   & InjectFace<FocusHostDescriptionInjected>
   & { t: FocusTranslate }
 
 /** The focus locale seat (the view namespace). */
 export type FocusTranslate = TranslateNS<'focus'>
-
-/** Slot-backed message-image renderer the focus rows use without importing an attachment implementation. */
-export type { RenderMessageImages }

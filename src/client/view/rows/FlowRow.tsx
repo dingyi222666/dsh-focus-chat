@@ -1,11 +1,13 @@
 import { Fragment, memo } from 'react'
 import { JsonBlock, MarkdownText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusTranslate, RenderMessageImages } from '../../contract/props.ts'
+import type { FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { formatSeconds } from '../../model/text.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
+import { messageImageLabels } from '../helpers/image-labels.ts'
+import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
 import { ThinkRow } from './ThinkRow.tsx'
 import { ToolGroupRow } from './ToolGroupRow.tsx'
 import { ContextFoldRow, ContextRow } from './ContextRow.tsx'
@@ -17,7 +19,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, renderMessageImages, isLoopback }: {
+export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback }: {
   item: FocusFlowItem
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -25,15 +27,14 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
   forkAt: (seq: number) => void
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
-  /** Slot-backed message-image renderer (the chat gallery seat). */
-  renderMessageImages: RenderMessageImages
+  loadImage: ImageLoader
   isLoopback: boolean
 }) {
   switch (item.kind) {
     case 'message':
       return item.role === 'context'
         ? <ContextRow item={item} t={t} codeLabels={codeLabels} />
-        : <MessageRow item={item} t={t} codeLabels={codeLabels} renderMessageImages={renderMessageImages} />
+        : <MessageRow item={item} t={t} codeLabels={codeLabels} loadImage={loadImage} />
     case 'context-fold':
       return <ContextFoldRow item={item} t={t} codeLabels={codeLabels} />
     case 'assistant': {
@@ -85,10 +86,12 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
                 }
                 return (
                   <Fragment key={start}>
-                    {renderMessageImages({
-                      images: group.map(({ attachment }) => ({ attachment })),
-                      align: 'start',
-                    })}
+                    <ImageGallery
+                      images={group.map(({ attachment }) => ({ attachment }))}
+                      load={loadImage}
+                      align="start"
+                      labels={messageImageLabels(t)}
+                    />
                   </Fragment>
                 )
               }
@@ -120,7 +123,7 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
           openFile={openFile}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}
-          renderMessageImages={renderMessageImages}
+          loadImage={loadImage}
           isLoopback={isLoopback}
         />
       )

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
-import type { RenderMessageImages } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
 import { flattenText } from '../model/text.ts'
@@ -142,7 +141,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
 
 export function FocusView({
   useSession, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
-  isLoopback, scroll, renderSlot, useHostDescription, t,
+  isLoopback, scroll, useHostDescription, t,
 }: FocusViewProps) {
   // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
   // the flow fresh on every publication — including assistant-only updates
@@ -221,13 +220,6 @@ export function FocusView({
   const pendingSteering = useMemo(
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
-  )
-  // The chat view's slot-backed message-image renderer: the attachment
-  // plugin owns the gallery seat; this view only forwards the owner share
-  // plus the loader (absent registration renders nothing).
-  const renderMessageImages = useCallback<RenderMessageImages>(
-    owner => renderSlot('conversation.message.images', { ...owner, loadImage }),
-    [loadImage, renderSlot],
   )
   // Host open-path refusals surface as an in-page dialog with a same-path
   // retry (the chat view's FileOpenErrorDialog); a settlement that started
@@ -543,7 +535,7 @@ export function FocusView({
               openFile={requestOpenFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
-              renderMessageImages={renderMessageImages}
+              loadImage={loadImage}
               isLoopback={isLoopback}
             />
           </div>
@@ -562,7 +554,7 @@ export function FocusView({
         )}
         {running && <RunningStatus startTime={runningTurnStart} t={t} />}
         {pendingSteering.map(item => (
-          <PendingSteeringBubble key={item.id} content={item.content} t={t} renderMessageImages={renderMessageImages} />
+          <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
         ))}
         {!atBottom && (
           <div className={css.toBottomSlot}>

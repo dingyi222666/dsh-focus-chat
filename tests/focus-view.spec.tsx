@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 /** FocusView behavior: condensed flow rows, Think auto-expand/fold, running status, folded tool groups with full card expansion. */
-import { useEffect, useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
@@ -96,38 +95,6 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
   }
 }
 
-/** Test stand-in for the attachment plugin's `conversation.message.images`
- *  slot: renders each image as an <img> once its loader resolves (the real
- *  gallery's alt contract), so the slot-backed render path is exercised. */
-function TestMessageGallery({ owner }: {
-  owner: {
-    images: readonly { attachment: { attachmentId: string; name?: string } }[]
-    align: 'start' | 'end'
-    loadImage: (attachment: { attachmentId: string; name?: string }) => Promise<string>
-  }
-}) {
-  return (
-    <div data-testid="message-images" data-align={owner.align} data-count={owner.images.length}>
-      {owner.images.map(({ attachment: image }) => (
-        <TestMessageImage key={image.attachmentId} attachment={image} loadImage={owner.loadImage} />
-      ))}
-    </div>
-  )
-}
-
-function TestMessageImage({ attachment, loadImage }: {
-  attachment: { attachmentId: string; name?: string }
-  loadImage: (attachment: { attachmentId: string; name?: string }) => Promise<string>
-}) {
-  const [src, setSrc] = useState<string | null>(null)
-  useEffect(() => {
-    let live = true
-    void loadImage(attachment).then(url => { if (live) setSrc(url) }).catch(() => {})
-    return () => { live = false }
-  }, [attachment, loadImage])
-  return <img alt={attachment.name ?? 'image'} src={src ?? undefined} />
-}
-
 function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   cwd?: string
   loadOlder?: () => void
@@ -139,7 +106,6 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   chat?: ChatSlice
   t?: FocusViewProps['t']
   home?: string
-  renderSlot?: (key: string, owner: never, opts?: never) => ReactNode
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
 } = {}): {
   result: ReturnType<typeof render>
@@ -161,11 +127,6 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     isLoopback: opts.isLoopback ?? true,
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
     useHostDescription: (selector: (description: { home?: string } | undefined) => string | undefined) => selector({ home: opts.home }),
-    renderSlot: opts.renderSlot ?? ((key: string, owner: never) => (
-      key === 'conversation.message.images'
-        ? <TestMessageGallery owner={owner as never} />
-        : null
-    )),
     t: opts.t ?? t,
   } as unknown as FocusViewProps
   return { result: render(<FocusView {...props} />), source }
