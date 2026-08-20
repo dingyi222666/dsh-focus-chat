@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { RenderMessageImages } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
 import { flattenText } from '../model/text.ts'
@@ -94,6 +95,43 @@ function scrollPosition(list: HTMLElement, scrollport: HTMLElement): FocusScroll
   }
 }
 
+/** Host/OS refusal text for the file-open dialog; empty throws keep a locale fallback. */
+function openFailureMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : String(error)
+  return message === '' ? fallback : message
+}
+
+/** ProducedFiles opens the session workspace as `.`. */
+function isFolderOpenPath(path: string): boolean {
+  return path === '.'
+}
+
+/** The chat view's in-page Host open-path refusal: the wire reason plus a retry of the same path. */
+function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
+  path: string
+  message: string
+  busy: boolean
+  onClose: () => void
+  onRetry: () => void
+  t: FocusViewProps['t']
+}) {
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      closeLabel={t('close')}
+      title={t(isFolderOpenPath(path) ? 'fileOpen.folderTitle' : 'fileOpen.title')}
+      description={message}
+      footer={(
+        <>
+          <Button variant="outline" className={css.modalAction} onClick={onClose}>{t('cancel')}</Button>
+          <Button variant="primary" className={css.modalAction} disabled={busy} onClick={onRetry}>{t('retry')}</Button>
+        </>
+      )}
+    />
+  )
+}
+
 /**
  * The focus view slot entry: pure component over the composed props. Scroll
  * follows the chat view's ledger: the resolved scrollport (the shared
@@ -104,7 +142,7 @@ function scrollPosition(list: HTMLElement, scrollport: HTMLElement): FocusScroll
 
 export function FocusView({
   useSession, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
-  isLoopback, scroll, t,
+  isLoopback, scroll, renderSlot, useHostDescription, t,
 }: FocusViewProps) {
   // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
   // the flow fresh on every publication — including assistant-only updates
@@ -118,9 +156,12 @@ export function FocusView({
   const openState = useSession(s => s.openState)
   const openError = useSession(s => s.openError)
   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
+  // Host account home: a leftover POSIX home path in a tool summary or read
+  // card displays as `~` (the ui-tool chat rule).
+  const home = useHostDescription(description => description?.home)
   const flow = useMemo(
-    () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd),
-    [chat, cwd],
+    () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd, home),
+    [chat, cwd, home],
   )
   // The in-view navigation rail entries: every user / steering message (its
   // first text line), in flow order. Context injections, assistant rows, and
@@ -181,6 +222,47 @@ export function FocusView({
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
   )
+  // The chat view's slot-backed message-image renderer: the attachment
+  // plugin owns the gallery seat; this view only forwards the owner share
+  // plus the loader (absent registration renders nothing).
+  const renderMessageImages = useCallback<RenderMessageImages>(
+    owner => renderSlot('conversation.message.images', { ...owner, loadImage }),
+    [loadImage, renderSlot],
+  )
+  // Host open-path refusals surface as an in-page dialog with a same-path
+  // retry (the chat view's FileOpenErrorDialog); a settlement that started
+  // before the latest close/retry gesture is ignored so a cancelled in-flight
+  // refusal never reopens the dialog.
+  const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
+  const [fileOpenBusy, setFileOpenBusy] = useState(false)
+  const fileOpenRequest = useRef(0)
+  const requestOpenFile = useCallback((path: string) => {
+    const id = ++fileOpenRequest.current
+    setFileOpenBusy(true)
+    void openFile(path).then(
+      () => {
+        if (id !== fileOpenRequest.current) return
+        setFileOpenError(null)
+        setFileOpenBusy(false)
+      },
+      (error: unknown) => {
+        if (id !== fileOpenRequest.current) return
+        setFileOpenError({
+          path,
+          message: openFailureMessage(
+            error,
+            t(isFolderOpenPath(path) ? 'fileOpen.folderUnknown' : 'fileOpen.unknown'),
+          ),
+        })
+        setFileOpenBusy(false)
+      },
+    )
+  }, [openFile, t])
+  const closeFileOpenError = useCallback(() => {
+    fileOpenRequest.current += 1
+    setFileOpenError(null)
+    setFileOpenBusy(false)
+  }, [])
   // Inline file-mention vocabulary for closing assistants: the engine turn
   // data names the closing seq, the optional chatFileMentions service
   // resolves its prose tokens (absent service leaves the prose inert).
@@ -458,10 +540,10 @@ export function FocusView({
               item={item}
               t={t}
               codeLabels={codeLabels}
-              openFile={openFile}
+              openFile={requestOpenFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
-              loadImage={loadImage}
+              renderMessageImages={renderMessageImages}
               isLoopback={isLoopback}
             />
           </div>
@@ -473,14 +555,14 @@ export function FocusView({
           <div className={css.flowItem}>
             <div className={css.runningCalls} data-running-calls>
               {runningCalls.map(row => (
-                <ToolCallRow key={row.callId} row={row} t={t} openFile={openFile} />
+                <ToolCallRow key={row.callId} row={row} t={t} openFile={requestOpenFile} />
               ))}
             </div>
           </div>
         )}
         {running && <RunningStatus startTime={runningTurnStart} t={t} />}
         {pendingSteering.map(item => (
-          <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
+          <PendingSteeringBubble key={item.id} content={item.content} t={t} renderMessageImages={renderMessageImages} />
         ))}
         {!atBottom && (
           <div className={css.toBottomSlot}>
@@ -500,6 +582,16 @@ export function FocusView({
         )}
         </div>
       </div>
+      {fileOpenError !== null && (
+        <FileOpenErrorDialog
+          path={fileOpenError.path}
+          message={fileOpenError.message}
+          busy={fileOpenBusy}
+          onClose={closeFileOpenError}
+          onRetry={() => { requestOpenFile(fileOpenError.path) }}
+          t={t}
+        />
+      )}
     </div>
   )
 }

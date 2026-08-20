@@ -1,8 +1,8 @@
 import { memo, useState, type ReactNode } from 'react'
 import { DisclosureRow, IconBrowseOutline16, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ImageLoader } from '@deepseek-ai/dsh-client-ui-attachment'
 import type { FocusTranslate } from '../../contract/props.ts'
+import { ReferenceIcon } from '../chrome/ReferenceIcon.tsx'
 import type { FocusContextItem, FocusFlowItem } from '../../model/types.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
 import css from './ContextRow.module.css'
@@ -462,11 +462,14 @@ export const ContextRow = memo(function ContextRow({ item, t, codeLabels }: {
   const title = provenance !== undefined && provenance.role !== 'recall'
     ? t('contextInjection')
     : t('contextRecall')
+  const recall = provenance?.role === 'recall'
   return (
     <DisclosureRow
       className={css.contextRow}
       chevronClassName={css.contextChevron}
-      icon={<IconBrowseOutline16 size={14} />}
+      icon={recall
+        ? <span data-context-recall-icon><ReferenceIcon kind="session" /></span>
+        : <IconBrowseOutline16 size={14} />}
       title={title}
       open={open}
       expandable
@@ -500,11 +503,10 @@ export const ContextRow = memo(function ContextRow({ item, t, codeLabels }: {
 /** One running turn's context batch: consecutive context injections under a
  *  single collapsed line (the completed turn folds them into the turn fold
  *  instead; expanding here reveals the individual ContextRows). */
-export const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels, loadImage }: {
+export const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels }: {
   item: Extract<FocusFlowItem, { kind: 'context-fold' }>
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
-  loadImage: ImageLoader
 }) {
   const [open, setOpen] = useState(false)
   const title = item.items.length === 1 ? t('contextInjection') : t('context.fold', {

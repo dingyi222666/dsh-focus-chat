@@ -15,6 +15,7 @@ if (runtime === undefined) {
 }
 
 export const apply = runtime.apply as typeof import('@deepseek-ai/dsh-client-runtime/client')['apply']
+export const abbreviateHomePath = runtime.abbreviateHomePath as typeof import('@deepseek-ai/dsh-client-runtime/client')['abbreviateHomePath']
 export const contextForm = runtime.contextForm as typeof import('@deepseek-ai/dsh-client-runtime/client')['contextForm']
 export const contextProvenance = runtime.contextProvenance as typeof import('@deepseek-ai/dsh-client-runtime/client')['contextProvenance']
 export const conversationContextKey = runtime.conversationContextKey as typeof import('@deepseek-ai/dsh-client-runtime/client')['conversationContextKey']

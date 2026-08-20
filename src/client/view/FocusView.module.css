@@ -139,3 +139,8 @@
 }
 
 
+
+/* In-page Host open-path refusal dialog actions (the chat view's modal). */
+.modalAction {
+  min-width: 72px;
+}

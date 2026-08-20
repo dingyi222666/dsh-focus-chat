@@ -10,7 +10,7 @@ import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import { FocusView } from './view/FocusView.tsx'
-import type { FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
+import type { FocusHostDescriptionInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
 import { en, zh, type FocusKey } from './locales.ts'
 
 /** Dictionary namespace owned by this plugin. */
@@ -45,7 +45,13 @@ export function apply(ctx: Context): void {
     order: 5,
     label: () => t('view.label'),
     locale: NS,
-    inject: (sessionId: SessionId): FocusViewInjected => ({
+    // The message-image gallery seat (the chat view's child declaration): the
+    // attachment plugin owns the entry; the focus rows forward their images
+    // through the slot-backed renderer.
+    children: {
+      'conversation.message.images': { kind: 'single', scope: 'session' },
+    },
+    inject: (sessionId: SessionId): FocusViewInjected & FocusHostDescriptionInjected => ({
       // History paging through the conversation service (chat-view semantics);
       // absent scope/service degrades to a no-op, matching the chat view's
       // optional-service posture.
@@ -62,12 +68,11 @@ export function apply(ctx: Context): void {
         }
         return conversation.resolveImage(sessionId, attachment)
       },
-      // Host file opener (the chat view's tool-row semantics).
+      // Host file opener (the chat view's tool-row semantics): refusals
+      // reject upward so the focus view's in-page open dialog surfaces them.
       openFile: (path) => {
         const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
-        void ctx.workspaces.openPath(resolveWorkspacePath(cwd, path)).catch(() => {
-          // Host/OS open failures stay silent; the native app surfaces its own dialog.
-        })
+        return ctx.workspaces.openPath(resolveWorkspacePath(cwd, path))
       },
       // Fork the session at one message seq (the chat view's branch semantics).
       forkAt: (seq) => {
@@ -91,6 +96,9 @@ export function apply(ctx: Context): void {
         save: (position) => { focusScrollPositions.set(sessionId, position) },
         read: () => focusScrollPositions.get(sessionId) ?? null,
       },
+      // Host description (account home for `~` path display), bound by the
+      // slot renderer into the view's useHostDescription hook.
+      hooks: { hostDescription: connection.hostDescription },
     }),
   }, FocusView))
 }

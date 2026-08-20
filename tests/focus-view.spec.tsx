@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 /** FocusView behavior: condensed flow rows, Think auto-expand/fold, running status, folded tool groups with full card expansion. */
+import { useEffect, useState, type ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
@@ -95,6 +96,38 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
   }
 }
 
+/** Test stand-in for the attachment plugin's `conversation.message.images`
+ *  slot: renders each image as an <img> once its loader resolves (the real
+ *  gallery's alt contract), so the slot-backed render path is exercised. */
+function TestMessageGallery({ owner }: {
+  owner: {
+    images: readonly { attachment: { attachmentId: string; name?: string } }[]
+    align: 'start' | 'end'
+    loadImage: (attachment: { attachmentId: string; name?: string }) => Promise<string>
+  }
+}) {
+  return (
+    <div data-testid="message-images" data-align={owner.align} data-count={owner.images.length}>
+      {owner.images.map(({ attachment: image }) => (
+        <TestMessageImage key={image.attachmentId} attachment={image} loadImage={owner.loadImage} />
+      ))}
+    </div>
+  )
+}
+
+function TestMessageImage({ attachment, loadImage }: {
+  attachment: { attachmentId: string; name?: string }
+  loadImage: (attachment: { attachmentId: string; name?: string }) => Promise<string>
+}) {
+  const [src, setSrc] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    void loadImage(attachment).then(url => { if (live) setSrc(url) }).catch(() => {})
+    return () => { live = false }
+  }, [attachment, loadImage])
+  return <img alt={attachment.name ?? 'image'} src={src ?? undefined} />
+}
+
 function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   cwd?: string
   loadOlder?: () => void
@@ -105,12 +138,15 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   isLoopback?: boolean
   chat?: ChatSlice
   t?: FocusViewProps['t']
+  home?: string
+  renderSlot?: (key: string, owner: never, opts?: never) => ReactNode
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
 } = {}): {
   result: ReturnType<typeof render>
   source: ReturnType<typeof createSnapshotStore<ChatSlice>>
 } {
   const source = createSnapshotStore<ChatSlice>(opts.chat ?? chatOf(nodes))
+  const loadImage = opts.loadImage ?? (() => Promise.reject(new Error('no loader')))
   const props = {
     sessionId: SID,
     useSession: bindSnapshotSelector(source),
@@ -118,12 +154,18 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     useWorkspaces: bindSnapshotSelector(workspacesStore()),
     useProjection: (() => undefined) as never,
     loadOlder: opts.loadOlder ?? (() => {}),
-    loadImage: opts.loadImage ?? (() => Promise.reject(new Error('no loader'))),
-    openFile: opts.openFile ?? (() => {}),
+    loadImage,
+    openFile: opts.openFile ?? (() => Promise.resolve()),
     forkAt: opts.forkAt ?? (() => {}),
     fileMentions: opts.fileMentions ?? (() => undefined),
     isLoopback: opts.isLoopback ?? true,
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
+    useHostDescription: (selector: (description: { home?: string } | undefined) => string | undefined) => selector({ home: opts.home }),
+    renderSlot: opts.renderSlot ?? ((key: string, owner: never) => (
+      key === 'conversation.message.images'
+        ? <TestMessageGallery owner={owner as never} />
+        : null
+    )),
     t: opts.t ?? t,
   } as unknown as FocusViewProps
   return { result: render(<FocusView {...props} />), source }
@@ -282,10 +324,11 @@ it('renders the empty hint for an empty conversation', () => {
       useWorkspaces: bindSnapshotSelector(workspacesStore()),
       useProjection: (() => undefined) as never,
       loadOlder: () => {},
-      openFile: () => {},
+      openFile: () => Promise.resolve(),
       forkAt: () => {},
       fileMentions: (() => undefined) as never,
       scroll: { save: () => {}, read: () => null },
+      useHostDescription: () => undefined,
       t,
     } as unknown as FocusViewProps)} />)
     expect(screen.getByText('two')).toBeTruthy()
@@ -762,6 +805,19 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('Build the app')).toBeTruthy()
     expect(screen.getByText('Search results')).toBeTruthy()
     expect(screen.queryByText('pnpm build')).toBeNull()
+  })
+
+  it('abbreviates a host-home path summary as ~ and names every search query', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'read', '{"path":"/Users/dingyi/projects/dsh/ui-focus/notes.md"}') }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"queries":["focus flow","nav rail"],"pattern":"x"}') }),
+    ], { cwd: '/ws', home: '/Users/dingyi' })
+    fireEvent.click(fullText('搜索了 1 个正则，读取了 1 个文件'))
+    // A workspace-rooted summary relativizes to the cwd; a leftover home
+    // path abbreviates as ~ (the ui-tool chat rule).
+    expect(screen.getByText('~/projects/dsh/ui-focus/notes.md')).toBeTruthy()
+    // The search row names every query it ran, joined by commas.
+    expect(screen.getByText('focus flow, nav rail')).toBeTruthy()
   })
 
   it('surfaces a failing terminal exit as the row red dot', () => {
@@ -1434,7 +1490,7 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('renders the turn tail: produced files and the copy/fork actions footer', () => {
     const forkAt = vi.fn()
-    const openFile = vi.fn()
+    const openFile = vi.fn(() => Promise.resolve())
     const turn = {
       turn: 1,
       start: { time: 1000 },
@@ -1475,6 +1531,46 @@ it('renders the empty hint for an empty conversation', () => {
     // The produced chip opens through the host opener.
     fireEvent.click(screen.getByRole('button', { name: /report\.html/ }))
     expect(openFile).toHaveBeenCalledWith('out/report.html')
+  })
+
+  it('surfaces a host open-path refusal as an in-page dialog with retry', async () => {
+    const openFile = vi.fn<(path: string) => Promise<void>>()
+    openFile.mockRejectedValueOnce(new Error('host refused'))
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 9000 },
+      status: 'closed',
+      steps: [],
+      data: {
+        get: (key: string) => key === 'deliverables'
+          ? { produced: [{ seq: 15, path: 'out/report.html' }] }
+          : undefined,
+      },
+    }
+    renderView([
+      chatNode('tail', 'turn-tail', {
+        turn: 1, seq: 30, time: 9000,
+        closing: {
+          finalNode: { seq: 20, time: 8000 },
+          blocks: [{ kind: 'text', text: 'done text' }],
+          time: 8000,
+        },
+        branchUnavailable: false,
+        ttftMs: null,
+        tokensPerSecond: null,
+      }, { kind: 'turn', turn } as never),
+    ], { openFile })
+    fireEvent.click(screen.getByRole('button', { name: /report\.html/ }))
+    // The refusal surfaces the chat view's open dialog.
+    expect(await screen.findByText('无法打开文件')).toBeTruthy()
+    expect(screen.getByText('host refused')).toBeTruthy()
+    // Retry re-invokes the opener for the same path; the dialog then clears.
+    openFile.mockResolvedValueOnce(undefined)
+    fireEvent.click(screen.getByRole('button', { name: '重试' }))
+    await act(async () => {})
+    expect(openFile).toHaveBeenCalledTimes(2)
+    expect(screen.queryByText('无法打开文件')).toBeNull()
   })
 
   it('disables the fork action when the tail is not the turn last row', () => {

@@ -1,5 +1,5 @@
 /** Tool classification and row/group derivation (React-free). */
-import { resolveWorkspacePath } from '@deepseek-ai/dsh-client-runtime/client'
+import { abbreviateHomePath, resolveWorkspacePath } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusCard, FocusGroupMetrics, FocusGroupThink, FocusMetricKey, FocusToolGroup, FocusToolRow, FocusToolState, FocusToolVariant } from './types.ts'
 import { flattenText, relativizeToCwd } from './text.ts'
@@ -187,6 +187,12 @@ function deriveSummary(variant: FocusToolVariant, raw: string): string {
   const parsed = parseArgs(raw)
   if (typeof parsed !== 'object' || parsed === null) return firstLine(raw)
   const args = parsed as Record<string, unknown>
+  // The search card names every query it ran (the chat row's multi-query
+  // summary); a single pattern still lands through the preferred key below.
+  if (variant === 'search' && Array.isArray(args.queries)) {
+    const queries = args.queries.filter((query): query is string => typeof query === 'string' && query !== '')
+    if (queries.length > 0) return queries.map(firstLine).join(', ')
+  }
   for (const key of SUMMARY_KEYS[variant]) {
     const value = args[key]
     if (typeof value === 'string' && value !== '') return firstLine(value)
@@ -271,7 +277,7 @@ function resultText(node: ToolResultNode): string {
  * @param cwd - session workspace root for terminal cwd resolution.
  * @returns the card material, or null for the generic sections.
  */
-function cardOf(block: ToolCallBlock, cwd?: string): FocusCard | null {
+function cardOf(block: ToolCallBlock, cwd?: string, home?: string): FocusCard | null {
   if ('kind' in block) {
     const result = block.resultView
     if (result === null) return null
@@ -300,7 +306,9 @@ function cardOf(block: ToolCallBlock, cwd?: string): FocusCard | null {
       case 'read':
         return {
           kind: 'read',
-          label: result.title ?? result.path,
+          // The read card label shortens the same way the row summary does:
+          // workspace-relative first, then POSIX `~` for a host-home path.
+          label: result.title ?? abbreviateHomePath(relativizeToCwd(result.path, cwd), home),
           lines: result.lines,
           totalLines: result.totalLines,
           lang: result.lang,
@@ -361,7 +369,7 @@ const STOPPED_TOOL_CODES: ReadonlySet<string> = new Set([
  * @param cwd - session workspace root; workspace-rooted path summaries display relative to it.
  * @returns the row model.
  */
-export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
+export function toolRowModel(block: ToolCallBlock, cwd?: string, home?: string): FocusToolRow {
   const done = 'kind' in block
   const name = done ? block.call?.name ?? '' : block.name
   const argsRaw = done ? block.call?.argsRaw ?? '' : block.argsRaw
@@ -375,14 +383,16 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
   // would erase the collapsed error row's summary slot.
   const output = done ? (resultText(block) || null) : null
   const errorSummary = state === 'error' && output !== null ? firstLine(output) : null
-  const base = argsRaw === '' ? block.callId : relativizeToCwd(deriveSummary(variant, argsRaw), cwd)
+  const base = argsRaw === ''
+    ? block.callId
+    : abbreviateHomePath(relativizeToCwd(deriveSummary(variant, argsRaw), cwd), home)
   const toolTitle = TOOL_TITLES[name]
   // Others keeps the static "Tool call" title (figma literal); the real tool
   // name rides the mutable summary slot unless the tool owns a specific title.
   const baseSummary = variant === 'others' && name !== '' && toolTitle === undefined
     ? `${name} · ${base}`
     : base
-  const card = cardOf(block, cwd)
+  const card = cardOf(block, cwd, home)
   // The chat row's outranking: a terminal card's model-authored description
   // (the contract's above-card text) and a search card's replacement title
   // precede the args-derived summary.
@@ -410,7 +420,7 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
     time: done ? null : block.time,
     body: deriveBody(variant, argsRaw),
     card,
-    subcalls: block.subCalls.map(child => toolRowModel(child, cwd)),
+    subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home)),
   }
 }
 
@@ -425,8 +435,9 @@ export function toolGroup(
   cwd: string | undefined,
   thoughtMs: number | null,
   think: readonly FocusGroupThink[],
+  home?: string,
 ): FocusToolGroup {
-  const rows = blocks.map(block => toolRowModel(block, cwd))
+  const rows = blocks.map(block => toolRowModel(block, cwd, home))
   const running = rows.some(row => row.state === 'running')
   const metrics: FocusGroupMetrics = {
     commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,

@@ -150,12 +150,14 @@ function flowItemOf(
  * @param order - snapshot chat order (stable node keys).
  * @param getNode - snapshot chat node reader.
  * @param cwd - session workspace root for relative path summaries.
+ * @param home - host account home; a leftover POSIX home path displays as `~`.
  * @returns the condensed flow in order.
  */
 export function buildFocusFlow(
   order: readonly string[],
   getNode: (key: string) => ChatConversationViewNode | undefined,
   cwd?: string,
+  home?: string,
 ): FocusFlowItem[] {
   // Pre-scan the order once: per-node turn membership, and for each turn the
   // wall boundaries (start/end), the closing assistant — the last assistant
@@ -442,7 +444,7 @@ export function buildFocusFlow(
           flow.splice(flow.length - (contextProbe === previousAfterAssistant ? 1 : 2), 1)
         }
       }
-      const group = toolGroup(pending.blocks, cwd, null, [])
+      const group = toolGroup(pending.blocks, cwd, null, [], home)
       // A notice-form injection (a tool-jobs settlement) is background-job
       // activity, not context the user loaded: it counts into the jobs
       // family ("后台任务 N 个" / "N background jobs") and leaves the loaded

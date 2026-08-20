@@ -1,21 +1,20 @@
 import { memo, useMemo } from 'react'
-import { ImageGallery, type ImageLoader } from '@deepseek-ai/dsh-client-ui-attachment'
 import { JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusTranslate, RenderMessageImages } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
-import { messageImageLabels, userImages } from '../helpers/image-labels.ts'
+import { userImages } from '../helpers/image-labels.ts'
 import { messageText, projectUserText } from '../helpers/message.tsx'
 import { MessageActions } from '../chrome/MessageActions.tsx'
 import css from './UserBubble.module.css'
 
-export const MessageRow = memo(function MessageRow({ item, t, codeLabels, loadImage }: {
+export const MessageRow = memo(function MessageRow({ item, t, codeLabels, renderMessageImages }: {
   item: Extract<FocusFlowItem, { kind: 'message' }>
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
-  loadImage: ImageLoader
+  renderMessageImages: RenderMessageImages
 }) {
   const text = useMemo(() => messageText(item.content), [item.content])
   const images = useMemo(() => userImages(item.content), [item.content])
@@ -25,9 +24,7 @@ export const MessageRow = memo(function MessageRow({ item, t, codeLabels, loadIm
   return (
     <div className={css.userRow} data-role={item.role} data-time-hover-root>
       <div className={css.userStack}>
-        {images.length > 0 && (
-          <ImageGallery images={images} load={loadImage} align="end" labels={messageImageLabels(t)} />
-        )}
+        {images.length > 0 && renderMessageImages({ images, align: 'end' })}
         {showBubble && (
           <div className={css.bubble}>
             {projectUserText(text)}
@@ -56,10 +53,10 @@ export const MessageRow = memo(function MessageRow({ item, t, codeLabels, loadIm
 })
 
 
-export const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t, loadImage }: {
+export const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t, renderMessageImages }: {
   content: readonly ContentBlock[]
   t: FocusTranslate
-  loadImage: ImageLoader
+  renderMessageImages: RenderMessageImages
 }) {
   const text = useMemo(() => messageText(content), [content])
   const images = useMemo(() => userImages(content), [content])
@@ -68,9 +65,7 @@ export const PendingSteeringBubble = memo(function PendingSteeringBubble({ conte
   return (
     <div className={css.userRow} data-pending-steering data-time-hover-root>
       <div className={css.userStack}>
-        {images.length > 0 && (
-          <ImageGallery images={images} load={loadImage} align="end" labels={messageImageLabels(t)} />
-        )}
+        {images.length > 0 && renderMessageImages({ images, align: 'end' })}
         {showBubble && (
           <div className={css.bubble}>
             {projectUserText(text)}
