@@ -531,15 +531,26 @@ function assistantHasText(data: unknown): boolean {
   return blocks.some(block => block.kind === 'text' && block.text.trim() !== '')
 }
 
+/** The durable error codes a user stop lands on a running tool call.
+ *  `interrupted` is the tool's own cancellation code; `TOOL_OUTCOME_UNKNOWN`
+ *  and `TOOL_NOT_STARTED` are the repair pass's synthetic closers for a call
+ *  cut mid-execution (the user stopped the turn while the tool was running —
+ *  the outcome is unknown, but the stop is the user's, not a tool failure). */
+const STOPPED_TOOL_CODES: ReadonlySet<string> = new Set([
+  'interrupted',
+  'TOOL_OUTCOME_UNKNOWN',
+  'TOOL_NOT_STARTED',
+])
+
 /** Whether one chat node marks a user-stopped step: an interrupted assistant
- *  step, or a settled tool call whose result error code is `interrupted`. */
+ *  step, or a settled tool call carrying one of the stop error codes. */
 function stepInterrupted(node: ChatConversationViewNode): boolean {
   if (node.kind === 'assistant-step') {
     return (node.data as AssistantChatData).status === 'interrupted'
   }
   if (node.kind === 'tool-call') {
     const root = (node.data as ToolChatData).root
-    return 'kind' in root && root.error?.code === 'interrupted'
+    return 'kind' in root && root.error !== undefined && STOPPED_TOOL_CODES.has(root.error.code)
   }
   return false
 }

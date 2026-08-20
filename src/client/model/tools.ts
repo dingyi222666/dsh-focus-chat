@@ -343,6 +343,17 @@ function cardOf(block: ToolCallBlock, cwd?: string): FocusCard | null {
   }
 }
 
+/** The durable error codes a user stop lands on a running tool call: the
+ *  tool's own `interrupted` code, the ask tool's abort, and the repair pass's
+ *  synthetic closers for a call cut mid-execution (`TOOL_OUTCOME_UNKNOWN` /
+ *  `TOOL_NOT_STARTED`). These render the stopped state, never a failure. */
+const STOPPED_TOOL_CODES: ReadonlySet<string> = new Set([
+  'interrupted',
+  'ASK_ABORTED',
+  'TOOL_OUTCOME_UNKNOWN',
+  'TOOL_NOT_STARTED',
+])
+
 /**
  * Derive the condensed row model from a frozen call slice (the chat row
  * model's derivation, reimplemented here).
@@ -356,7 +367,7 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string): FocusToolRow {
   const argsRaw = done ? block.call?.argsRaw ?? '' : block.argsRaw
   const errorCode = done && block.error !== undefined ? block.error.code : null
   const state: FocusToolState = !done ? 'running'
-    : block.error?.code === 'interrupted' || block.error?.code === 'ASK_ABORTED' ? 'stopped'
+    : block.error !== undefined && STOPPED_TOOL_CODES.has(block.error.code) ? 'stopped'
       : block.isError ? 'error' : 'ok'
   const variant = TOOL_VARIANTS[name] ?? 'others'
   // The empty string is "no text" for both derived result fields: a settled

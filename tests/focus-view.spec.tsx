@@ -1130,6 +1130,53 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText(/运行了 1 个命令/)).toBeTruthy()
   })
 
+  it('reads a stop during tool execution as stopped-after (synthetic unknown-outcome result)', () => {
+    // The real stop-mid-tool shape (repair.ts): the assistant settled its
+    // reply normally, then the running tool lands a synthetic result with
+    // error TOOL_OUTCOME_UNKNOWN — the stop happened in the tool, not the
+    // stream, so the fold must still read the stop.
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 20000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('u1', 'user', {
+        kind: 'user', seq: 1, time: 1000,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 5000,
+        blocks: [
+          { kind: 'text', text: 'killing the server' },
+          { kind: 'tool-call', id: 'c1', name: 'bash', arguments: '{}' },
+        ],
+        finalNode: {
+          kind: 'assistant', seq: 10, time: 5000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 2000, completedTime: 5000 },
+        },
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}', {
+        isError: true,
+        error: { name: 'ToolOutcomeUnknownError', code: 'TOOL_OUTCOME_UNKNOWN' },
+        content: [{ type: 'text', text: 'The tool call was interrupted after it was recorded, but no result was durably recorded.' }],
+      }) }),
+    ])
+    // The stopped fold, not a worked line.
+    expect(screen.getByText('用户在 19 秒后停止')).toBeTruthy()
+    expect(screen.queryByText(/工作了/)).toBeNull()
+    // Expanding reveals the stopped tool row (never a red failure).
+    fireEvent.click(screen.getByText('用户在 19 秒后停止'))
+    fireEvent.click(screen.getByText(/运行了 1 个命令/))
+    const row = document.querySelector('[data-state="stopped"]')
+    expect(row).toBeTruthy()
+    expect(document.querySelector('[data-state="error"]')).toBeNull()
+  })
+
   it('folds a running turn\'s context injections into one collapsed line', () => {
     const turn = {
       turn: 1,
