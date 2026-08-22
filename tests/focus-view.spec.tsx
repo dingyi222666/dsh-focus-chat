@@ -106,6 +106,10 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   chat?: ChatSlice
   t?: FocusViewProps['t']
   home?: string
+  feedback?: {
+    rate?: (messageId: string, rating: string) => Promise<unknown>
+    toggle?: (messageId: string, rating: string) => Promise<unknown>
+  }
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
 } = {}): {
   result: ReturnType<typeof render>
@@ -127,6 +131,11 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     isLoopback: opts.isLoopback ?? true,
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
     useHostDescription: (selector: (description: { home?: string } | undefined) => string | undefined) => selector({ home: opts.home }),
+    useFeedback: (_selector: unknown) => undefined,
+    ensureFeedback: () => Promise.resolve({ ok: true as const }),
+    rateFeedback: opts.feedback?.rate ?? (() => Promise.resolve({ ok: true as const })),
+    toggleFeedback: opts.feedback?.toggle ?? (() => Promise.resolve({ ok: true as const })),
+    clearFeedbackNote: () => Promise.resolve({ ok: true as const }),
     t: opts.t ?? t,
   } as unknown as FocusViewProps
   return { result: render(<FocusView {...props} />), source }
@@ -1534,6 +1543,66 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.queryByText('无法打开文件')).toBeNull()
   })
 
+  it('renders the like/dislike pair on a closing assistant and routes it to the feedback controller', async () => {
+    const toggle = vi.fn(() => Promise.resolve({ ok: true as const }))
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 9000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    renderView([
+      chatNode('tail', 'turn-tail', {
+        turn: 1, seq: 30, time: 9000,
+        closing: {
+          finalNode: { seq: 20, time: 8000, messageId: 'msg-1' },
+          blocks: [{ kind: 'text', text: 'done text' }],
+          time: 8000,
+        },
+        branchUnavailable: false,
+        ttftMs: null,
+        tokensPerSecond: null,
+      }, { kind: 'turn', turn } as never),
+    ], { feedback: { toggle } })
+    // The assistant-actions strip sits between copy and branch (the chat row).
+    const like = screen.getByRole('button', { name: '好的回答' })
+    const dislike = screen.getByRole('button', { name: '有问题的回答' })
+    expect(like).toBeTruthy()
+    expect(dislike).toBeTruthy()
+    // A rating routes through the Session feedback controller for this message.
+    fireEvent.click(like)
+    await act(async () => {})
+    expect(toggle).toHaveBeenCalledWith('msg-1', 'positive')
+  })
+
+  it('omits the like/dislike pair when the closing assistant carries no durable message', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 9000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    renderView([
+      chatNode('tail', 'turn-tail', {
+        turn: 1, seq: 30, time: 9000,
+        closing: {
+          // Interruption-frozen partial: no messageId.
+          finalNode: { seq: 20, time: 8000 },
+          blocks: [{ kind: 'text', text: 'partial' }],
+          time: 8000,
+        },
+        branchUnavailable: false,
+        ttftMs: null,
+        tokensPerSecond: null,
+      }, { kind: 'turn', turn } as never),
+    ])
+    expect(screen.queryByRole('button', { name: '好的回答' })).toBeNull()
+  })
+
   it('disables the fork action when the tail is not the turn last row', () => {
     const forkAt = vi.fn()
     const turn = {
@@ -1955,7 +2024,7 @@ describe('resubmitted turn durations', () => {
 
 describe('plugin apply', () => {
   it('registers the focus tab on a real slot ring and disposes with the fiber', async () => {
-    const { Context } = await import('@deepseek-ai/cordis')
+    const { Context, Service } = await import('@deepseek-ai/cordis')
     const { SlotRegistry } = await import('@deepseek-ai/dsh-client-runtime/client')
     const { apply, inject } = await import('../src/client/index.ts')
     const ctx = new Context()
@@ -1976,6 +2045,17 @@ describe('plugin apply', () => {
         getSnapshot: () => undefined,
         subscribe: () => () => {},
       },
+    })
+    class RemoteService extends Service {
+      constructor(serviceCtx: Context) {
+        super(serviceCtx, 'remote')
+      }
+    }
+    new RemoteService(ctx)
+    ctx.provide('remote.messageFeedback', {
+      list: async () => ({ ok: true, value: { ok: true, value: { items: [] } } }),
+      put: async () => ({ ok: true, value: { ok: true, value: undefined } }),
+      delete: async () => ({ ok: true, value: { ok: true, value: undefined } }),
     })
     const fiber = ctx.plugin({ apply, inject })
     await fiber.await()

@@ -1,11 +1,11 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { IconBranchOutline16, IconCheckOutline16, IconCopyOutline16, Tooltip, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import { formatElapsed, formatMessageClock, formatTokensPerSecond, useCalendarDay } from '../helpers/format.ts'
 import { formatSeconds } from '../../model/text.ts'
 import css from './MessageActions.module.css'
 
-export const MessageActions = memo(function MessageActions({ text, time, runMs, ttftMs, tokensPerSecond, clock, onBranch, branchUnavailable = false, t }: {
+export const MessageActions = memo(function MessageActions({ text, time, runMs, ttftMs, tokensPerSecond, clock, onBranch, branchUnavailable = false, extraActions, t }: {
   /** Plain text the copy action writes. */
   text: string
   /** Unix epoch ms for the clock label; null hides the clock. */
@@ -22,6 +22,9 @@ export const MessageActions = memo(function MessageActions({ text, time, runMs, 
   onBranch?: (() => void) | undefined
   /** The message is not the completed turn's last row, so branch stays visible but unavailable. */
   branchUnavailable?: boolean | undefined
+  /** Slot-rendered actions owned by independent plugins (the chat's
+   *  assistant-actions strip), placed between copy and branch. */
+  extraActions?: ReactNode | undefined
   t: FocusTranslate
 }) {
   const day = useCalendarDay()
@@ -93,6 +96,7 @@ export const MessageActions = memo(function MessageActions({ text, time, runMs, 
           {copied ? <IconCheckOutline16 /> : <IconCopyOutline16 />}
         </button>
       </Tooltip>
+      {extraActions}
       {onBranch !== undefined && (
         <Tooltip label={branchUnavailable ? t('branchUnavailable') : t('branch')} side="bottom">
           {/* Native disabled buttons do not deliver the hover/focus events Tooltip needs. */}

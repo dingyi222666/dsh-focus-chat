@@ -4,13 +4,16 @@ import type { FocusFlowItem } from '../../model/types.ts'
 import { basename } from '../helpers/format.ts'
 import { fitProducedFiles, moreLabel, PRODUCED_SHOWN } from './produced-fit.ts'
 import { MessageActions } from '../chrome/MessageActions.tsx'
+import { MessageFeedbackActions, type FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import css from './TurnTailRow.module.css'
 
 /** One completed turn's footer: the measured produced-files lane and the chat actions chrome. */
-export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t, isLoopback }: {
+export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, feedback, t, isLoopback }: {
   item: Extract<FocusFlowItem, { kind: 'turn-tail' }>
   openFile: (path: string) => void
   forkAt: (seq: number) => void
+  /** Per-message feedback verbs (the assistant-actions strip's business face). */
+  feedback: FocusFeedbackActions
   t: FocusTranslate
   isLoopback: boolean
 }) {
@@ -106,6 +109,17 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, t
           clock="end"
           onBranch={() => { forkAt(closingSeq) }}
           branchUnavailable={item.branchUnavailable}
+          extraActions={item.closingMessageId === null ? undefined : (
+            <MessageFeedbackActions
+              messageId={item.closingMessageId as never}
+              useFeedback={feedback.useFeedback}
+              ensure={feedback.ensure}
+              rate={feedback.rate}
+              toggle={feedback.toggle}
+              clearNote={feedback.clearNote}
+              t={t}
+            />
+          )}
           t={t}
         />
       )}

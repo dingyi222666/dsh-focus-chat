@@ -179,6 +179,9 @@ export type FocusFlowItem =
     turn: number
     /** Closing assistant seq — the fork anchor; null when the turn ended without one. */
     closingSeq: number | null
+    /** Durable identity of the closing assistant message; null when the turn
+     *  ended without one (interruption-frozen partial). */
+    closingMessageId: string | null
     /** Closing assistant time (the actions clock). */
     closingTime: number | null
     /** Text of the closing assistant (the copy source). */

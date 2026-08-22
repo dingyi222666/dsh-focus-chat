@@ -8,6 +8,7 @@ import { formatSeconds } from '../../model/text.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
 import { messageImageLabels } from '../helpers/image-labels.ts'
 import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
+import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import { ThinkRow } from './ThinkRow.tsx'
 import { ToolGroupRow } from './ToolGroupRow.tsx'
 import { ContextFoldRow, ContextRow } from './ContextRow.tsx'
@@ -19,7 +20,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback }: {
+export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback }: {
   item: FocusFlowItem
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -28,6 +29,8 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
+  /** Per-message feedback verbs (the assistant-actions strip's business face). */
+  feedback: FocusFeedbackActions
   isLoopback: boolean
 }) {
   switch (item.kind) {
@@ -124,6 +127,7 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}
           loadImage={loadImage}
+          feedback={feedback}
           isLoopback={isLoopback}
         />
       )
@@ -133,6 +137,7 @@ export const FlowRow = memo(function FlowRow({ item, t, codeLabels, openFile, fo
           item={item}
           openFile={openFile}
           forkAt={forkAt}
+          feedback={feedback}
           t={t}
           isLoopback={isLoopback}
         />

@@ -12,11 +12,14 @@
 
 /* The focus view's own scroll container; under the conversation column host
    ([data-conversation-scroll]) the host owns overflow and this becomes
-   ordinary flow (ChatView's scroll split). */
+   ordinary flow (ChatView's scroll split). Inline-size query container:
+   wide markdown tables size their breakout against this box's content width
+   (100cqw in the md-table-wide rule) — the chat view's container-type. */
 .scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  container-type: inline-size;
 }
 
 :global([data-conversation-scroll]) .root {

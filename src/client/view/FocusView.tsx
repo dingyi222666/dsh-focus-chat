@@ -12,6 +12,7 @@ import { PendingSteeringBubble } from './rows/UserBubble.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
 import { NavRail, type FocusNavEntry } from './chrome/NavRail.tsx'
+import type { FocusFeedbackActions } from './chrome/MessageFeedbackActions.tsx'
 import css from './FocusView.module.css'
 
 /** Latest open turn's logged start time, mirroring the chat view's clock anchor. */
@@ -141,7 +142,8 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
 
 export function FocusView({
   useSession, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
-  isLoopback, scroll, useHostDescription, t,
+  isLoopback, scroll, useHostDescription, useFeedback,
+  ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote, t,
 }: FocusViewProps) {
   // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
   // the flow fresh on every publication — including assistant-only updates
@@ -225,6 +227,15 @@ export function FocusView({
   // retry (the chat view's FileOpenErrorDialog); a settlement that started
   // before the latest close/retry gesture is ignored so a cancelled in-flight
   // refusal never reopens the dialog.
+  // The per-message feedback verbs (the assistant-actions strip's business
+  // face), bound to this Session's controller by the apply side.
+  const feedback: FocusFeedbackActions = {
+    useFeedback,
+    ensure: ensureFeedback,
+    rate: rateFeedback,
+    toggle: toggleFeedback,
+    clearNote: clearFeedbackNote,
+  }
   const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
   const [fileOpenBusy, setFileOpenBusy] = useState(false)
   const fileOpenRequest = useRef(0)
@@ -536,6 +547,7 @@ export function FocusView({
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
               loadImage={loadImage}
+              feedback={feedback}
               isLoopback={isLoopback}
             />
           </div>

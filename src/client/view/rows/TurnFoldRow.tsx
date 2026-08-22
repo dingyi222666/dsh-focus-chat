@@ -5,10 +5,11 @@ import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { formatElapsed } from '../helpers/format.ts'
 import type { ImageLoader } from '../chrome/MessageImage.tsx'
+import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import { FlowRow, flowKey } from './FlowRow.tsx'
 import css from './TurnFoldRow.module.css'
 
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, isLoopback }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   codeLabels: MarkdownCodeLabels
@@ -16,6 +17,8 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, open
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
+  /** Per-message feedback verbs (the assistant-actions strip's business face). */
+  feedback: FocusFeedbackActions
   isLoopback: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -44,6 +47,7 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, open
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
               loadImage={loadImage}
+              feedback={feedback}
               isLoopback={isLoopback}
             />
           ))}

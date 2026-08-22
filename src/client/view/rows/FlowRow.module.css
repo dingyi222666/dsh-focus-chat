@@ -61,3 +61,19 @@
 .contextRow {
   margin: 4px 0;
 }
+
+/* Wide markdown tables (the renderer's >=4-column md-table-wide hook) span
+   the whole transcript width instead of clipping at the 748px message
+   column, while the table content keeps starting at its normal x (the lead
+   padding compensates the negative margin) — the chat view's breakout. */
+.assistant :global(.md-table-wide) {
+  --dsh-table-spare: max(0px, calc((100cqw - var(--dsh-chat-content-width)) / 2));
+  --dsh-table-lead: calc(var(--dsh-table-spare) + min(var(--dsh-chat-content-width), 100cqw) - 100%);
+  box-sizing: border-box;
+  width: calc(100% + var(--dsh-table-lead) + var(--dsh-table-spare));
+  /* The base .tableScroll caps at the column (max-width: 100%); the breakout
+     is exactly the case that must exceed it. */
+  max-width: none;
+  margin-left: calc(-1 * var(--dsh-table-lead));
+  padding-left: var(--dsh-table-lead);
+}

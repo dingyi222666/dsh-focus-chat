@@ -125,6 +125,9 @@ function flowItemOf(
         nodeKey: key,
         turn: tail.turn,
         closingSeq: closing?.finalNode.seq ?? null,
+        // Interruption-frozen partials carry no messageId, so they address no
+        // durable message and contribute no per-message actions.
+        closingMessageId: closing?.finalNode.messageId ?? null,
         closingTime: closing?.time ?? null,
         closingText: closing === null ? '' : assistantText(closing.blocks),
         runMs,

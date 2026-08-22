@@ -1,10 +1,12 @@
 /** Shared props of the focus view entry (the contract face between the apply side and the view). */
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { InjectFace, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
+import type { HostObservable, InjectFace, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostDescriptionSource, MessageId } from '@deepseek-ai/dsh-client-connection/client'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { TurnLocation } from '@deepseek-ai/dsh-client-runtime/client'
+import type { MessageFeedbackActionResult, MessageFeedbackView } from '../model/feedback-controller.ts'
+import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 
 /** One reflow-resistant scroll position (the chat view's saved shape). */
 export interface FocusScrollPosition {
@@ -47,12 +49,25 @@ export interface FocusViewInjected {
   }
 }
 
-/** Injected Host description for POSIX home-path display (the ui-tool chat rule). */
-export interface FocusHostDescriptionInjected {
+/** Injected Host description and message-feedback hooks for the view (the
+ *  ui-tool chat rule's hostDescription, plus the per-message feedback view
+ *  the chat's assistant-actions strip reads — re-declared here because the
+ *  focus view cannot take the assistant-actions slot seat). */
+export interface FocusHooksInjected {
   hooks: {
     /** Current generation's Host description, bound by the slot renderer. */
     hostDescription: HostDescriptionSource
+    /** The owning Session's feedback view, shared by every message control. */
+    feedback: HostObservable<MessageFeedbackView>
   }
+  /** Load the Session's feedback once, on first interaction. */
+  ensureFeedback: () => Promise<MessageFeedbackActionResult>
+  /** Create or replace feedback for one message. */
+  rateFeedback: (messageId: MessageId, rating: MessageFeedbackRating, note?: string) => Promise<MessageFeedbackActionResult>
+  /** Toggle or retract one message's rating. */
+  toggleFeedback: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackActionResult>
+  /** Drop the note while keeping the rating. */
+  clearFeedbackNote: (messageId: MessageId) => Promise<MessageFeedbackActionResult>
 }
 
 /**
@@ -63,7 +78,7 @@ export interface FocusHostDescriptionInjected {
  */
 export type FocusViewProps = ConvViewProps
   & FocusViewInjected
-  & InjectFace<FocusHostDescriptionInjected>
+  & InjectFace<FocusHooksInjected>
   & { t: FocusTranslate }
 
 /** The focus locale seat (the view namespace). */
