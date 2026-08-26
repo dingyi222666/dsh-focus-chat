@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { AssistantChatData, ToolChatData } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
-import { buildFocusFlow, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
+import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
 import { flattenText } from '../model/text.ts'
 import type { FocusFlowItem, FocusToolRow } from '../model/index.ts'
 import { firstLine } from './helpers/format.ts'
@@ -13,6 +14,7 @@ import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
 import { NavRail, type FocusNavEntry } from './chrome/NavRail.tsx'
 import type { FocusFeedbackActions } from './chrome/MessageFeedbackActions.tsx'
+import { useThrottledSnapshot } from './use-throttled-snapshot.ts'
 import css from './FocusView.module.css'
 
 /** Latest open turn's logged start time, mirroring the chat view's clock anchor. */
@@ -148,7 +150,12 @@ export function FocusView({
   // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
   // the flow fresh on every publication — including assistant-only updates
   // that leave the order array untouched, which is what folds a finished
-  // Think row back in.
+  // Think row back in. The snapshot's outer wrapper is rebuilt on every
+  // stream frame, so the rendered chat is throttled: only the flow structure
+  // (rows entering/leaving, running, paging, open state, steering) renders
+  // immediately; content-only updates coalesce into at most one re-render
+  // per throttle window. The latest snapshot always wins, so a stream that
+  // stops still lands its final state.
   const chat = useSession(s => s.chat)
   const running = useSession(s => s.running)
   const hasMore = useSession(s => s.hasMore)
@@ -160,9 +167,40 @@ export function FocusView({
   // Host account home: a leftover POSIX home path in a tool summary or read
   // card displays as `~` (the ui-tool chat rule).
   const home = useHostDescription(description => description?.home)
+  const pendingSteering = useMemo(
+    () => inbox.filter(item => item.placement === 'steering'),
+    [inbox],
+  )
+  // Streaming activity bit: whether any assistant step or tool call is still
+  // running right now. It stays true across the whole streaming stretch — the
+  // one publication class that benefits from coalescing — and flips the
+  // moment a node settles, so running→settled transitions (a Think row
+  // folding, a live tool row folding into its summary) render immediately
+  // instead of riding the throttle window.
+  const streamingActive = chat.nodes.values().some(node => {
+    if (node.kind === 'assistant-step') return (node.data as AssistantChatData).status === 'running'
+    if (node.kind === 'tool-call') {
+      const root = (node.data as ToolChatData).root
+      return !('kind' in root)
+    }
+    return false
+  })
+  // Structural identity of the flow surface: the rows that exist, whether a
+  // turn is live or a node is still streaming, the open/paging state, and
+  // pending steering. Content-only publications under the same structure
+  // (streaming tokens) are throttled; anything that moves this signature
+  // renders immediately.
+  const firstFlowKey = chat.order[0] ?? null
+  const lastFlowKey = chat.order.at(-1) ?? null
+  const lastSteeringId = pendingSteering[pendingSteering.length - 1]?.id ?? ''
+  const flowSignature = `${openState}:${hasMore ? 1 : 0}:${loadingOlder ? 1 : 0}:${firstFlowKey}:${lastFlowKey}:${chat.order.length}:${running ? 1 : 0}:${streamingActive ? 1 : 0}:${lastSteeringId}`
+  const flowChat = useThrottledSnapshot(chat, flowSignature)
+  // Cross-build derivation cache: unchanged nodes keep their flow item and
+  // tool-row identities, so memoized rows bail out during streaming.
+  const flowCacheRef = useRef(createFlowBuildCache())
   const flow = useMemo(
-    () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd, home),
-    [chat, cwd, home],
+    () => buildFocusFlow(flowChat.order, key => flowChat.nodes.get(key), cwd, home, flowCacheRef.current),
+    [flowChat, cwd, home],
   )
   // The in-view navigation rail entries: every user / steering message (its
   // first text line), in flow order. Context injections, assistant rows, and
@@ -219,23 +257,20 @@ export function FocusView({
     () => ({ copyLabel: t('copy'), copiedLabel: t('copied') }),
     [t],
   )
-  const pendingSteering = useMemo(
-    () => inbox.filter(item => item.placement === 'steering'),
-    [inbox],
-  )
   // Host open-path refusals surface as an in-page dialog with a same-path
   // retry (the chat view's FileOpenErrorDialog); a settlement that started
   // before the latest close/retry gesture is ignored so a cancelled in-flight
   // refusal never reopens the dialog.
   // The per-message feedback verbs (the assistant-actions strip's business
-  // face), bound to this Session's controller by the apply side.
-  const feedback: FocusFeedbackActions = {
+  // face), bound to this Session's controller by the apply side. Stable
+  // identity across renders: memoized rows compare it shallowly.
+  const feedback = useMemo<FocusFeedbackActions>(() => ({
     useFeedback,
     ensure: ensureFeedback,
     rate: rateFeedback,
     toggle: toggleFeedback,
     clearNote: clearFeedbackNote,
-  }
+  }), [useFeedback, ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote])
   const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
   const [fileOpenBusy, setFileOpenBusy] = useState(false)
   const fileOpenRequest = useRef(0)
@@ -268,19 +303,39 @@ export function FocusView({
   }, [])
   // Inline file-mention vocabulary for closing assistants: the engine turn
   // data names the closing seq, the optional chatFileMentions service
-  // resolves its prose tokens (absent service leaves the prose inert).
+  // resolves its prose tokens (absent service leaves the prose inert). The
+  // map is keyed on the assistant nodes that actually changed (reference
+  // comparison) rather than the whole chat identity, so memoized rows see a
+  // stable `mentionsByKey` while only the streaming tail moves.
+  const mentionsMapRef = useRef<ReadonlyMap<string, MarkdownFileMentions | undefined>>(new Map())
+  const mentionsSourceRef = useRef<ReadonlyMap<string, unknown>>(new Map())
   const mentionsByKey = useMemo(() => {
     const map = new Map<string, MarkdownFileMentions | undefined>()
+    let changed = false
     for (const item of flow) {
       if (item.kind !== 'assistant' || item.finalSeq === null) continue
-      const location = chat.nodes.get(item.nodeKey)?.location
+      const node = flowChat.nodes.get(item.nodeKey)
+      if (node === undefined || node.data === mentionsSourceRef.current.get(item.nodeKey)) continue
+      const location = node.location
       const turn = location?.kind === 'turn' || location?.kind === 'step' ? location.turn : undefined
       const tail = turn?.data.get('turn-tail')
       if (turn === undefined || tail?.closing?.finalNode.seq !== item.finalSeq) continue
+      changed = true
       map.set(item.nodeKey, fileMentions({ turn, seq: item.finalSeq, openFile }))
     }
-    return map
-  }, [chat, fileMentions, flow, openFile])
+    if (!changed) return mentionsMapRef.current
+    const nextSources = new Map(mentionsSourceRef.current)
+    for (const item of flow) {
+      if (item.kind !== 'assistant' || item.finalSeq === null) continue
+      const node = flowChat.nodes.get(item.nodeKey)
+      if (node !== undefined) nextSources.set(item.nodeKey, node.data)
+    }
+    const next = new Map(mentionsMapRef.current)
+    for (const [key, value] of map) next.set(key, value)
+    mentionsSourceRef.current = nextSources
+    mentionsMapRef.current = next
+    return next
+  }, [flowChat, fileMentions, flow, openFile])
 
   const listRef = useRef<HTMLDivElement | null>(null)
   const columnRef = useRef<HTMLDivElement | null>(null)
@@ -300,8 +355,7 @@ export function FocusView({
   const lastItem = flow.at(-1)
   const firstKey = flow[0] === undefined ? null : flowKey(flow[0])
   const lastKey = lastItem === undefined ? null : flowKey(lastItem)
-  const lastSteeringId = pendingSteering[pendingSteering.length - 1]?.id ?? null
-  const followSig = `${openState}:${firstKey}:${lastKey}:${flow.length}:${running ? 1 : 0}:${lastSteeringId ?? ''}`
+  const followSig = `${openState}:${firstKey}:${lastKey}:${flow.length}:${running ? 1 : 0}:${lastSteeringId}`
 
   const toBottom = (el: HTMLElement): void => {
     anchorRef.current = null
@@ -391,6 +445,21 @@ export function FocusView({
     }
     setActiveNavKey(active ?? navEntries[0].key)
   }
+  // Scroll events are hot: the spy coalesces into one pass per animation
+  // frame (latest wins), so a scroll storm never runs the O(entries)
+  // geometry pass more than once per frame. Unmount cancels the pending one.
+  const navFrameRef = useRef<number | null>(null)
+  useEffect(() => () => {
+    if (navFrameRef.current !== null) cancelAnimationFrame(navFrameRef.current)
+    navFrameRef.current = null
+  }, [])
+  const scheduleNavActive = useCallback(() => {
+    if (navFrameRef.current !== null) return
+    navFrameRef.current = requestAnimationFrame(() => {
+      navFrameRef.current = null
+      updateNavActiveRef.current()
+    })
+  }, [])
   // Rebuild the entry-row cache and re-run the spy whenever the entry list
   // changes (new messages, prepend, or a restored mount).
   useLayoutEffect(() => {
@@ -437,7 +506,7 @@ export function FocusView({
     if (isAtBottom) scroll.save(null)
     else if (position !== null) scroll.save(position)
     observedTopRef.current = el.scrollTop
-    updateNavActiveRef.current()
+    scheduleNavActive()
   }
 
   // Bind the scroll listener on the resolved scrollport once per mount.
@@ -500,7 +569,7 @@ export function FocusView({
 
   /** Jump the focus scrollport to one navigation entry's row (its top under
    *  the scrollport edge); the reader is no longer pinned to the bottom. */
-  const jumpToNav = (key: string): void => {
+  const jumpToNav = useCallback((key: string): void => {
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the rail only renders with the list mounted. */
     if (local === null) return
@@ -513,7 +582,30 @@ export function FocusView({
     setAtBottom(false)
     scroll.save(scrollPosition(local, el))
     updateNavActiveRef.current()
-  }
+  }, [scroll])
+
+  // The flow rows' element list, cached on exactly the inputs the rows
+  // render from: a parent re-render driven by other state (scroll chrome,
+  // live-row clock) reuses the same elements instead of recreating every
+  // row's props object.
+  const flowRows = useMemo(
+    () => flow.map(item => (
+      <div key={flowKey(item)} className={css.flowItem} data-focus-anchor-key={flowKey(item)}>
+        <FlowRow
+          item={item}
+          t={t}
+          codeLabels={codeLabels}
+          openFile={requestOpenFile}
+          forkAt={forkAt}
+          mentionsByKey={mentionsByKey}
+          loadImage={loadImage}
+          feedback={feedback}
+          isLoopback={isLoopback}
+        />
+      </div>
+    )),
+    [flow, t, codeLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback],
+  )
 
   return (
     <div className={css.root}>
@@ -537,21 +629,7 @@ export function FocusView({
           </div>
         )}
         {flow.length === 0 && <div className={css.empty}>{t('empty')}</div>}
-        {flow.map(item => (
-          <div key={flowKey(item)} className={css.flowItem} data-focus-anchor-key={flowKey(item)}>
-            <FlowRow
-              item={item}
-              t={t}
-              codeLabels={codeLabels}
-              openFile={requestOpenFile}
-              forkAt={forkAt}
-              mentionsByKey={mentionsByKey}
-              loadImage={loadImage}
-              feedback={feedback}
-              isLoopback={isLoopback}
-            />
-          </div>
-        ))}
+        {flowRows}
         {/* The running call renders below everything settled — the model's
             output text included — and folds into its group's summary line
             once the call settles (no flow rebuild, no row jump). */}

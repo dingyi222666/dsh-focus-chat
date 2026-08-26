@@ -363,13 +363,37 @@ const STOPPED_TOOL_CODES: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Per-build tool-row cache: the derived row model keyed by call id, kept
+ * only while the underlying block reference is unchanged. Settled history
+ * dominates long sessions, and its block objects are identity-stable, so
+ * cached rows let every flow rebuild skip the args JSON parse, card
+ * materialization, and path normalization for settled calls.
+ */
+export interface ToolRowModelCache {
+  readonly rows: Map<string, { block: ToolCallBlock; row: FocusToolRow }>
+}
+
+/**
  * Derive the condensed row model from a frozen call slice (the chat row
- * model's derivation, reimplemented here).
+ * model's derivation, reimplemented here), caching by call id: a repeat
+ * build over an unchanged block reference reuses the previous row object —
+ * same identity, so memoized rows never re-render.
  * @param block - running call or settled result node.
  * @param cwd - session workspace root; workspace-rooted path summaries display relative to it.
+ * @param home - host account home; a leftover POSIX home path displays as `~`.
+ * @param cache - optional per-session row cache (stable across builds).
  * @returns the row model.
  */
-export function toolRowModel(block: ToolCallBlock, cwd?: string, home?: string): FocusToolRow {
+export function toolRowModel(block: ToolCallBlock, cwd?: string, home?: string, cache?: ToolRowModelCache): FocusToolRow {
+  const cached = cache?.rows.get(block.callId)
+  if (cached !== undefined && cached.block === block) return cached.row
+  const row = toolRowModelUncached(block, cwd, home, cache)
+  if (cache !== undefined) cache.rows.set(block.callId, { block, row })
+  return row
+}
+
+/** The uncached row derivation; sub-call rows ride the same cache. */
+function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string, cache?: ToolRowModelCache): FocusToolRow {
   const done = 'kind' in block
   const name = done ? block.call?.name ?? '' : block.name
   const argsRaw = done ? block.call?.argsRaw ?? '' : block.argsRaw
@@ -420,7 +444,7 @@ export function toolRowModel(block: ToolCallBlock, cwd?: string, home?: string):
     time: done ? null : block.time,
     body: deriveBody(variant, argsRaw),
     card,
-    subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home)),
+    subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home, cache)),
   }
 }
 
@@ -436,8 +460,9 @@ export function toolGroup(
   thoughtMs: number | null,
   think: readonly FocusGroupThink[],
   home?: string,
+  cache?: ToolRowModelCache,
 ): FocusToolGroup {
-  const rows = blocks.map(block => toolRowModel(block, cwd, home))
+  const rows = blocks.map(block => toolRowModel(block, cwd, home, cache))
   const running = rows.some(row => row.state === 'running')
   const metrics: FocusGroupMetrics = {
     commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,

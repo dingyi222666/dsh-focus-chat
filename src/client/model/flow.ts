@@ -1,9 +1,67 @@
 /** One condensed flow over the chat snapshot (React-free). */
 import type { AssistantChatData, ChatNodeDataMap, ManualCompactionChatData, ToolChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-runtime/client'
-import { toolGroup } from './tools.ts'
+import { toolGroup, type ToolRowModelCache } from './tools.ts'
 import { assistantText, producedForClosing, thoughtDurationMs } from './text.ts'
 import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, FocusToolGroup } from './types.ts'
+
+/**
+ * One derived flow item plus the identity facts it was derived from. The
+ * signature holds node/data references only — O(1) per node per rebuild —
+ * so an unchanged node reuses its previous item object and memoized rows
+ * never re-render while the rest of the conversation streams.
+ */
+interface CachedFlowItem {
+  readonly signature: unknown
+  readonly item: FocusFlowItem | null
+}
+
+/**
+ * Cross-build cache for the focus flow derivation: per-node derived items,
+ * the tool-row models the groups fold, and whole tool-group rows. Keyed by
+ * stable node/call ids, holding only immutable snapshot references, so it
+ * never grows beyond the conversation and is discarded with the view.
+ */
+export interface FlowBuildCache {
+  readonly items: Map<string, CachedFlowItem>
+  readonly rows: ToolRowModelCache['rows']
+  /** One emitted tool-group row per run (its node keys), valid while the
+   *  run's blocks keep their references and the group absorbed no context
+   *  batch (an absorption changes the group's shape). */
+  readonly groups: Map<string, { blocks: readonly ToolCallBlock[]; item: FocusFlowItem }>
+}
+
+/** One cache instance per mounted focus view (the build is React-free). */
+export function createFlowBuildCache(): FlowBuildCache {
+  return { items: new Map(), rows: new Map(), groups: new Map() }
+}
+
+/** The node facts a cached item's validity depends on. */
+function nodeSignature(node: ChatConversationViewNode): unknown {
+  if (node.kind === 'tool-call') return node.data
+  if (node.kind === 'turn-tail') {
+    const tail = node.data as TurnTailChatData
+    return [node.data, tail.closing?.finalNode, tail.closing?.time]
+  }
+  return node.data
+}
+
+/** The cached flow item for one node, or a fresh derivation when the node
+ *  moved on (a new node reference or a mutated data reference). */
+function flowItemCached(
+  cache: FlowBuildCache | undefined,
+  key: string,
+  node: ChatConversationViewNode,
+  data: FocusNodeData,
+): FocusFlowItem | null {
+  if (cache === undefined) return flowItemOf(key, node, data)
+  const previous = cache.items.get(key)
+  const signature = nodeSignature(node)
+  if (previous !== undefined && previous.signature === signature) return previous.item
+  const item = flowItemOf(key, node, data)
+  cache.items.set(key, { signature, item })
+  return item
+}
 
 function flowItemOf(
   key: string,
@@ -154,6 +212,9 @@ function flowItemOf(
  * @param getNode - snapshot chat node reader.
  * @param cwd - session workspace root for relative path summaries.
  * @param home - host account home; a leftover POSIX home path displays as `~`.
+ * @param cache - optional cross-build derivation cache: unchanged nodes and
+ *  tool calls keep their previous item/row object identities, so memoized
+ *  rows bail out while only the streaming tail changes.
  * @returns the condensed flow in order.
  */
 export function buildFocusFlow(
@@ -161,6 +222,7 @@ export function buildFocusFlow(
   getNode: (key: string) => ChatConversationViewNode | undefined,
   cwd?: string,
   home?: string,
+  cache?: FlowBuildCache,
 ): FocusFlowItem[] {
   // Pre-scan the order once: per-node turn membership, and for each turn the
   // wall boundaries (start/end), the closing assistant — the last assistant
@@ -414,13 +476,17 @@ export function buildFocusFlow(
 
   const flush = (): void => {
     if (pending === null) return
+    // Local aliases: the group cache callbacks below would otherwise defeat
+    // TypeScript's narrowing of `pending`.
+    const runKeys = pending.keys
+    const runBlocks = pending.blocks
     // v8 ignore next -- unreachable: pending is created only by a visible tool-call node
-    if (pending.blocks.length > 0) {
+    if (runBlocks.length > 0) {
       // The run's tools fold into one group. The assistant rows that precede
       // the run keep their chronological positions — the Think row above its
       // reply — so the group follows them (the chat order: think → reply →
       // tool rows); the group line carries the tool metrics only.
-      const groupTurn = nodeTurn.get(pending.keys[0]) ?? null
+      const groupTurn = nodeTurn.get(runKeys[0]) ?? null
       const previousAfterAssistant = pendingFold.length > 0
         ? pendingFold[pendingFold.length - 1]
         : flow.at(-1)
@@ -447,7 +513,7 @@ export function buildFocusFlow(
           flow.splice(flow.length - (contextProbe === previousAfterAssistant ? 1 : 2), 1)
         }
       }
-      const group = toolGroup(pending.blocks, cwd, null, [], home)
+      const group = toolGroup(runBlocks, cwd, null, [], home, cache?.rows === undefined ? undefined : { rows: cache.rows })
       // A notice-form injection (a tool-jobs settlement) is background-job
       // activity, not context the user loaded: it counts into the jobs
       // family ("后台任务 N 个" / "N background jobs") and leaves the loaded
@@ -456,7 +522,7 @@ export function buildFocusFlow(
       const noticeJobs = absorbedContext.filter(item => item.context?.form === 'notice').length
       const folded: FocusToolGroup = {
         ...group,
-        nodeKeys: pending.keys,
+        nodeKeys: runKeys,
         items: [...absorbedContext, ...group.items],
         contextCount: absorbedContext.length - noticeJobs,
         context: absorbedContext,
@@ -505,7 +571,24 @@ export function buildFocusFlow(
           flow[flow.length - 1] = { kind: 'tools', group: merged }
         }
       } else {
-        pushItem({ kind: 'tools', group: folded })
+        // A standalone group (no consecutive-run merge, no absorbed context
+        // batch) is shape-stable while its blocks keep their references:
+        // reuse the previous emitted item so the memoized group row never
+        // re-renders during unrelated streaming.
+        const groupKey = runKeys.join('\u0000')
+        const cachedGroup = cache?.groups.get(groupKey)
+        if (cachedGroup !== undefined
+          && absorbedContext.length === 0
+          && cachedGroup.blocks.length === runBlocks.length
+          && cachedGroup.blocks.every((block, index) => block === runBlocks[index])) {
+          pushItem(cachedGroup.item)
+        } else {
+          const item = { kind: 'tools' as const, group: folded }
+          if (cache !== undefined && absorbedContext.length === 0) {
+            cache.groups.set(groupKey, { blocks: runBlocks, item })
+          }
+          pushItem(item)
+        }
       }
     }
     pending = null
@@ -521,7 +604,7 @@ export function buildFocusFlow(
       continue
     }
     flush()
-    const item = flowItemOf(key, node, node.data as FocusNodeData)
+    const item = flowItemCached(cache, key, node, node.data as FocusNodeData)
     if (item !== null) pushItem(item)
   }
   flush()

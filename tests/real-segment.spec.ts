@@ -3,7 +3,7 @@
  *  official chat shows (reply → its own tool rows). */
 import { describe, expect, it } from 'vitest'
 import type { ChatConversationViewNode, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
-import { buildFocusFlow } from '../src/client/model/flow.ts'
+import { buildFocusFlow, createFlowBuildCache } from '../src/client/model/flow.ts'
 import type { FocusFlowItem } from '../src/client/model/types.ts'
 
 function node(
@@ -109,4 +109,32 @@ it('renders reply → its own tool rows (chronological)', () => {
   expect(rows[2]).toBe('text: tarball 生成（59KB）。做消费验证——先看 rc.1 CLI 的用法：')
   expect(rows[3]).toContain('Show the rc.1 dsh CLI help')
   expect(rows[3]).toContain('Set up the consumer and show the CLI help')
+})
+
+it('reuses unchanged flow item identities across builds and rebuilds only changed rows', () => {
+  const cache = createFlowBuildCache()
+  const keys = ['u1', 't1', 'u2']
+  // The host snapshot keeps node references stable until a node changes
+  // (the assembler rebuilds only dirty nodes), so the same array reused
+  // across builds is the production shape.
+  const nodes: ChatConversationViewNode[] = [
+    node('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'hi' }], source: null }, 1),
+    node('t1', 'tool-call', { root: bashCall('c1', 'build') }, 2),
+    node('u2', 'user', { kind: 'user', seq: 3, time: 3, content: [{ type: 'text', text: 'bye' }], source: null }, 3),
+  ]
+  const byKey = (list: ChatConversationViewNode[]) => (key: string) => list.find(n => n.key === key)
+  // Two builds over identical snapshots share every item object.
+  const first = buildFocusFlow(keys, byKey(nodes), '/u', undefined, cache)
+  const second = buildFocusFlow(keys, byKey(nodes), '/u', undefined, cache)
+  expect(second).toHaveLength(first.length)
+  second.forEach((item, index) => { expect(item).toBe(first[index]) })
+  // One changed tool call rebuilds only its group row; the user rows keep
+  // their identities.
+  const changed = [...nodes]
+  changed[1] = node('t1', 'tool-call', { root: bashCall('c1', 'rebuild') }, 2)
+  const third = buildFocusFlow(keys, byKey(changed), '/u', undefined, cache)
+  expect(third).toHaveLength(first.length)
+  expect(third[0]).toBe(first[0])
+  expect(third[2]).toBe(first[2])
+  expect(third[1]).not.toBe(first[1])
 })
