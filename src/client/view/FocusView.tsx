@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { AssistantChatData, ToolChatData } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
@@ -14,7 +13,6 @@ import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
 import { NavRail, type FocusNavEntry } from './chrome/NavRail.tsx'
 import type { FocusFeedbackActions } from './chrome/MessageFeedbackActions.tsx'
-import { useThrottledSnapshot } from './use-throttled-snapshot.ts'
 import css from './FocusView.module.css'
 
 /** Latest open turn's logged start time, mirroring the chat view's clock anchor. */
@@ -151,11 +149,10 @@ export function FocusView({
   // the flow fresh on every publication — including assistant-only updates
   // that leave the order array untouched, which is what folds a finished
   // Think row back in. The snapshot's outer wrapper is rebuilt on every
-  // stream frame, so the rendered chat is throttled: only the flow structure
-  // (rows entering/leaving, running, paging, open state, steering) renders
-  // immediately; content-only updates coalesce into at most one re-render
-  // per throttle window. The latest snapshot always wins, so a stream that
-  // stops still lands its final state.
+  // stream frame, so the view re-derives each frame too — but the
+  // cross-build derivation cache below makes an unchanged build cheap
+  // (reference checks only) and keeps every settled row's object identity,
+  // so memoized rows bail out exactly like the chat view's per-node seats.
   const chat = useSession(s => s.chat)
   const running = useSession(s => s.running)
   const hasMore = useSession(s => s.hasMore)
@@ -171,36 +168,12 @@ export function FocusView({
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
   )
-  // Streaming activity bit: whether any assistant step or tool call is still
-  // running right now. It stays true across the whole streaming stretch — the
-  // one publication class that benefits from coalescing — and flips the
-  // moment a node settles, so running→settled transitions (a Think row
-  // folding, a live tool row folding into its summary) render immediately
-  // instead of riding the throttle window.
-  const streamingActive = chat.nodes.values().some(node => {
-    if (node.kind === 'assistant-step') return (node.data as AssistantChatData).status === 'running'
-    if (node.kind === 'tool-call') {
-      const root = (node.data as ToolChatData).root
-      return !('kind' in root)
-    }
-    return false
-  })
-  // Structural identity of the flow surface: the rows that exist, whether a
-  // turn is live or a node is still streaming, the open/paging state, and
-  // pending steering. Content-only publications under the same structure
-  // (streaming tokens) are throttled; anything that moves this signature
-  // renders immediately.
-  const firstFlowKey = chat.order[0] ?? null
-  const lastFlowKey = chat.order.at(-1) ?? null
-  const lastSteeringId = pendingSteering[pendingSteering.length - 1]?.id ?? ''
-  const flowSignature = `${openState}:${hasMore ? 1 : 0}:${loadingOlder ? 1 : 0}:${firstFlowKey}:${lastFlowKey}:${chat.order.length}:${running ? 1 : 0}:${streamingActive ? 1 : 0}:${lastSteeringId}`
-  const flowChat = useThrottledSnapshot(chat, flowSignature)
   // Cross-build derivation cache: unchanged nodes keep their flow item and
   // tool-row identities, so memoized rows bail out during streaming.
   const flowCacheRef = useRef(createFlowBuildCache())
   const flow = useMemo(
-    () => buildFocusFlow(flowChat.order, key => flowChat.nodes.get(key), cwd, home, flowCacheRef.current),
-    [flowChat, cwd, home],
+    () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current),
+    [chat, cwd, home],
   )
   // The in-view navigation rail entries: every user / steering message (its
   // first text line), in flow order. Context injections, assistant rows, and
@@ -314,7 +287,7 @@ export function FocusView({
     let changed = false
     for (const item of flow) {
       if (item.kind !== 'assistant' || item.finalSeq === null) continue
-      const node = flowChat.nodes.get(item.nodeKey)
+      const node = chat.nodes.get(item.nodeKey)
       if (node === undefined || node.data === mentionsSourceRef.current.get(item.nodeKey)) continue
       const location = node.location
       const turn = location?.kind === 'turn' || location?.kind === 'step' ? location.turn : undefined
@@ -327,7 +300,7 @@ export function FocusView({
     const nextSources = new Map(mentionsSourceRef.current)
     for (const item of flow) {
       if (item.kind !== 'assistant' || item.finalSeq === null) continue
-      const node = flowChat.nodes.get(item.nodeKey)
+      const node = chat.nodes.get(item.nodeKey)
       if (node !== undefined) nextSources.set(item.nodeKey, node.data)
     }
     const next = new Map(mentionsMapRef.current)
@@ -335,7 +308,7 @@ export function FocusView({
     mentionsSourceRef.current = nextSources
     mentionsMapRef.current = next
     return next
-  }, [flowChat, fileMentions, flow, openFile])
+  }, [chat, fileMentions, flow, openFile])
 
   const listRef = useRef<HTMLDivElement | null>(null)
   const columnRef = useRef<HTMLDivElement | null>(null)
@@ -355,6 +328,7 @@ export function FocusView({
   const lastItem = flow.at(-1)
   const firstKey = flow[0] === undefined ? null : flowKey(flow[0])
   const lastKey = lastItem === undefined ? null : flowKey(lastItem)
+  const lastSteeringId = pendingSteering[pendingSteering.length - 1]?.id ?? ''
   const followSig = `${openState}:${firstKey}:${lastKey}:${flow.length}:${running ? 1 : 0}:${lastSteeringId}`
 
   const toBottom = (el: HTMLElement): void => {

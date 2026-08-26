@@ -242,7 +242,6 @@ it('renders the empty hint for an empty conversation', () => {
   })
 
   it('stops tail-previewing the Think row once the assistant starts its text reply', () => {
-    vi.useFakeTimers()
     const { source } = renderView([
       chatNode('a1', 'assistant-step', {
         status: 'running', turn: 1, step: 1, time: 100,
@@ -251,10 +250,6 @@ it('renders the empty hint for an empty conversation', () => {
     ])
     // Pure thinking phase: the tail previews on the one-line row.
     expect(screen.getByText('more')).toBeTruthy()
-    // The reply-start is content-only while the step keeps streaming, so the
-    // summary flip lands on the throttle tick: publish, then advance the
-    // coalescing window (separate act calls — the publish's effects schedule
-    // the tick only after that render commits).
     act(() => {
       source.set(chatOf([
         chatNode('a1', 'assistant-step', {
@@ -266,7 +261,6 @@ it('renders the empty hint for an empty conversation', () => {
         }),
       ]))
     })
-    act(() => { vi.advanceTimersByTime(150) })
     // The reply started: the reasoning is no longer the streaming tail and
     // the summary flips to the first line.
     expect(screen.getByText('thinking')).toBeTruthy()
@@ -714,7 +708,6 @@ it('renders the empty hint for an empty conversation', () => {
   })
 
   it('keeps the streaming Think row standalone and folds it once the step settles', () => {
-    vi.useFakeTimers()
     const running = chatNode('a1', 'assistant-step', {
       status: 'running', turn: 1, step: 1, time: 3000,
       blocks: [
@@ -743,14 +736,9 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('build')).toBeTruthy()
     expect(screen.queryByText('思考了 1.3 秒')).toBeNull()
-    // A sibling call keeps streaming, so the settle is content-only and the
-    // fold lands on the throttle tick: publish, then advance the coalescing
-    // window (separate act calls — the publish's effects schedule the tick
-    // only after that render commits).
     act(() => {
       source.set(chatOf([settled, call()]))
     })
-    act(() => { vi.advanceTimersByTime(150) })
     // Settled: the reasoning folds into the group — the line carries the
     // thinking metric and no standalone Think row remains.
     expect(screen.queryByText('Think')).toBeNull()
@@ -1786,33 +1774,6 @@ it('renders the empty hint for an empty conversation', () => {
     expect(items[1].getAttribute('data-active')).toBe('true')
     expect(items[0].getAttribute('data-active')).toBeNull()
     expect(items[2].getAttribute('data-active')).toBeNull()
-  })
-
-  it('coalesces streaming content into the throttle window and renders structural changes immediately', () => {
-    vi.useFakeTimers()
-    const { source } = renderView([
-      assistantNode('a1', 'running', 'one\ntwo', 100),
-    ])
-    // Default one line: the streaming tail previews.
-    expect(screen.getByText('two')).toBeTruthy()
-    // A content-only update while the step keeps streaming is coalesced: it
-    // is not visible until the throttle window passes.
-    act(() => {
-      source.set(chatOf([
-        assistantNode('a1', 'running', 'one\ntwo\nthree', 100),
-      ]))
-    })
-    expect(screen.queryByText('three')).toBeNull()
-    act(() => { vi.advanceTimersByTime(150) })
-    expect(screen.getByText('three')).toBeTruthy()
-    // A structural transition (settling ends streaming activity) renders
-    // immediately, without waiting for the window.
-    act(() => {
-      source.set(chatOf([
-        assistantNode('a1', 'settled', 'one\ntwo\nthree', 3000),
-      ]))
-    })
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
   })
 
   it('expands a Think row into its reasoning body', () => {
