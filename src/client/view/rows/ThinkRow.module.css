@@ -54,8 +54,10 @@
   overflow: hidden;
   flex: 1 1 auto;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 14px;
-  line-height: 24px;
+  /* The reasoning-row tier: the Settings font-size axis, one step under the
+     body, with the secondary line-height delta (the official ReasoningRow). */
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -70,8 +72,8 @@
 .thinkBody {
   padding: 4px 0 4px 22px;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 14px;
-  line-height: 24px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
   white-space: pre-wrap;
   word-break: break-word;
 }

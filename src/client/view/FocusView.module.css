@@ -78,7 +78,7 @@
   align-self: center;
   padding: 24px 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 14px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: 20px;
 }
 

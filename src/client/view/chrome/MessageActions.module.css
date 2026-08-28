@@ -21,8 +21,9 @@
 }
 
 .messageClock {
-  font-size: 14px;
-  line-height: 24px;
+  /* The official icon-actions clock tier: the Settings font-size axis. */
+  font-size: var(--dsh-content-font-size, 14px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;

@@ -11,8 +11,10 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 14px;
-  line-height: 24px;
+  /* The tool-row summary tier: the Settings font-size axis, one step under
+     the body (--dsh-content-font-size-secondary). */
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-secondary);
 }
 
