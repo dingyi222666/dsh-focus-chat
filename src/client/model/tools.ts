@@ -121,10 +121,13 @@ const SUMMARY_KEYS: Readonly<Record<FocusToolVariant, readonly string[]>> = {
   others: [],
 }
 
-/** Figma row titles per variant (design literals, not translatable copy). */
-const VARIANT_TITLES: Readonly<Record<FocusToolVariant, string>> = {
-  search: 'Search', read: 'Read', bash: 'Bash',
-  write: 'Write', edit: 'Edit', code: 'Code', question: 'Ask question', todo: 'Update todo list', skill: 'Skill', others: 'Tool call',
+/** Locale keys for the row titles per variant (the official tool.title
+ *  vocabulary; the view resolves them through its locale seat). The ask and
+ *  todo rows read their own row-title keys at the render site instead. */
+const VARIANT_TITLE_KEYS: Readonly<Record<FocusToolVariant, string>> = {
+  search: 'tool.title.search', read: 'tool.title.read', bash: 'tool.title.bash',
+  write: 'tool.title.write', edit: 'tool.title.edit', code: 'tool.title.code',
+  question: 'ask.rowTitle', todo: 'todo.rowTitle', skill: 'tool.title.skill', others: 'tool.title.generic',
 }
 
 /**
@@ -160,20 +163,21 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   cordis_undefine: 'others',
 }
 
-/** Tool-owned titles that refine a generic row variant without replacing it. */
+/** Tool-owned title keys that refine a generic row variant without replacing
+ *  it (the official tool.title vocabulary for the named tools). */
 const TOOL_TITLES: Readonly<Record<string, string>> = {
-  cordis_package_inspect: 'Inspect',
-  cordis_runtime_inspect: 'Inspect',
-  cordis_run: 'Run Cordis Plugin',
-  cordis_stop: 'Stop Cordis Plugin',
-  cordis_undefine: 'Remove Cordis Plugin',
-  job_output: 'Job output',
-  job_kill: 'Kill job',
-  job_list: 'List jobs',
-  send_message: 'Send message',
-  interrupt_agent: 'Interrupt agent',
-  list_agents: 'List agents',
-  pwsh: 'Pwsh',
+  cordis_package_inspect: 'tool.title.inspect',
+  cordis_runtime_inspect: 'tool.title.inspect',
+  cordis_run: 'tool.title.runCordis',
+  cordis_stop: 'tool.title.stopCordis',
+  cordis_undefine: 'tool.title.removeCordis',
+  job_output: 'tool.title.jobOutput',
+  job_kill: 'tool.title.jobKill',
+  job_list: 'tool.title.jobList',
+  send_message: 'tool.title.sendMessage',
+  interrupt_agent: 'tool.title.interruptAgent',
+  list_agents: 'tool.title.listAgents',
+  pwsh: 'tool.title.pwsh',
 }
 
 /** Path keys only — never `url` (web_fetch lands on the read variant). */
@@ -722,7 +726,7 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     callId: block.callId,
     name,
     variant,
-    title: toolTitle ?? VARIANT_TITLES[variant],
+    title: toolTitle ?? VARIANT_TITLE_KEYS[variant],
     summary,
     filePath: deriveFilePath(variant, argsRaw),
     state: rowState,

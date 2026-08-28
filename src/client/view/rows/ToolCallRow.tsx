@@ -1,6 +1,7 @@
 import { memo, useState } from 'react'
 import { CodeBlock, DiffBlock, DisclosureRow, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusKey } from '../../locales.ts'
 import { planSummary } from '../../model/todo.ts'
 import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
@@ -152,7 +153,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
         titleClassName={css.callTitle}
         chevronClassName={css.callChevron}
         icon={leadingFor(row)}
-        title={question ? t('ask.rowTitle') : todo ? t('todo.rowTitle') : row.title}
+        title={question ? t('ask.rowTitle') : todo ? t('todo.rowTitle') : t(row.title as FocusKey)}
         open={open}
         expandable={expandable}
         expandOnRowClick

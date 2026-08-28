@@ -196,14 +196,14 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('answer text')).toBeTruthy()
     // The official ReasoningRow chrome: the settled Think row keeps the plain
     // Think title (the duration no longer rides the title).
-    expect(screen.getAllByText('Think').length).toBe(1)
+    expect(screen.getAllByText('思考').length).toBe(1)
   })
 
   it('keeps the plain Think title while running or without timing', () => {
     renderView([
       assistantNode('a1', 'running', 'streaming', 100),
     ])
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
   })
 
   it('keeps the Think row to one line, tail-previewing the streaming text, and settles to the first line', () => {
@@ -225,9 +225,9 @@ it('renders the empty hint for an empty conversation', () => {
         assistantNode('a1', 'settled', 'first line\nsecond line', 3000),
       ]))
     })
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText(/first line/)).toBeTruthy()
-    fireEvent.click(screen.getByText('Think'))
+    fireEvent.click(screen.getByText('思考'))
     expect(screen.queryByText(/second line/)).toBeNull()
     expect(screen.getByText('first line')).toBeTruthy()
   })
@@ -249,7 +249,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Blocks keep their logged order (the chat AssistantMarkdown rule): the
     // Thought row sits above the reply, never below it.
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('Think')).toBeLessThan(column.indexOf('final answer'))
+    expect(column.indexOf('思考')).toBeLessThan(column.indexOf('final answer'))
   })
 
   it('stops tail-previewing the Think row once the assistant starts its text reply', () => {
@@ -343,7 +343,7 @@ it('renders the empty hint for an empty conversation', () => {
     })
     expect(screen.queryByText('two')).toBeNull()
     expect(screen.getByText('one')).toBeTruthy()
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
   })
 
   it('tail-preview only the last reasoning block while the step streams', () => {
@@ -362,7 +362,7 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('marks the running Think row with the sweep animation state', () => {
     renderView([assistantNode('a1', 'running', 'streaming', 100)])
-    const row = screen.getByText('Think')
+    const row = screen.getByText('思考')
     const wrap = row.closest('[data-state]')
     expect(wrap?.getAttribute('data-state')).toBe('running')
     expect(wrap?.querySelector('.thinkRowInner, [data-disclosure-row]')).toBeTruthy()
@@ -375,12 +375,12 @@ it('renders the empty hint for an empty conversation', () => {
     ])
     // A leading think — no preceding run to fold into — stays on its
     // assistant: the plain Think row above, the run's group below.
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('Think')).toBeLessThan(column.indexOf('运行了 1 个命令'))
+    expect(column.indexOf('思考')).toBeLessThan(column.indexOf('运行了 1 个命令'))
     // The Think row expands to its reasoning body.
-    fireEvent.click(screen.getByText('Think'))
+    fireEvent.click(screen.getByText('思考'))
     expect(screen.getByText(/more/)).toBeTruthy()
   })
 
@@ -397,10 +397,10 @@ it('renders the empty hint for an empty conversation', () => {
     ])
     // The Think row stays on the assistant, above the reply; the run folds
     // into the group below (the chat order: think → reply → tool rows).
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('answer text')).toBeTruthy()
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('Think')).toBeLessThan(column.indexOf('answer text'))
+    expect(column.indexOf('思考')).toBeLessThan(column.indexOf('answer text'))
     expect(column.indexOf('answer text')).toBeLessThan(column.indexOf('运行了 1 个命令'))
     fireEvent.click(screen.getByText('运行了 1 个命令'))
     // The group holds the call row only — the think did not fold in.
@@ -590,7 +590,7 @@ it('renders the empty hint for an empty conversation', () => {
     const bashRow = screen.getByText('Bash')
     expect(bashRow).toBeTruthy()
     expect(screen.getByText('pnpm build')).toBeTruthy()
-    expect(screen.getByText('Read')).toBeTruthy()
+    expect(screen.getByText('读取')).toBeTruthy()
     expect(screen.getByText('a.ts')).toBeTruthy()
     // Expand one call: the IN/OUT card with args and output (a shell call
     // without a description is a persistent shell — the generic IN/OUT path).
@@ -619,15 +619,15 @@ it('renders the empty hint for an empty conversation', () => {
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
-    expect(rowOf('Read')?.querySelector('[data-tool-icon="read"]')).toBeTruthy()
-    expect(rowOf('Search')?.querySelector('[data-tool-icon="search"]')).toBeTruthy()
-    expect(rowOf('Write')?.querySelector('[data-tool-icon="write"]')).toBeTruthy()
-    expect(rowOf('Edit')?.querySelector('[data-tool-icon="edit"]')).toBeTruthy()
-    expect(rowOf('Code')?.querySelector('[data-tool-icon="code"]')).toBeTruthy()
+    expect(rowOf('读取')?.querySelector('[data-tool-icon="read"]')).toBeTruthy()
+    expect(rowOf('搜索')?.querySelector('[data-tool-icon="search"]')).toBeTruthy()
+    expect(rowOf('写入')?.querySelector('[data-tool-icon="write"]')).toBeTruthy()
+    expect(rowOf('编辑')?.querySelector('[data-tool-icon="edit"]')).toBeTruthy()
+    expect(rowOf('代码')?.querySelector('[data-tool-icon="code"]')).toBeTruthy()
     // The todo and skill rows own their family icons (the chat toolviews).
     expect(rowOf('更新任务清单')?.querySelector('[data-tool-icon="todo"]')).toBeTruthy()
-    expect(rowOf('Skill')?.querySelector('[data-tool-icon="skill"]')).toBeTruthy()
-    expect(rowOf('Tool call')?.querySelector('[data-tool-icon="others"]')).toBeTruthy()
+    expect(rowOf('技能')?.querySelector('[data-tool-icon="skill"]')).toBeTruthy()
+    expect(rowOf('工具调用')?.querySelector('[data-tool-icon="others"]')).toBeTruthy()
     // The failing call keeps the red state dot, not the family icon.
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
   })
@@ -653,7 +653,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'skill', '{"name":"web-browse"}') }),
     ])
     fireEvent.click(fullText('载入了 1 个技能'))
-    expect(screen.getByText('Skill')).toBeTruthy()
+    expect(screen.getByText('技能')).toBeTruthy()
     expect(screen.getByText('web-browse')).toBeTruthy()
   })
 
@@ -707,7 +707,7 @@ it('renders the empty hint for an empty conversation', () => {
     // While the call runs the summary line reads the settled metrics only —
     // the thought is in, the call is not ("完成了才收进去摘要行") — and the
     // call renders as a live row at the end of the flow.
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.queryByText('运行了 1 个命令')).toBeNull()
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('pnpm build')).toBeTruthy()
@@ -723,7 +723,7 @@ it('renders the empty hint for an empty conversation', () => {
     // renders immediately.
     expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
   })
 
   it('keeps the streaming Think row standalone and folds it once the step settles', () => {
@@ -749,7 +749,7 @@ it('renders the empty hint for an empty conversation', () => {
     const { source } = renderView([running, call()])
     // While the step streams, the Think row stays standalone above the reply
     // and the run's group carries no think yet (the chat live row).
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('thinking out loud')).toBeTruthy()
     expect(screen.getByText('doing it')).toBeTruthy()
     expect(screen.getByText('Bash')).toBeTruthy()
@@ -761,7 +761,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Settled: the streaming Think row settles to its plain title; the run's
     // group paints no summary while its call still runs (the live row carries
     // it), so no duration reading is visible.
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.queryByText('思考了 1.3 秒')).toBeNull()
     expect(screen.getByText('doing it')).toBeTruthy()
   })
@@ -781,7 +781,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Expand the group: the folded think is settled reasoning — it must not
     // carry the sweep animation just because the group's call still runs.
     fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 1 个命令'))
-    const think = screen.getByText('Think').closest('[data-state]')
+    const think = screen.getByText('思考').closest('[data-state]')
     expect(think?.getAttribute('data-state')).toBe('ok')
   })
 
@@ -972,7 +972,7 @@ it('renders the empty hint for an empty conversation', () => {
     // the group (the chat order: the run ran, then the next step's Think
     // disclosure) and the directly-consecutive runs all merge into one
     // line whose thinking metric leads.
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('思考了 1.3 秒，运行了 3 个命令')).toBeTruthy()
     fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 3 个命令'))
     // The folded rows keep flow order: the calls and the absorbed think.
@@ -1032,7 +1032,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Expanding the fold reveals the folded rows — the leading think (its
     // plain Think row), the group, and the context injection.
     fireEvent.click(screen.getByText('工作了 7 秒'))
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     // The context injection row is inside the fold; expanding it reveals its
     // code-block card body.
@@ -1073,10 +1073,10 @@ it('renders the empty hint for an empty conversation', () => {
     // row beside the reply.
     expect(screen.getByText('工作了 7 秒')).toBeTruthy()
     expect(screen.getByText('all done')).toBeTruthy()
-    expect(screen.queryByText('Think')).toBeNull()
+    expect(screen.queryByText('思考')).toBeNull()
     // Expanding the fold reveals the folded reasoning with its plain title.
     fireEvent.click(screen.getByText('工作了 7 秒'))
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('closing think')).toBeTruthy()
   })
 
@@ -1294,7 +1294,7 @@ it('renders the empty hint for an empty conversation', () => {
     // context → thinking → calls); the assistant's leading think keeps its
     // own plain row.
     expect(screen.getByText('载入了 2 项上下文，运行了 1 个命令')).toBeTruthy()
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
     expect(screen.queryByText('AGENTS.md')).toBeNull()
     // Expanding the group reveals the absorbed context rows first, each
@@ -1402,7 +1402,7 @@ it('renders the empty hint for an empty conversation', () => {
     ])
     // No fold while the turn is open: the leading think keeps its own row
     // and the group line stays visible.
-    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     expect(screen.queryByText(/工作了/)).toBeNull()
   })
@@ -1895,7 +1895,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Collapsed: only the first line summary is visible.
     expect(screen.getByText('first line')).toBeTruthy()
     expect(screen.queryByText(/second line/)).toBeNull()
-    fireEvent.click(screen.getByText('Think'))
+    fireEvent.click(screen.getByText('思考'))
     expect(screen.getByText(/second line/)).toBeTruthy()
   })
 
@@ -1924,7 +1924,7 @@ it('renders the empty hint for an empty conversation', () => {
     fireEvent.click(screen.getByText('Bash'))
     // The terminal card draws the command output; the sub-call row appears nested.
     expect(screen.getByText('built ok')).toBeTruthy()
-    fireEvent.click(screen.getByText('Search'))
+    fireEvent.click(screen.getByText('搜索'))
     expect(screen.getByText('src/a.ts')).toBeTruthy()
   })
 
@@ -1939,7 +1939,7 @@ it('renders the empty hint for an empty conversation', () => {
       }) }),
     ], { cwd: '/ws' })
     fireEvent.click(screen.getByText('读取了 1 个文件'))
-    fireEvent.click(screen.getByText('Read'))
+    fireEvent.click(screen.getByText('读取'))
     // The ReadBlock banner proves the full card renders with the windowed lines.
     expect(screen.getByText('显示 1 / 3 行')).toBeTruthy()
   })
@@ -1954,11 +1954,11 @@ it('renders the empty hint for an empty conversation', () => {
       }) }),
     ])
     fireEvent.click(screen.getByText('编辑了 1 个文件，搜索了 1 个正则'))
-    fireEvent.click(screen.getByText('Edit'))
+    fireEvent.click(screen.getByText('编辑'))
     // The hunk path renders in the diff card (the collapsed row's file-link
     // summary keeps its own copy in the kept-content DOM).
     expect(screen.getAllByText('a.ts').length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByText('Search'))
+    fireEvent.click(screen.getByText('搜索'))
     expect(screen.getByText('DSH')).toBeTruthy()
   })
 
@@ -2031,7 +2031,7 @@ it('renders the empty hint for an empty conversation', () => {
     act(() => {
       source.set(chatOf([assistantNode('a1', 'running', 'streaming', 100)], { running: true }))
     })
-    expect(screen.getByText('Deep diving...')).toBeTruthy()
+    expect(screen.getByText('深度求索中...')).toBeTruthy()
     // Under 15s: no clock yet.
     expect(screen.queryByText('16 秒')).toBeNull()
     act(() => {
