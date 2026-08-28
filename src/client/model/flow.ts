@@ -533,6 +533,11 @@ export function buildFocusFlow(
 
   const flush = (): void => {
     if (pending === null) return
+    // A tool-call node routes straight into `pending` without crossing
+    // pushItem, so a context batch buffered before the run is still
+    // unflushed here — land it first, or the group below cannot see (and
+    // absorb) the context-fold it would otherwise stack under.
+    flushContext()
     // Local aliases: the group cache callbacks below would otherwise defeat
     // TypeScript's narrowing of `pending`.
     const runKeys = pending.keys
@@ -562,7 +567,12 @@ export function buildFocusFlow(
       let absorbedContext: readonly FocusContextItem[] = []
       if (contextProbe !== undefined
         && contextProbe.kind === 'context-fold'
-        && contextProbe.turn === groupTurn) {
+        // The batch belongs to the run when it shares the run's turn — or
+        // when its turn is unresolved: background notices (subagent-settled /
+        // subagent-report / repeat-tool-reminder) frequently carry no turn
+        // location, and folding them into the adjacent run's group is exactly
+        // what keeps the flow one line instead of a pile of injection rows.
+        && (contextProbe.turn === null || contextProbe.turn === groupTurn)) {
         absorbedContext = contextProbe.items
         if (pendingFold.length > 0) {
           pendingFold.splice(pendingFold.length - (contextProbe === previousAfterAssistant ? 1 : 2), 1)

@@ -648,6 +648,18 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('0/3 已完成 · Check current working directory and git status, run initial tests as baseline +1')).toBeTruthy()
   })
 
+  it('renders the list_agents row with its agent summary (the todo-row pattern)', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'list_agents', '{}', {
+        content: [{ type: 'text', text: 'a1 [running] — agent one\na2 [idle] — agent two' }],
+      }) }),
+    ])
+    fireEvent.click(fullText('调用了 1 个工具'))
+    // The dedicated row: the List agents title and the derived agent count.
+    expect(screen.getByText('代理列表')).toBeTruthy()
+    expect(screen.getByText('2 个子代理 · 1 个运行中')).toBeTruthy()
+  })
+
   it('renders a skill row with the Skill title and the skill name summary', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'skill', '{"name":"web-browse"}') }),
@@ -1377,6 +1389,30 @@ it('renders the empty hint for an empty conversation', () => {
     // Expanding the group reveals the absorbed notice row with its body.
     fireEvent.click(screen.getByText('运行了 1 个命令，后台任务 1 个'))
     expect(screen.getByText('tool-tasks')).toBeTruthy()
+  })
+
+  it('absorbs turn-less notice injections into the following run group', () => {
+    // Background notices (subagent-settled / subagent-report / repeat-tool-
+    // reminder) frequently carry no turn location; they must fold into the
+    // adjacent run's group instead of piling up as standalone rows.
+    renderView([
+      chatNode('n1', 'context', {
+        kind: 'context', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'Background subagent 79df55e1 finished and will do no further work unless you send it more.' }],
+        source: { kind: 'plugin', plugin: 'subagent', form: 'notice', summary: 'subagent-settled' },
+        provenance: { role: 'inject', label: 'subagent' },
+        form: 'notice',
+      }),
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+    ])
+    // No standalone injection row: the notice counts into the group's
+    // background-jobs segment.
+    expect(screen.queryByText(/Background subagent/)).toBeNull()
+    expect(screen.queryByText(/上下文注入/)).toBeNull()
+    expect(screen.getByText('运行了 1 个命令，后台任务 1 个')).toBeTruthy()
+    // Expanding the group reveals the notice row with its summary.
+    fireEvent.click(screen.getByText('运行了 1 个命令，后台任务 1 个'))
+    expect(screen.getByText('subagent-settled')).toBeTruthy()
   })
 
   it('keeps the running turn unfolded until it completes', () => {

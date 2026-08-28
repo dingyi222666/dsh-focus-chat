@@ -213,6 +213,9 @@ export const zh = {
   'tool.title.sendMessage': '发送消息',
   'tool.title.interruptAgent': '中断代理',
   'tool.title.listAgents': '代理列表',
+  'tool.agents': '{total} 个子代理',
+  'tool.agents.running': '{text} · {running} 个运行中',
+  'tool.agents.none': '无子代理',
 } satisfies Record<string, string>
 
 /** The focus namespace key union. */
@@ -431,4 +434,7 @@ export const en = {
   'tool.title.sendMessage': 'Send message',
   'tool.title.interruptAgent': 'Interrupt agent',
   'tool.title.listAgents': 'List agents',
+  'tool.agents': '{total} subagents',
+  'tool.agents.running': '{text} · {running} running',
+  'tool.agents.none': 'No subagents',
 } satisfies Record<FocusKey, string>

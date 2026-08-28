@@ -113,6 +113,20 @@ function todoSummary(row: FocusToolRow, t: FocusTranslate): string {
   return activeExtra > 0 ? `${text} +${activeExtra}` : text
 }
 
+/** The list_agents row's summary: the returned agent count with the running
+ *  share ("N subagents · M running"), derived from the result lines the
+ *  host renders (`id [status] — label` per agent); a bare result falls back
+ *  to the args summary. */
+function agentsSummary(row: FocusToolRow, t: FocusTranslate): string {
+  const output = row.output
+  if (output === null || output === '') return row.summary
+  if (output.includes('(no subagents)')) return t('tool.agents.none')
+  const lines = output.split('\n').map(line => line.trim()).filter(line => line !== '')
+  const running = lines.filter(line => /\[running\]/.test(line)).length
+  const head = t('tool.agents', { total: lines.length })
+  return running > 0 ? t('tool.agents.running', { text: head, running }) : head
+}
+
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
 export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   row: FocusToolRow
@@ -128,14 +142,17 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
   const open = expanded && expandable
   // The ask-question row reads its own interaction summary (waiting /
   // answered count / cancelled / interrupted), the todo_write row its
-  // progress counts; an error row's collapsed summary IS the failure — the
-  // first error line in the error color outranks the args summary.
+  // progress counts, the list_agents row its agent list; an error row's
+  // collapsed summary IS the failure — the first error line in the error
+  // color outranks the args summary.
   const question = row.name === 'ask_user_question'
   const todo = row.name === 'todo_write'
-  const failureLine = !question && !todo && row.state === 'error' ? row.errorSummary : null
+  const agents = row.name === 'list_agents'
+  const failureLine = !question && !todo && !agents && row.state === 'error' ? row.errorSummary : null
   const summaryText = question ? questionSummary(row, t)
     : todo ? todoSummary(row, t)
-      : failureLine ?? row.summary
+      : agents ? agentsSummary(row, t)
+        : failureLine ?? row.summary
   // The failure line is error prose, not the path: no open-file affordance.
   const fileLink = row.filePath !== undefined && failureLine === null
   const status = row.state === 'running' ? t('row.running')
@@ -153,7 +170,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
         titleClassName={css.callTitle}
         chevronClassName={css.callChevron}
         icon={leadingFor(row)}
-        title={question ? t('ask.rowTitle') : todo ? t('todo.rowTitle') : t(row.title as FocusKey)}
+        title={question ? t('ask.rowTitle') : todo ? t('todo.rowTitle') : agents ? t('tool.title.listAgents') : t(row.title as FocusKey)}
         open={open}
         expandable={expandable}
         expandOnRowClick
