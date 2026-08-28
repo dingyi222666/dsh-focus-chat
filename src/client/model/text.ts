@@ -1,7 +1,6 @@
 /** Text derivations of the focus flow model (React-free). */
-import type { AssistantChatData } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { AssistantBlock, AssistantChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { AssistantBlock } from '@deepseek-ai/dsh-client-runtime/client'
 import type { FocusDeliverablesData } from './types.ts'
 
 export function assistantText(blocks: readonly AssistantBlock[]): string {

@@ -1,20 +1,20 @@
 import { memo, useState } from 'react'
 import { IconApiOutline14, IconChevronDownOutline14, IconChevronRightOutline14, MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { CommandRow } from './CommandRow.tsx'
 import css from './CompactionRow.module.css'
 
 /** One landed-compaction marker (the chat CompactionItem chrome). */
-export const CompactionRow = memo(function CompactionRow({ item, title, fallbackSummary, t, codeLabels }: {
+export const CompactionRow = memo(function CompactionRow({ item, title, fallbackSummary, t, mdLabels }: {
   item: Extract<FocusFlowItem, { kind: 'compaction' }>
   /** Optional command title for a manual compaction folded into this marker. */
   title?: string | undefined
   /** Command settlement text used when structured compaction counts are unavailable. */
   fallbackSummary?: string | null | undefined
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
 }) {
   const [expanded, setExpanded] = useState(false)
   const expandable = item.summary !== null
@@ -49,7 +49,7 @@ export const CompactionRow = memo(function CompactionRow({ item, title, fallback
       </button>
       {open && item.summary !== null && (
         <div className={css.compactionBody}>
-          <MarkdownText text={item.summary} codeLabels={codeLabels} />
+          <MarkdownText text={item.summary} labels={mdLabels} />
         </div>
       )}
     </div>
@@ -57,10 +57,10 @@ export const CompactionRow = memo(function CompactionRow({ item, title, fallback
 })
 
 /** One manual `/compact` lifecycle: the command card, or the checkpoint marker. */
-export const ManualCompactionRow = memo(function ManualCompactionRow({ item, t, codeLabels }: {
+export const ManualCompactionRow = memo(function ManualCompactionRow({ item, t, mdLabels }: {
   item: Extract<FocusFlowItem, { kind: 'manual-compaction' }>
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
 }) {
   if (item.compaction !== null) {
     return (
@@ -75,7 +75,7 @@ export const ManualCompactionRow = memo(function ManualCompactionRow({ item, t, 
         title="compact"
         fallbackSummary={item.outcomeText}
         t={t}
-        codeLabels={codeLabels}
+        mdLabels={mdLabels}
       />
     )
   }

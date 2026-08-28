@@ -2,7 +2,7 @@
  *  replayed through buildFocusFlow to pin the chronological row order the
  *  official chat shows (reply → its own tool rows). */
 import { describe, expect, it } from 'vitest'
-import type { ChatConversationViewNode, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ChatConversationViewNode, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { buildFocusFlow, createFlowBuildCache } from '../src/client/model/flow.ts'
 import type { FocusFlowItem } from '../src/client/model/types.ts'
 
@@ -28,7 +28,7 @@ function bashCall(callId: string, description: string): ToolResultNode {
   return {
     kind: 'tool-result', seq: 1, time: 1000, callId,
     call: { name: 'bash', argsRaw: JSON.stringify({ command: 'x', description }) },
-    callTime: 1000, content: [], isError: false, callView: null, resultView: null, subCalls: [],
+    callTime: 1000, content: [], isError: false, subCalls: [],
   }
 }
 

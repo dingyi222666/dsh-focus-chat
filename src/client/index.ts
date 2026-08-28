@@ -9,8 +9,8 @@
 // Type-only: the 'conversation.view' SlotMap row (declared by the slot's
 // owning package) must be in the program for the register call to type.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-// Type-only: pulls the runtime's cordis Context merge (ctx.slots).
-import type {} from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: pulls the renderer's cordis Context merge (ctx.slots).
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { FocusKey } from './locales.ts'

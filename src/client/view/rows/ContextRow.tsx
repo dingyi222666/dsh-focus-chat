@@ -1,6 +1,6 @@
 import { memo, useState, type ReactNode } from 'react'
 import { DisclosureRow, IconBrowseOutline16, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import { ReferenceIcon } from '../chrome/ReferenceIcon.tsx'
 import type { FocusContextItem, FocusFlowItem } from '../../model/types.ts'
@@ -444,10 +444,10 @@ function contextBody(
 }
 
 /** Logged context-injection row (the chat ContextInjectionRow chrome: header, source, form body). */
-export const ContextRow = memo(function ContextRow({ item, t, codeLabels }: {
+export const ContextRow = memo(function ContextRow({ item, t, mdLabels }: {
   item: Extract<FocusFlowItem, { kind: 'message' }>
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
 }) {
   const [open, setOpen] = useState(false)
   const context = item.context
@@ -503,10 +503,10 @@ export const ContextRow = memo(function ContextRow({ item, t, codeLabels }: {
 /** One running turn's context batch: consecutive context injections under a
  *  single collapsed line (the completed turn folds them into the turn fold
  *  instead; expanding here reveals the individual ContextRows). */
-export const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels }: {
+export const ContextFoldRow = memo(function ContextFoldRow({ item, t, mdLabels }: {
   item: Extract<FocusFlowItem, { kind: 'context-fold' }>
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
 }) {
   const [open, setOpen] = useState(false)
   const title = item.items.length === 1 ? t('contextInjection') : t('context.fold', {
@@ -526,7 +526,7 @@ export const ContextFoldRow = memo(function ContextFoldRow({ item, t, codeLabels
       >
         <div className={css.contextFoldBody} data-context-fold-body>
           {item.items.map(inner => (
-            <ContextRow key={inner.nodeKey} item={inner} t={t} codeLabels={codeLabels} />
+            <ContextRow key={inner.nodeKey} item={inner} t={t} mdLabels={mdLabels} />
           ))}
         </div>
       </DisclosureRow>

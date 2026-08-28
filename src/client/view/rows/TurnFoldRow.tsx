@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { DisclosureRow, IconSparkle16 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { formatElapsed } from '../helpers/format.ts'
@@ -9,10 +9,10 @@ import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import { FlowRow, flowKey } from './FlowRow.tsx'
 import css from './TurnFoldRow.module.css'
 
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
@@ -42,7 +42,7 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, codeLabels, open
               key={flowKey(inner)}
               item={inner}
               t={t}
-              codeLabels={codeLabels}
+              mdLabels={mdLabels}
               openFile={openFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}

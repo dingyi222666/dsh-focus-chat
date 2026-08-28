@@ -2,14 +2,15 @@
 /** FocusView behavior: condensed flow rows, Think auto-expand/fold, running status, folded tool groups with full card expansion. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-web-react'
-import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ChatConversationViewNode, ConversationSnapshot, RunningToolCall, SessionId, SessionListState,
-  ToolResultNode, WorkspaceListState,
-} from '@deepseek-ai/dsh-client-runtime/client'
+  ChatConversationViewNode, ChatSnapshot, RunningToolCall, ToolResultNode,
+} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionListState, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
-import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { FocusView } from '../src/client/view/FocusView.tsx'
 import type { FocusViewProps } from '../src/client/contract/props.ts'
 import type { FocusScrollPosition } from '../src/client/contract/props.ts'
@@ -29,7 +30,7 @@ function chatNode(
   kind: string,
   data: unknown,
   location: ChatConversationViewNode['location'] = { kind: 'unresolved' },
-): NonNullable<ReturnType<ConversationSnapshot['chat']['nodes']['get']>> {
+): NonNullable<ReturnType<ChatSnapshot['nodes']['get']>> {
   return {
     key, kind, id: key, target: 'chat', anchorSeq: 1,
     location,
@@ -41,13 +42,13 @@ function chatNode(
 function settledCall(callId: string, name: string, argsRaw: string, overrides: Partial<ToolResultNode> = {}): ToolResultNode {
   return {
     kind: 'tool-result', seq: 2, time: 3000, callId, call: { name, argsRaw }, callTime: 1000,
-    content: [], isError: false, callView: null, resultView: null, subCalls: [],
+    content: [], isError: false, subCalls: [],
     ...overrides,
   }
 }
 
 function runningCall(callId: string, name: string, argsRaw = '{}'): RunningToolCall {
-  return { callId, name, argsRaw, turn: 1, step: 1, time: 1000, callView: null, subCalls: [] }
+  return { callId, name, argsRaw, turn: 1, step: 1, time: 1000, subCalls: [] }
 }
 
 function sessionsStore(cwd: string | undefined) {
@@ -62,24 +63,23 @@ function sessionsStore(cwd: string | undefined) {
   })
 }
 
-function workspacesStore() {
-  return createSnapshotStore<WorkspaceListState>({
-    items: [], archivedSessionIds: [], state: 'idle', phase: 'ready', error: null, baselinesReady: true,
-    recentWorkspaceId: undefined,
-  })
+/** The composed view slice: session lifecycle next to the chat snapshot. */
+type ViewSlice = {
+  session: Pick<SessionSnapshot, 'running' | 'hasMore' | 'loadingOlder' | 'queue' | 'openState' | 'openError'>
+  chat: ChatSnapshot
 }
 
-type ChatSlice = Pick<ConversationSnapshot, 'chat' | 'running' | 'hasMore' | 'loadingOlder' | 'queue' | 'openState' | 'openError'>
-
-function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean; hasMore?: boolean; loadingOlder?: boolean; queue?: ConversationSnapshot['queue']; openState?: ConversationSnapshot['openState']; openError?: ConversationSnapshot['openError'] } = {}): ChatSlice {
+function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean; hasMore?: boolean; loadingOlder?: boolean; queue?: SessionSnapshot['queue']; openState?: SessionSnapshot['openState']; openError?: SessionSnapshot['openError'] } = {}): ViewSlice {
   const nodesByKey = new Map(nodes.map(n => [n.key, n]))
   return {
-    running: opts.running ?? false,
-    hasMore: opts.hasMore ?? false,
-    loadingOlder: opts.loadingOlder ?? false,
-    queue: opts.queue ?? [],
-    openState: opts.openState ?? 'cold',
-    openError: opts.openError ?? null,
+    session: {
+      running: opts.running ?? false,
+      hasMore: opts.hasMore ?? false,
+      loadingOlder: opts.loadingOlder ?? false,
+      queue: opts.queue ?? [],
+      openState: opts.openState ?? 'cold',
+      openError: opts.openError ?? null,
+    },
     chat: {
       order: nodes.map(n => n.key),
       nodes: {
@@ -87,11 +87,20 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
         values: () => nodes,
       },
       locations: { getTurn: () => [], getStep: () => [] },
+      navigation: { items: () => [] },
       timeline: { turnOrder: [], turns: new Map() },
       legacy: {
         nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
       },
     },
+  }
+}
+
+/** Project one slice member as a standalone observable (the split standard seats). */
+function viewOf<T>(source: { getSnapshot(): ViewSlice; subscribe(listener: () => void): () => void }, pick: (slice: ViewSlice) => T): HostObservable<T> {
+  return {
+    getSnapshot: () => pick(source.getSnapshot()),
+    subscribe: listener => source.subscribe(listener),
   }
 }
 
@@ -103,7 +112,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   forkAt?: (seq: number) => void
   fileMentions?: (owner: unknown) => unknown
   isLoopback?: boolean
-  chat?: ChatSlice
+  chat?: ViewSlice
   t?: FocusViewProps['t']
   home?: string
   feedback?: {
@@ -113,15 +122,16 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
 } = {}): {
   result: ReturnType<typeof render>
-  source: ReturnType<typeof createSnapshotStore<ChatSlice>>
+  source: ReturnType<typeof createSnapshotStore<ViewSlice>>
 } {
-  const source = createSnapshotStore<ChatSlice>(opts.chat ?? chatOf(nodes))
+  const source = createSnapshotStore<ViewSlice>(opts.chat ?? chatOf(nodes))
   const loadImage = opts.loadImage ?? (() => Promise.reject(new Error('no loader')))
   const props = {
     sessionId: SID,
-    useSession: bindSnapshotSelector(source),
+    useSession: bindSnapshotSelector(viewOf(source, slice => slice.session)),
+    useChat: bindSnapshotSelector(viewOf(source, slice => slice.chat)),
     useSessions: bindSnapshotSelector(sessionsStore(opts.cwd)),
-    useWorkspaces: bindSnapshotSelector(workspacesStore()),
+    useWorkspaces: (() => undefined) as never,
     useProjection: (() => undefined) as never,
     loadOlder: opts.loadOlder ?? (() => {}),
     loadImage,
@@ -130,7 +140,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     fileMentions: opts.fileMentions ?? (() => undefined),
     isLoopback: opts.isLoopback ?? true,
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
-    useHostDescription: (selector: (description: { home?: string } | undefined) => string | undefined) => selector({ home: opts.home }),
+    useHostHome: (selector: (home: string | undefined) => string | undefined) => selector(opts.home),
     useFeedback: (_selector: unknown) => undefined,
     ensureFeedback: () => Promise.resolve({ ok: true as const }),
     rateFeedback: opts.feedback?.rate ?? (() => Promise.resolve({ ok: true as const })),
@@ -274,33 +284,37 @@ it('renders the empty hint for an empty conversation', () => {
     const runningNode = assistantNode('a1', 'running', 'one\ntwo', 100)
     const settledNode = assistantNode('a1', 'settled', 'one\ntwo', 3000)
     const nodesByKey = new Map<string, ReturnType<typeof chatNode>>([['a1', runningNode]])
-    const source = createSnapshotStore<ChatSlice>({
-      running: true,
-      hasMore: false,
-      loadingOlder: false,
-      queue: [],
-      openState: 'cold',
-      openError: null,
+    const source = createSnapshotStore<ViewSlice>({
+      session: {
+        running: true,
+        hasMore: false,
+        loadingOlder: false,
+        queue: [],
+        openState: 'cold',
+        openError: null,
+      },
       chat: {
         order,
         nodes: { get: (k: string) => nodesByKey.get(k), values: () => [runningNode] },
         locations: { getTurn: () => [], getStep: () => [] },
+      navigation: { items: () => [] },
         timeline: { turnOrder: [], turns: new Map() },
         legacy: { nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [] },
       },
     })
     render(<FocusView {...({
       sessionId: SID,
-      useSession: bindSnapshotSelector(source),
+      useSession: bindSnapshotSelector(viewOf(source, slice => slice.session)),
+      useChat: bindSnapshotSelector(viewOf(source, slice => slice.chat)),
       useSessions: bindSnapshotSelector(sessionsStore(undefined)),
-      useWorkspaces: bindSnapshotSelector(workspacesStore()),
+      useWorkspaces: (() => undefined) as never,
       useProjection: (() => undefined) as never,
       loadOlder: () => {},
       openFile: () => Promise.resolve(),
       forkAt: () => {},
       fileMentions: (() => undefined) as never,
       scroll: { save: () => {}, read: () => null },
-      useHostDescription: () => undefined,
+      useHostHome: () => undefined,
       t,
     } as unknown as FocusViewProps)} />)
     expect(screen.getByText('two')).toBeTruthy()
@@ -308,16 +322,19 @@ it('renders the empty hint for an empty conversation', () => {
       // Same `order` array reference; the node store returns the settled node.
       nodesByKey.set('a1', settledNode)
       source.set({
-        running: false,
-        hasMore: false,
-        loadingOlder: false,
-        queue: [],
-        openState: 'cold',
-        openError: null,
+        session: {
+          running: false,
+          hasMore: false,
+          loadingOlder: false,
+          queue: [],
+          openState: 'cold',
+          openError: null,
+        },
         chat: {
           order,
           nodes: { get: (k: string) => nodesByKey.get(k), values: () => [settledNode] },
           locations: { getTurn: () => [], getStep: () => [] },
+      navigation: { items: () => [] },
           timeline: { turnOrder: [], turns: new Map() },
           legacy: { nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [] },
         },
@@ -574,7 +591,8 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('pnpm build')).toBeTruthy()
     expect(screen.getByText('Read')).toBeTruthy()
     expect(screen.getByText('a.ts')).toBeTruthy()
-    // Expand one call: the IN/OUT card with args and output.
+    // Expand one call: the IN/OUT card with args and output (a shell call
+    // without a description is a persistent shell — the generic IN/OUT path).
     fireEvent.click(bashRow)
     expect(screen.getByText('built ok')).toBeTruthy()
     expect(screen.getByText('{', { exact: false })).toBeTruthy()
@@ -766,20 +784,17 @@ it('renders the empty hint for an empty conversation', () => {
   })
 
 
-  it('lets the terminal description and search title outrank the args summary', () => {
+  it('lets the terminal description outrank the args summary', () => {
     renderView([
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"pnpm build"}', {
-        callView: { card: 'terminal', title: 'pnpm build', description: 'Build the app' },
-        resultView: { card: 'terminal', output: 'built ok', exitCode: 0 },
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"pnpm build","description":"Build the app"}', {
+        content: [{ type: 'text', text: 'built ok\n[exit code: 0]' }],
       }) }),
-      chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"query":"x"}', {
-        resultView: { card: 'search', shape: 'paths', paths: [], truncated: false, total: 0, title: 'Search results' },
-      }) }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"query":"x"}') }),
     ])
     // Expand the group first: the rows carry the chat outranking summaries.
     fireEvent.click(screen.getByText('运行了 1 个命令，搜索了 1 个正则'))
     expect(screen.getByText('Build the app')).toBeTruthy()
-    expect(screen.getByText('Search results')).toBeTruthy()
+    expect(screen.getByText('x')).toBeTruthy()
     expect(screen.queryByText('pnpm build')).toBeNull()
   })
 
@@ -798,9 +813,8 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('surfaces a failing terminal exit as the row red dot', () => {
     renderView([
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}', {
-        callView: { card: 'terminal', title: 'build' },
-        resultView: { card: 'terminal', output: 'boom', exitCode: 2 },
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build","description":"build"}', {
+        content: [{ type: 'text', text: 'boom\n[exit code: 2]' }],
       }) }),
     ])
     fireEvent.click(screen.getByText('命令失败', { selector: '[data-group-title-failed]' }))
@@ -1801,11 +1815,10 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('renders the terminal card and the recursive sub-call tree in an expanded call', () => {
     renderView([
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"pnpm build"}', {
-        callView: { card: 'terminal', title: 'pnpm build', cwd: '/ws' },
-        resultView: { card: 'terminal', output: 'built ok', exitCode: 0 },
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"pnpm build","description":"build","workdir":"/ws"}', {
+        content: [{ type: 'text', text: 'built ok\n[exit code: 0]' }],
         subCalls: [settledCall('sub1', 'glob', '{"pattern":"src/**"}', {
-          resultView: { card: 'search', shape: 'paths', paths: ['src/a.ts'], truncated: false, total: 1 },
+          meta: { shape: 'paths', paths: ['src/a.ts'], truncated: false, total: 1 },
         })],
       }) }),
     ])
@@ -1819,11 +1832,12 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('renders the read card for a completed read call', () => {
     renderView([
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'read', '{"path":"/ws/a.ts"}', {
-        resultView: {
-          card: 'read', path: '/ws/a.ts', offset: 1,
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'read', '{"file_path":"/ws/a.ts"}', {
+        meta: {
+          path: '/ws/a.ts', offset: 1,
           lines: [{ number: 1, text: 'export const x = 1' }], totalLines: 3, lang: 'ts',
         },
+        content: [{ type: 'text', text: '<path>/ws/a.ts</path>\n<type>file</type>\n<content>\nexport const x = 1\n</content>' }],
       }) }),
     ], { cwd: '/ws' })
     fireEvent.click(screen.getByText('读取了 1 个文件'))
@@ -1834,17 +1848,18 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('renders the diff and web cards for their calls', () => {
     renderView([
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{}', {
-        callView: { card: 'diff', title: 'Edit a.ts', diffs: [{ path: 'a.ts', oldText: 'old', newText: 'new' }] },
-        resultView: { card: 'diff', diffs: [{ path: 'a.ts', oldText: 'old', newText: 'new' }] },
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"a.ts","old_string":"old","new_string":"new"}', {
+        meta: { diffs: [{ path: 'a.ts', oldText: 'old', newText: 'new' }] },
       }) }),
-      chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{}', {
-        resultView: { card: 'web', kind: 'search', sources: [{ url: 'https://dsh.dev', title: 'DSH' }], truncated: false },
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"queries":["x"]}', {
+        meta: { sources: [{ url: 'https://dsh.dev', title: 'DSH' }], truncated: false },
       }) }),
     ])
     fireEvent.click(screen.getByText('编辑了 1 个文件，搜索了 1 个正则'))
     fireEvent.click(screen.getByText('Edit'))
-    expect(screen.getByText('a.ts')).toBeTruthy()
+    // The hunk path renders in the diff card (the collapsed row's file-link
+    // summary keeps its own copy in the kept-content DOM).
+    expect(screen.getAllByText('a.ts').length).toBeGreaterThan(0)
     fireEvent.click(screen.getByText('Search'))
     expect(screen.getByText('DSH')).toBeTruthy()
   })
@@ -2036,7 +2051,7 @@ describe('resubmitted turn durations', () => {
 describe('plugin apply', () => {
   it('registers the focus tab on a real slot ring and disposes with the fiber', async () => {
     const { Context, Service } = await import('@deepseek-ai/cordis')
-    const { SlotRegistry } = await import('@deepseek-ai/dsh-client-runtime/client')
+    const { SlotRegistry } = await import('@deepseek-ai/dsh-client-ui-renderer/client')
     const { apply, inject } = await import('../src/client/index.ts')
     const ctx = new Context()
     const slots = new SlotRegistry(ctx)
@@ -2048,21 +2063,24 @@ describe('plugin apply', () => {
       register: () => {},
       bind: () => () => 'Focus chat',
     })
-    ctx.provide('sessions', { scope: () => undefined })
-    ctx.provide('workspaces', { openPath: async () => {} })
+    ctx.provide('sessions', { binding: () => undefined })
+    ctx.provide('uiConversation', {})
     ctx.provide('connection', {
       isLoopback: true,
-      hostDescription: {
+      generation: {
         getSnapshot: () => undefined,
         subscribe: () => () => {},
       },
     })
     class RemoteService extends Service {
-      constructor(serviceCtx: Context) {
+      constructor(serviceCtx: InstanceType<typeof Context>) {
         super(serviceCtx, 'remote')
       }
     }
     new RemoteService(ctx)
+    ctx.provide('remote.session', {
+      openWorkspacePath: async () => ({ ok: true, value: undefined }),
+    })
     ctx.provide('remote.messageFeedback', {
       list: async () => ({ ok: true, value: { ok: true, value: { items: [] } } }),
       put: async () => ({ ok: true, value: { ok: true, value: undefined } }),

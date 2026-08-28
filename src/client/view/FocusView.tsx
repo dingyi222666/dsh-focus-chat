@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownCodeLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type { MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+// Type-only: pulls the ui-chat merge (useChat on the session standard kit).
+import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
 import { flattenText } from '../model/text.ts'
 import type { FocusFlowItem, FocusToolRow } from '../model/index.ts'
 import { firstLine } from './helpers/format.ts'
+import { markdownLabels } from './helpers/terminal.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
 import { PendingSteeringBubble } from './rows/UserBubble.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
@@ -141,19 +144,21 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
  */
 
 export function FocusView({
-  useSession, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
-  isLoopback, scroll, useHostDescription, useFeedback,
+  useSession, useChat, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
+  isLoopback, scroll, useHostHome, useFeedback,
   ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote, t,
 }: FocusViewProps) {
-  // Subscribing to the whole chat snapshot (not the order/nodes handles) keeps
-  // the flow fresh on every publication — including assistant-only updates
-  // that leave the order array untouched, which is what folds a finished
-  // Think row back in. The snapshot's outer wrapper is rebuilt on every
-  // stream frame, so the view re-derives each frame too — but the
-  // cross-build derivation cache below makes an unchanged build cheap
-  // (reference checks only) and keeps every settled row's object identity,
-  // so memoized rows bail out exactly like the chat view's per-node seats.
-  const chat = useSession(s => s.chat)
+  // Lifecycle and control state ride useSession (the Session Controller's
+  // SessionSnapshot); conversation content rides useChat (the Chat target's
+  // ChatSnapshot). Subscribing to the whole chat snapshot keeps the flow
+  // fresh on every publication — including assistant-only updates that leave
+  // the order array untouched, which is what folds a finished Think row back
+  // in. The snapshot's outer wrapper is rebuilt on every stream frame, so
+  // the view re-derives each frame too — but the cross-build derivation
+  // cache below makes an unchanged build cheap (reference checks only) and
+  // keeps every settled row's object identity, so memoized rows bail out
+  // exactly like the chat view's per-node seats.
+  const chat = useChat(s => s)
   const running = useSession(s => s.running)
   const hasMore = useSession(s => s.hasMore)
   const loadingOlder = useSession(s => s.loadingOlder)
@@ -163,7 +168,7 @@ export function FocusView({
   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
   // Host account home: a leftover POSIX home path in a tool summary or read
   // card displays as `~` (the ui-tool chat rule).
-  const home = useHostDescription(description => description?.home)
+  const home = useHostHome(home => home)
   const pendingSteering = useMemo(
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
@@ -226,10 +231,7 @@ export function FocusView({
     return rows
   }, [flow, liveNow])
   const runningTurnStart = useMemo(() => runningTurnStartTime(chat.timeline), [chat.timeline])
-  const codeLabels = useMemo<MarkdownCodeLabels>(
-    () => ({ copyLabel: t('copy'), copiedLabel: t('copied') }),
-    [t],
-  )
+  const mdLabels = useMemo<MarkdownLabels>(() => markdownLabels(t), [t])
   // Host open-path refusals surface as an in-page dialog with a same-path
   // retry (the chat view's FileOpenErrorDialog); a settlement that started
   // before the latest close/retry gesture is ignored so a cancelled in-flight
@@ -568,7 +570,7 @@ export function FocusView({
         <FlowRow
           item={item}
           t={t}
-          codeLabels={codeLabels}
+          mdLabels={mdLabels}
           openFile={requestOpenFile}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}
@@ -578,7 +580,7 @@ export function FocusView({
         />
       </div>
     )),
-    [flow, t, codeLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback],
+    [flow, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback],
   )
 
   return (

@@ -1,15 +1,26 @@
 /** Pure type face of the focus flow model (React-free). */
 import type { DiffHunk, ReadBlockLine, SearchBlockProps, WebBlockProps } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { AssistantBlock, ContextMessageNode, SteeringMessageNode, UserMessageNode } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ChatNodeDataMap } from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: pulls ui-deliverables' ConversationTurnDataMap augmentation
+// (the 'deliverables' turn data the turn-tail row reads).
+import type {} from '@deepseek-ai/dsh-client-ui-deliverables/client'
+import type { AssistantBlock, ChatNodeDataMap, ContextMessageNode, SteeringMessageNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+
+/** Locale-owned label surfaces the render sites add to the shared card primitives. */
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
+
+/** Search-card data the model owns; render adds `labels`/`maxLines`/`className`. */
+export type FocusSearchBlockProps = DistributiveOmit<SearchBlockProps, 'labels' | 'maxLines' | 'className'>
+
+/** Web-card data the model owns; render adds `labels`/`className`. */
+export type FocusWebBlockProps = DistributiveOmit<WebBlockProps, 'labels' | 'className'>
 
 export type FocusCard =
   | { kind: 'terminal'; command: string; cwd: string | undefined; output: string | undefined; exitCode: number | undefined; signal: string | undefined; running: boolean; description: string | undefined }
   | { kind: 'diff'; diffs: DiffHunk[] }
   | { kind: 'read'; label: string; lines: ReadBlockLine[]; totalLines: number; lang: string | undefined }
-  | { kind: 'search'; props: SearchBlockProps; recovery: string | undefined; title: string | undefined }
-  | { kind: 'web'; props: WebBlockProps }
+  | { kind: 'search'; props: FocusSearchBlockProps; recovery: string | undefined }
+  | { kind: 'web'; props: FocusWebBlockProps }
 
 /** Tool-row state semantics; colors self-supplied by the view. */
 export type FocusToolState = 'running' | 'ok' | 'error' | 'stopped'
@@ -216,13 +227,6 @@ export type FocusFlowItem =
 
 /** The chat node data union the focus view narrows, keyed by the merge-extensible map. */
 export type FocusNodeData = ChatNodeDataMap[Extract<keyof ChatNodeDataMap, string>]
-
-declare module '@deepseek-ai/dsh-client-runtime/client' {
-  interface ConversationTurnDataMap {
-    /** Successful mutation paths accumulated in this turn (the ui-deliverables contract). */
-    deliverables: FocusDeliverablesData
-  }
-}
 
 /** One produced-path fact (the ui-deliverables turn data contract). */
 export interface FocusDeliverablesData {

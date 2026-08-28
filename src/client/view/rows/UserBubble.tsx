@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import { JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -11,10 +11,10 @@ import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
 import { MessageActions } from '../chrome/MessageActions.tsx'
 import css from './UserBubble.module.css'
 
-export const MessageRow = memo(function MessageRow({ item, t, codeLabels, loadImage }: {
+export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImage }: {
   item: Extract<FocusFlowItem, { kind: 'message' }>
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
   loadImage: ImageLoader
 }) {
   const text = useMemo(() => messageText(item.content), [item.content])
