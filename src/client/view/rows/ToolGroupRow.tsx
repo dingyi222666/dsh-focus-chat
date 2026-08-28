@@ -1,6 +1,6 @@
 import { Fragment, memo, useState } from 'react'
 import { DisclosureRow, IconSparkle16 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownCodeLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusToolGroup } from '../../model/types.ts'
 import { caseSegments, groupTitleParts } from './group-title.ts'
@@ -10,10 +10,10 @@ import { ToolCallRow } from './ToolCallRow.tsx'
 import css from './ToolGroupRow.module.css'
 
 /** One folded run of Tool calls: the step-summary line with its metrics. */
-export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, openFile }: {
+export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, openFile }: {
   group: FocusToolGroup
   t: FocusTranslate
-  codeLabels: MarkdownCodeLabels
+  mdLabels: MarkdownLabels
   openFile: (path: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -62,7 +62,7 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, codeLabels, o
               : <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} />
           ) : 'kind' in item ? (
             // An absorbed context injection expands to its chat row.
-            <ContextRow key={item.nodeKey} item={item} t={t} codeLabels={codeLabels} />
+            <ContextRow key={item.nodeKey} item={item} t={t} mdLabels={mdLabels} />
           ) : (
             // The absorbed thinking is settled reasoning — only settled
             // thinks fold into a group, the streaming tail stays on the

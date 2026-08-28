@@ -7,11 +7,10 @@
  *  - lib/index.js + lib/invariant.js: the Node half (ESM) the host Loader
  *    mounts (both are dependency-free: every import is type-only).
  *  - lib/client.js: the browser half (CJS closure bundle) served by the
- *    modules node half into window.__DSH_BOOT__ — a lazy module-table entry
+ *    modules node half into window.__ModuleLoader__ — a lazy module-table entry
  *    whose externals are exactly the platform seed modules, answered at
- *    runtime by the shell's loader (react family, cordis, ui-slots,
- *    ui-primitives, web-react, schema-form) plus the documented
- *    runtime/client store exemption.
+ *    runtime by the shell's loader (react family, cordis, client-store,
+ *    ui-slots, ui-primitives).
  *
  * CSS Modules are compiled by lightningcss inside the bundle: importing
  * `x.module.css` yields the hashed class map, and the css text auto-injects
@@ -29,22 +28,13 @@ const PLUGIN_ID = '@dingyi222666/dsh-focus-chat'
 
 /** The browser platform seed modules the shell shares into the frozen module table. */
 const PLATFORM_MODULES = [
-  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', 'cordis',
+  'react', 'react/jsx-runtime', 'react-dom', 'react-dom/client', '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
-  '@deepseek-ai/dsh-client-web-react',
   '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-ui-attachment',
-  '@deepseek-ai/dsh-client-schema-form',
 ] as const
 
-/**
- * Documented exemption carried over from the repo preset: the snapshot-store
- * engine lives in runtime pending its promotion-time rehoming, and client
- * bundles that touch it must stay external to it.
- */
-const RUNTIME_STORE_EXEMPTION = '@deepseek-ai/dsh-client-runtime/client'
-
-const EXTERNALS: readonly string[] = [...PLATFORM_MODULES, RUNTIME_STORE_EXEMPTION]
+const EXTERNALS: readonly string[] = [...PLATFORM_MODULES]
 
 /** Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline. */
 const CSS_VIRTUAL_PREFIX = '\0dsh-css:'

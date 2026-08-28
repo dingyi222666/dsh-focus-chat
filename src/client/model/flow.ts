@@ -1,6 +1,6 @@
 /** One condensed flow over the chat snapshot (React-free). */
-import type { AssistantChatData, ChatNodeDataMap, ManualCompactionChatData, ToolChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-runtime/client'
+import type { AssistantChatData, ChatNodeDataMap, ManualCompactionChatData, ToolChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { toolGroup, type ToolRowModelCache } from './tools.ts'
 import { assistantText, producedForClosing, thoughtDurationMs } from './text.ts'
 import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, FocusToolGroup } from './types.ts'

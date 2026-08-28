@@ -1,6 +1,7 @@
 /** Tool classification and row/group derivation (React-free). */
-import { abbreviateHomePath, resolveWorkspacePath } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-runtime/client'
+import { abbreviateHomePath, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import type { DiffHunk, ReadBlockLine } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { FocusCard, FocusGroupMetrics, FocusGroupThink, FocusMetricKey, FocusToolGroup, FocusToolRow, FocusToolState, FocusToolVariant } from './types.ts'
 import { flattenText, relativizeToCwd } from './text.ts'
 
@@ -268,87 +269,377 @@ function resultText(node: ToolResultNode): string {
   return parts.join('\n')
 }
 
+/** A parsed, in-window Tool call whose arguments are a JSON object. */
+interface ParsedCall {
+  name: string
+  args: Record<string, unknown>
+}
+
+/** Parse the call head paired with one immutable Tool block (null when the head or the JSON object is unavailable). */
+function parsedCall(block: ToolCallBlock): ParsedCall | null {
+  const call = 'kind' in block ? block.call : block
+  if (call === null) return null
+  const parsed = parseArgs(call.argsRaw)
+  if (typeof parsed !== 'object' || parsed === null) return null
+  return { name: call.name, args: parsed as Record<string, unknown> }
+}
+
+/** The exact single text block the first-party card derivations read. */
+function singleResultText(node: ToolResultNode): string | undefined {
+  if (node.content.length !== 1) return undefined
+  const only = node.content[0]
+  return only?.type === 'text' ? only.text : undefined
+}
+
+/** Validate the optional escalation pair shared by the shell and file-mutation tools. */
+function validEscalationFields(args: Record<string, unknown>): boolean {
+  const permission = args.sandbox_permissions
+  const justification = args.justification
+  if (permission === undefined && justification === undefined) return true
+  if (permission !== 'workspace-write' && permission !== 'danger-full-access') return false
+  return typeof justification === 'string' && justification.trim() !== ''
+}
+
+/** A supported shell call's display material, narrowed from its raw args. */
+interface ShellCall {
+  command: string
+  description: string | undefined
+  workdir: string | undefined
+  /** A persistent shell settles without one process exit status. */
+  persistent: boolean
+  background: boolean
+}
+
+function shellCall(name: string, args: Record<string, unknown>): ShellCall | null {
+  if (name !== 'bash' && name !== 'pwsh') return null
+  const { command, description, timeoutMs, workdir, run_in_background: background } = args
+  if (typeof command !== 'string' || command.trim() === '') return null
+  if (timeoutMs !== undefined && (typeof timeoutMs !== 'number' || !Number.isFinite(timeoutMs) || timeoutMs <= 0)) return null
+  if (workdir !== undefined && typeof workdir !== 'string') return null
+  if (background !== undefined && typeof background !== 'boolean') return null
+  if (!validEscalationFields(args)) return null
+  if (description === undefined) {
+    // Persistent shell providers omit the description; their parameter roots stay open.
+    return { command, description: undefined, workdir: undefined, persistent: true, background: false }
+  }
+  if (typeof description !== 'string' || description.trim() === '') return null
+  return { command, description, workdir, persistent: false, background: background === true }
+}
+
+/** A supported `terminal_send` call: the command IS the sent text, verbatim. */
+function terminalSendCall(name: string, args: Record<string, unknown>): { command: string; background: boolean } | null {
+  if (name !== 'terminal_send') return null
+  const { sessionId, text, submit, run_in_background: background } = args
+  if (typeof sessionId !== 'string' || sessionId === '' || typeof text !== 'string') return null
+  if (submit !== undefined && typeof submit !== 'boolean') return null
+  if (background !== undefined && typeof background !== 'boolean') return null
+  return { command: text, background: background === true }
+}
+
+/** Parse the exit-status marker literals the shell renderer appends to result text. */
+function parseExitStatus(text: string): { output: string; exitCode?: number; signal?: string } {
+  const signal = /\n\[killed by signal: ([^\]\n]+)\]$/.exec(text)
+  if (signal?.[1] !== undefined) return { output: text.slice(0, signal.index), signal: signal[1] }
+  const exit = /\n\[exit code: (\d+)\]$/.exec(text)
+  if (exit?.[1] !== undefined) return { output: text.slice(0, exit.index), exitCode: Number(exit[1]) }
+  return { output: text, exitCode: 0 }
+}
+
+/** Validate a grep `include` brace alternation: balanced braces, no empty or negated branch. */
+function validInclude(include: string): boolean {
+  if (include.trim() === '' || include.startsWith('!')) return false
+  let braceDepth = 0
+  for (const character of include) {
+    if (character === '{') braceDepth += 1
+    else if (character === '}') braceDepth = Math.max(0, braceDepth - 1)
+    else if (character === ',' && braceDepth === 0) return false
+  }
+  return true
+}
+
+function narrowDiffs(diffs: unknown): DiffHunk[] | null {
+  if (!Array.isArray(diffs) || diffs.length === 0) return null
+  const out: DiffHunk[] = []
+  for (const hunk of diffs) {
+    if (typeof hunk !== 'object' || hunk === null) return null
+    const { path, oldText, newText } = hunk as Record<string, unknown>
+    if (typeof path !== 'string') return null
+    if (oldText !== null && typeof oldText !== 'string') return null
+    if (typeof newText !== 'string') return null
+    out.push({ path, oldText, newText })
+  }
+  return out
+}
+
+type IntendedDiff = { tool: 'write' | 'edit' | 'str_replace_editor'; diff: DiffHunk }
+
+function intendedDiff(block: ToolCallBlock): IntendedDiff | null {
+  const parsed = parsedCall(block)
+  if (parsed === null) return null
+  if (parsed.name === 'str_replace_editor') {
+    const { command, path, file_text: fileText, old_str: oldText, new_str: newText } = parsed.args
+    if (typeof path !== 'string' || path.trim() === '') return null
+    if (command === 'create') {
+      if (fileText !== undefined && typeof fileText !== 'string') return null
+      return { tool: 'str_replace_editor', diff: { path, oldText: null, newText: fileText ?? '' } }
+    }
+    if (command === 'str_replace') {
+      if (oldText !== undefined && typeof oldText !== 'string') return null
+      if (newText !== undefined && typeof newText !== 'string') return null
+      return { tool: 'str_replace_editor', diff: { path, oldText: oldText ?? null, newText: newText ?? '' } }
+    }
+    return null
+  }
+  const { file_path: path } = parsed.args
+  if (typeof path !== 'string' || path.trim() === '') return null
+  if (!validEscalationFields(parsed.args)) return null
+  if (parsed.name === 'write') {
+    const { content } = parsed.args
+    return typeof content === 'string'
+      ? { tool: 'write', diff: { path, oldText: null, newText: content } }
+      : null
+  }
+  if (parsed.name !== 'edit') return null
+  const { old_string: oldText, new_string: newText, replace_all: replaceAll } = parsed.args
+  if (typeof oldText !== 'string' || typeof newText !== 'string') return null
+  if (replaceAll !== undefined && typeof replaceAll !== 'boolean') return null
+  return { tool: 'edit', diff: { path, oldText: oldText || null, newText } }
+}
+
+function appliedDiffs(meta: unknown): DiffHunk[] | 'empty' | null {
+  if (typeof meta !== 'object' || meta === null || Array.isArray(meta)) return null
+  const diffs = (meta as Record<string, unknown>).diffs
+  if (!Array.isArray(diffs)) return null
+  if (diffs.length === 0) return 'empty'
+  return narrowDiffs(diffs)
+}
+
+function diffCard(block: ToolCallBlock): FocusCard | null {
+  if (block.parentCallId !== undefined) return null
+  const intended = intendedDiff(block)
+  if (intended === null) return null
+  if (!('kind' in block)) return { kind: 'diff', diffs: [intended.diff] }
+  if (intended.tool === 'str_replace_editor') return null
+  if (block.isError) return null
+  const applied = appliedDiffs(block.meta)
+  if (applied === null || applied === 'empty') {
+    return intended.tool === 'write' ? { kind: 'diff', diffs: [intended.diff] } : null
+  }
+  return { kind: 'diff', diffs: applied }
+}
+
+function readCard(block: ToolCallBlock, cwd?: string, home?: string): FocusCard | null {
+  if (block.parentCallId !== undefined || !('kind' in block) || block.isError) return null
+  const call = parsedCall(block)
+  if (call?.name !== 'read') return null
+  const { file_path: path, offset, limit } = call.args
+  if (typeof path !== 'string' || path.trim() === '') return null
+  if (offset !== undefined && (typeof offset !== 'number' || !Number.isInteger(offset) || offset < 1)) return null
+  if (limit !== undefined && (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1)) return null
+  if (typeof block.meta !== 'object' || block.meta === null || Array.isArray(block.meta)) return null
+  const meta = block.meta as Record<string, unknown>
+  const { lines, totalLines, lang } = meta as Record<string, unknown>
+  if (typeof meta.path !== 'string' || typeof meta.offset !== 'number' || !Number.isInteger(meta.offset) || meta.offset < 1) return null
+  if (typeof totalLines !== 'number' || !Number.isInteger(totalLines) || totalLines < 0 || !Array.isArray(lines)) return null
+  if (lang !== undefined && typeof lang !== 'string') return null
+  const narrowed: ReadBlockLine[] = []
+  let previous = meta.offset - 1
+  for (const line of lines) {
+    if (typeof line !== 'object' || line === null || Array.isArray(line)) return null
+    const { number, text } = line as Record<string, unknown>
+    if (typeof number !== 'number' || !Number.isInteger(number) || number < 1 || number <= previous) return null
+    if (number > totalLines || typeof text !== 'string') return null
+    previous = number
+    narrowed.push({ number, text })
+  }
+  const text = singleResultText(block)
+  if (text === undefined) return null
+  const body = /^<path>[^\n]*<\/path>\n<type>file<\/type>\n<content>\n([\s\S]*)\n<\/content>$/u.exec(text)?.[1]
+  if (body === undefined) return null
+  return {
+    kind: 'read',
+    label: abbreviateHomePath(relativizeToCwd(meta.path, cwd), home),
+    lines: narrowed,
+    totalLines,
+    lang,
+  }
+}
+
+function searchCard(block: ToolCallBlock): FocusCard | null {
+  if (block.parentCallId !== undefined || !('kind' in block) || block.isError) return null
+  const call = parsedCall(block)
+  if (call === null) return null
+  const { pattern, path } = call.args
+  if (typeof pattern !== 'string') return null
+  const tool = call.name === 'glob' ? 'glob'
+    : call.name === 'grep' && pattern !== '' ? 'grep' : null
+  if (tool === null) return null
+  if (path !== undefined && (typeof path !== 'string' || path.trim() === '')) return null
+  if (tool === 'grep') {
+    const { include } = call.args
+    if (include !== undefined && (typeof include !== 'string' || !validInclude(include))) return null
+  }
+  if (typeof block.meta !== 'object' || block.meta === null || Array.isArray(block.meta)) return null
+  const meta = block.meta as Record<string, unknown>
+  if (typeof meta.truncated !== 'boolean') return null
+  if (typeof meta.total !== 'number' || !Number.isInteger(meta.total) || meta.total < 0) return null
+  const common = { truncated: meta.truncated, total: meta.total }
+  const recovery = meta.truncated ? flattenText(block.content) : undefined
+  if (tool === 'grep') {
+    if (meta.shape !== 'matches' || !Array.isArray(meta.files)) return null
+    const files: { path: string; matches: { lineNumber: number; line: string }[] }[] = []
+    for (const file of meta.files) {
+      if (typeof file !== 'object' || file === null || Array.isArray(file)) return null
+      const { path: filePath, matches } = file as Record<string, unknown>
+      if (typeof filePath !== 'string' || !Array.isArray(matches)) return null
+      const group: { lineNumber: number; line: string }[] = []
+      for (const match of matches) {
+        if (typeof match !== 'object' || match === null || Array.isArray(match)) return null
+        const { lineNumber, line } = match as Record<string, unknown>
+        if (typeof lineNumber !== 'number' || !Number.isInteger(lineNumber) || lineNumber < 1) return null
+        if (typeof line !== 'string') return null
+        group.push({ lineNumber, line })
+      }
+      files.push({ path: filePath, matches: group })
+    }
+    return { kind: 'search', recovery, props: { kind: 'matches', files, ...common } }
+  }
+  if (meta.shape !== 'paths' || !Array.isArray(meta.paths)) return null
+  if (!meta.paths.every((entry): entry is string => typeof entry === 'string')) return null
+  return { kind: 'search', recovery, props: { kind: 'paths', paths: [...meta.paths], ...common } }
+}
+
+function webCard(block: ToolCallBlock): FocusCard | null {
+  if (block.parentCallId !== undefined || !('kind' in block) || block.isError) return null
+  const call = parsedCall(block)
+  if (call === null) return null
+  if (call.name === 'web_search') {
+    const { queries } = call.args
+    if (!Array.isArray(queries) || queries.length === 0
+      || !queries.every(query => typeof query === 'string' && query.trim() !== '')) return null
+  } else if (call.name === 'web_fetch') {
+    const { url } = call.args
+    if (typeof url !== 'string' || url.trim() === '') return null
+  } else {
+    return null
+  }
+  if (typeof block.meta !== 'object' || block.meta === null || Array.isArray(block.meta)) return null
+  const meta = block.meta as Record<string, unknown>
+  if (typeof meta.truncated !== 'boolean') return null
+  if (call.name === 'web_search') {
+    if (!Array.isArray(meta.sources)) return null
+    const sources: { url: string; title?: string; snippet?: string; publishedAt?: string }[] = []
+    for (const source of meta.sources) {
+      if (typeof source !== 'object' || source === null || Array.isArray(source)) return null
+      const { url, title, snippet, publishedAt } = source as Record<string, unknown>
+      if (typeof url !== 'string') return null
+      if (title !== undefined && typeof title !== 'string') return null
+      if (snippet !== undefined && typeof snippet !== 'string') return null
+      if (publishedAt !== undefined && typeof publishedAt !== 'string') return null
+      sources.push({
+        url,
+        ...title === undefined ? {} : { title },
+        ...snippet === undefined ? {} : { snippet },
+        ...publishedAt === undefined ? {} : { publishedAt },
+      })
+    }
+    if (meta.answer !== undefined && typeof meta.answer !== 'string') return null
+    return { kind: 'web', props: { kind: 'search', answer: meta.answer, sources, truncated: meta.truncated } }
+  }
+  if (typeof meta.url !== 'string') return null
+  if (typeof meta.statusCode !== 'number' || !Number.isInteger(meta.statusCode)) return null
+  return { kind: 'web', props: { kind: 'fetch', url: meta.url, statusCode: meta.statusCode, truncated: meta.truncated } }
+}
+
 /**
- * Derive the card render material from the host-computed call/result views
- * (the render-intent contract the tools declare), mapped onto the shared card
- * primitives the chat tool rows use. The completed view wins; a running
- * terminal/diff call renders its pending card.
+ * Derive the card render material from the raw Tool call and result fields
+ * (arguments, persisted result metadata, and the marked result text — the
+ * chat tool-row derivations, reimplemented here). A supported shell call
+ * renders its pending terminal card while running; a supported file mutation
+ * renders its intended diff.
  * @param block - running call or settled result node.
  * @param cwd - session workspace root for terminal cwd resolution.
  * @returns the card material, or null for the generic sections.
  */
 function cardOf(block: ToolCallBlock, cwd?: string, home?: string): FocusCard | null {
-  if ('kind' in block) {
-    const result = block.resultView
-    if (result === null) return null
-    switch (result.card) {
-      case 'terminal': {
-        const call = block.callView?.card === 'terminal' ? block.callView : null
-        return {
-          kind: 'terminal',
-          // The result's title REPLACES the pending one when the tool supplies
-          // it; the call title is what a result without one keeps (the chat
-          // presentation contract's replacement-title rule).
-          command: result.title ?? call?.title ?? '',
-          // Only a PRESENT call view can mean "omitted the cwd, so use the
-          // workspace": when the window dropped the call head the prompt draws
-          // a bare `$` rather than naming a directory this card cannot know.
-          cwd: call === null ? undefined : resolveTerminalCwd(call.cwd, cwd),
-          output: result.output,
-          exitCode: result.exitCode,
-          signal: result.signal,
-          running: false,
-          description: call?.description,
-        }
-      }
-      case 'diff':
-        return { kind: 'diff', diffs: result.diffs }
-      case 'read':
-        return {
-          kind: 'read',
-          // The read card label shortens the same way the row summary does:
-          // workspace-relative first, then POSIX `~` for a host-home path.
-          label: result.title ?? abbreviateHomePath(relativizeToCwd(result.path, cwd), home),
-          lines: result.lines,
-          totalLines: result.totalLines,
-          lang: result.lang,
-        }
-      case 'search': {
-        // The recovery footer only matters when the tool capped the result: an
-        // uncapped card holds every match/path, so the raw text adds nothing the
-        // card does not already show (the chat search-card derivation).
-        const recovery = result.truncated ? flattenText(block.content) : undefined
-        return result.shape === 'matches'
-          ? { kind: 'search', props: { kind: 'matches', files: result.files, truncated: result.truncated, total: result.total }, recovery, title: result.title }
-          : { kind: 'search', props: { kind: 'paths', paths: result.paths, truncated: result.truncated, total: result.total }, recovery, title: result.title }
-      }
-      case 'web':
-        return result.kind === 'search'
-          ? { kind: 'web', props: { kind: 'search', answer: result.answer, sources: result.sources, truncated: result.truncated } }
-          : { kind: 'web', props: { kind: 'fetch', url: result.url, statusCode: result.statusCode, truncated: result.truncated } }
-      default:
-        return null
-    }
-  }
-  const call = block.callView
-  if (call === null) return null
-  switch (call.card) {
-    case 'terminal':
+  if (!('kind' in block)) {
+    const parsed = parsedCall(block)
+    if (parsed === null) return null
+    const shell = shellCall(parsed.name, parsed.args)
+    const send = shell === null ? terminalSendCall(parsed.name, parsed.args) : null
+    if (shell !== null) {
+      if (shell.background) return null
       return {
         kind: 'terminal',
-        command: call.title,
-        cwd: resolveTerminalCwd(call.cwd, cwd),
+        command: shell.command,
+        cwd: resolveTerminalCwd(shell.workdir, cwd),
         output: undefined,
         exitCode: undefined,
         signal: undefined,
         running: true,
-        description: call.description,
+        description: shell.description,
       }
-    case 'diff':
-      return { kind: 'diff', diffs: call.diffs }
-    default:
-      return null
+    }
+    if (send !== null) {
+      if (send.background) return null
+      return {
+        kind: 'terminal',
+        command: send.command,
+        cwd: undefined,
+        output: undefined,
+        exitCode: undefined,
+        signal: undefined,
+        running: true,
+        description: undefined,
+      }
+    }
+    const intended = intendedDiff(block)
+    return intended === null ? null : { kind: 'diff', diffs: [intended.diff] }
   }
+  return settledCardOf(block, cwd, home)
+}
+
+/** The settled-call card derivations, in the chat's precedence order. */
+function settledCardOf(block: ToolResultNode, cwd?: string, home?: string): FocusCard | null {
+  const parsed = parsedCall(block)
+  if (parsed !== null && !block.isError) {
+    const shell = shellCall(parsed.name, parsed.args)
+    const send = shell === null ? terminalSendCall(parsed.name, parsed.args) : null
+    // A persistent shell settles without one process exit status, so its
+    // result stays on the generic path; background calls never own a card.
+    if (shell !== null && !shell.persistent && !shell.background) {
+      const output = singleResultText(block)
+      if (output !== undefined) {
+        const status = parseExitStatus(output)
+        return {
+          kind: 'terminal',
+          command: shell.command,
+          cwd: resolveTerminalCwd(shell.workdir, cwd),
+          output: status.output,
+          exitCode: status.exitCode,
+          signal: status.signal,
+          running: false,
+          description: shell.description,
+        }
+      }
+    }
+    if (send !== null && !send.background) {
+      const output = singleResultText(block)
+      if (output !== undefined) {
+        return {
+          kind: 'terminal',
+          command: send.command,
+          cwd: undefined,
+          output,
+          exitCode: undefined,
+          signal: undefined,
+          running: false,
+          description: undefined,
+        }
+      }
+    }
+  }
+  return diffCard(block) ?? readCard(block, cwd, home) ?? searchCard(block) ?? webCard(block)
 }
 
 /** The durable error codes a user stop lands on a running tool call: the
@@ -418,13 +709,10 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     : base
   const card = cardOf(block, cwd, home)
   // The chat row's outranking: a terminal card's model-authored description
-  // (the contract's above-card text) and a search card's replacement title
-  // precede the args-derived summary.
+  // (the args' own description field) precedes the args-derived summary.
   const summary = card?.kind === 'terminal' && card.description !== undefined
     ? card.description
-    : card?.kind === 'search' && card.title !== undefined
-      ? card.title
-      : baseSummary
+    : baseSummary
   // A failing exit status is the terminal card's own error signal (the call
   // itself settles isError:false), surfaced as the row's red state dot.
   const terminalFailed = card?.kind === 'terminal' && !card.running

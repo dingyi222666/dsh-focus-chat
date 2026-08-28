@@ -4,7 +4,10 @@ import type { FocusTranslate } from '../../contract/props.ts'
 import { planSummary } from '../../model/todo.ts'
 import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
-import { CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES, terminalLabels } from '../helpers/terminal.ts'
+import {
+  CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES,
+  diffLabels, readLabels, searchLabels, terminalLabels, webLabels,
+} from '../helpers/terminal.ts'
 import a11yCss from '../accessibility.module.css'
 import css from './ToolCallRow.module.css'
 
@@ -26,20 +29,20 @@ function CardBody({ card, t }: { card: FocusCard; t: FocusTranslate }) {
         />
       )
     case 'diff':
-      return <DiffBlock diffs={card.diffs} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
+      return <DiffBlock diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
     case 'read':
-      return <ReadBlock label={card.label} lines={card.lines} totalLines={card.totalLines} lang={card.lang} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
+      return <ReadBlock label={card.label} lines={card.lines} totalLines={card.totalLines} lang={card.lang} labels={readLabels(t)} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
     case 'search':
       return (
         <>
-          <SearchBlock {...card.props} maxLines={CHAT_SEARCH_MAX_LINES} className={css.searchBody} />
+          <SearchBlock {...card.props} labels={searchLabels(t)} maxLines={CHAT_SEARCH_MAX_LINES} className={css.searchBody} />
           {/* A capped search's recovery locator lives only in the result text;
               show it below the card so the dropped rows survive. */}
           {card.recovery !== undefined && <div className={css.searchRecovery}>{card.recovery}</div>}
         </>
       )
     case 'web':
-      return <WebBlock {...card.props} className={css.webBody} />
+      return <WebBlock {...card.props} labels={webLabels(t)} className={css.webBody} />
   }
 }
 

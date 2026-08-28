@@ -23,7 +23,7 @@ Switch to it whenever you want the "what happened?" view, and flip back for the 
 ## Install
 
 ```sh
-# Install from npm (requires dsh >= 0.1.0-rc.6)
+# Install from npm (requires dsh >= 0.1.2-alpha.1)
 dsh plugin --profile web add @dingyi222666/dsh-focus-chat
 # Restart dsh web; the tab mounts automatically
 dsh web
@@ -56,6 +56,8 @@ Focus chat is a faithful reading surface, not a second chat view:
 - **Inline file links need the optional file-mentions service** — the same off switch the chat view uses.
 
 ## Development
+
+> This build targets the dsh v0.1.2-alpha.1 client surface. The new `@deepseek-ai/*` packages it needs are not on npm yet: after `yarn install`, junction/symlink each `@deepseek-ai/dsh-*` entry in `node_modules` to the matching `packages/<group>/<pkg>` directory of a built dsh checkout — that supplies both the types and the runtime for `yarn typecheck` / `yarn test`.
 
 - `yarn run build` — builds the browser bundle and the Node half.
 - `src/client/focus-model.ts` — the pure logic (folding, merging, row models); `src/client/FocusView.tsx` — the view.

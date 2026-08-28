@@ -1,15 +1,22 @@
 /** The focus view plugin's single assembly point: register the view tab into
  *  the conversation view slot (the chat plugin's apply layout). */
 
-/** Required services: the view slot, the locale registry, sessions, the host opener, the connection facts, and the Remote namespace. */
-export const inject = ['slots', 'locale', 'sessions', 'workspaces', 'connection', 'remote', 'remote.messageFeedback']
+/** Required services: the view slot, the locale registry, sessions, the connection facts, the Conversation image resolver, and the Remote namespaces. */
+export const inject = [
+  'slots', 'locale', 'sessions', 'uiConversation', 'connection',
+  'remote', 'remote.session', 'remote.messageFeedback',
+]
 import type { Context } from '@deepseek-ai/cordis'
-import { resolveWorkspacePath, type ClientContext, type SessionId } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConversationController, IConversation } from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only service merges consumed by the apply world.
+import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import { resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { FocusView } from './view/FocusView.tsx'
 import type { FocusHooksInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
 import { MessageFeedbackController } from './model/feedback-controller.ts'
@@ -41,6 +48,14 @@ export function apply(ctx: Context): void {
   // open native paths).
   const connection = ctx.get('connection') as ConnectionHandle
 
+  // Host account home for `~` path display: an observable over the active
+  // connection generation's Host facts (absent while reconnecting — the
+  // hostDescription hook's replacement).
+  const hostHome = {
+    getSnapshot: () => connection.generation.getSnapshot()?.host.home,
+    subscribe: (listener: () => void) => connection.generation.subscribe(listener),
+  }
+
   // One feedback controller per Session backs every Like/Dislike control in
   // that Session (the ui-message-feedback object layer, re-implemented here
   // because the focus view cannot take the assistant-actions slot seat).
@@ -68,27 +83,24 @@ export function apply(ctx: Context): void {
     inject: (sessionId: SessionId): FocusViewInjected & FocusHooksInjected => {
       const feedback = feedbackControllerFor(sessionId)
       return {
-        // History paging through the conversation service (chat-view semantics);
-        // absent scope/service degrades to a no-op, matching the chat view's
+        // History paging through the session face (chat-view semantics);
+        // absent binding degrades to a no-op, matching the chat view's
         // optional-service posture.
         loadOlder: () => {
-          const conversation = ctx.sessions.scope(sessionId)?.get('conversation') as IConversation | undefined
-          conversation?.loadOlder()
+          const session = ctx.sessions.binding(sessionId)?.session
+          void session?.loadOlder()
         },
         // Session-authorized historical image resolution (the chat view's
-        // image gallery loader); absent service degrades to a rejection.
-        loadImage: (attachment: ImageAttachmentRef) => {
-          const conversation = ctx.get('conversation') as ConversationController | undefined
-          if (conversation === undefined) {
-            return Promise.reject(new Error('dsh-focus-chat: conversation service unavailable'))
-          }
-          return conversation.resolveImage(sessionId, attachment)
-        },
+        // image gallery loader, served by the Conversation assembly).
+        loadImage: (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
         // Host file opener (the chat view's tool-row semantics): refusals
         // reject upward so the focus view's in-page open dialog surfaces them.
-        openFile: (path) => {
+        openFile: async (path) => {
           const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
-          return ctx.workspaces.openPath(resolveWorkspacePath(cwd, path))
+          const result = await ctx.remote.session.openWorkspacePath({
+            path: resolveWorkspacePath(cwd, path),
+          })
+          if (!result.ok) throw new Error(`path open failed: ${result.error.message}`)
         },
         // Fork the session at one message seq (the chat view's branch semantics).
         forkAt: (seq) => {
@@ -118,11 +130,11 @@ export function apply(ctx: Context): void {
         rateFeedback: (messageId, rating, note) => feedback.rate(messageId, rating, note),
         toggleFeedback: (messageId, rating) => feedback.toggle(messageId, rating),
         clearFeedbackNote: messageId => feedback.clearNote(messageId),
-        // Host description (account home for `~` path display) and the
+        // Host account home (account home for `~` path display) and the
         // Session feedback view, bound by the slot renderer into the view's
-        // useHostDescription / useFeedback hooks.
+        // useHostHome / useFeedback hooks.
         hooks: {
-          hostDescription: connection.hostDescription,
+          hostHome,
           feedback,
         },
       }
