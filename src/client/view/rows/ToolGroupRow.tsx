@@ -1,5 +1,5 @@
 import { Fragment, memo, useState } from 'react'
-import { DisclosureRow, IconTreeCorner8x10 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { DisclosureRow, IconRightUpOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusToolGroup } from '../../model/types.ts'
@@ -31,7 +31,7 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
     <div className={css.groupRow} data-state={group.running ? 'running' : 'ok'}>
     <DisclosureRow
       className={css.groupRowInner}
-      icon={<IconTreeCorner8x10 size={10} />}
+      icon={<IconRightUpOutline16 size={16} />}
       title=""
       open={expanded}
       expandable
