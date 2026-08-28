@@ -169,6 +169,14 @@ function flowItemOf(
       const error = data as TurnErrorNode
       return { kind: 'turn-error', nodeKey: key, message: error.message, code: error.code }
     }
+    case 'turn-max-tokens': {
+      // The official turn-max-tokens notice is a static row (no payload).
+      return { kind: 'turn-max-tokens', nodeKey: key }
+    }
+    case 'turn-process':
+      // Control node: the official turn fold's measurement rides the turn
+      // fold row; the node itself never renders (TURN_PROCESS_INDEPENDENT_KINDS).
+      return null
     case 'system-prompt': {
       const prompt = data as { text: string }
       return { kind: 'system-prompt', nodeKey: key, text: prompt.text }

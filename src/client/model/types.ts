@@ -240,6 +240,7 @@ export type FocusFlowItem =
     failure: { message: string } | null
   }
   | { kind: 'turn-error'; nodeKey: string; message: string; code: string | undefined }
+  | { kind: 'turn-max-tokens'; nodeKey: string }
   | { kind: 'unknown'; nodeKey: string; nodeKind: string; data: unknown }
 
 /** The chat node data union the focus view narrows, keyed by the merge-extensible map. */

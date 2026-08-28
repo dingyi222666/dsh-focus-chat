@@ -163,6 +163,18 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
           {item.code !== undefined && <code className={css.turnErrorCode}>{item.code}</code>}
         </div>
       )
+    case 'turn-max-tokens':
+      // The official TurnMaxTokensItem: a warning dot, the title, and the
+      // continuation hint.
+      return (
+        <div className={css.turnErrorRow} role="status">
+          <StateDot state="warning" className={css.turnErrorDot} />
+          <div className={css.turnErrorCopy}>
+            <span className={css.turnErrorTitle}>{t('maxTokens')}</span>
+            <span className={css.turnErrorMessage}>{t('maxTokens.hint')}</span>
+          </div>
+        </div>
+      )
     case 'unknown':
       return (
         <div className={css.contextRow}>

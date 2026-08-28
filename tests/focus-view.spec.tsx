@@ -1796,6 +1796,21 @@ it('renders the empty hint for an empty conversation', () => {
     expect(marks[0].getAttribute('aria-current')).toBeNull()
   })
 
+  it('skips the turn-process control node and renders the max-tokens notice', () => {
+    renderView([
+      chatNode('tp1', 'turn-process', {
+        turn: 1, controlAnchorSeq: 1, processStartSeq: 1, answerAnchorSeq: 20,
+        answerStep: 2, inlineReasoning: false, messageCount: 2, toolCallCount: 3,
+        subagentCount: 0,
+      }),
+      chatNode('mt1', 'turn-max-tokens', { turn: 1, seq: 5 }),
+    ])
+    // The control node never paints; the notice row does.
+    expect(screen.queryByText(/unknown|turn-process/)).toBeNull()
+    expect(screen.getByText('已达到输出 token 上限')).toBeTruthy()
+    expect(screen.getByText(/回答被截断/)).toBeTruthy()
+  })
+
   it('renders the system prompt as a collapsible disclosure', () => {
     renderView([
       chatNode('sp1', 'system-prompt', { text: 'You are a helpful assistant.' }),
