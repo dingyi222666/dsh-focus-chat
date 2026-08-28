@@ -1,5 +1,5 @@
 /** One condensed flow over the chat snapshot (React-free). */
-import type { AssistantChatData, ChatNodeDataMap, ManualCompactionChatData, ToolChatData, TurnProcessChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { AssistantChatData, ChatNodeDataMap, ChatNodeKind, ManualCompactionChatData, ToolChatData, TurnProcessChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { toolGroup, type ToolRowModelCache } from './tools.ts'
 import { assistantText, producedForClosing, thoughtDurationMs } from './text.ts'
@@ -35,6 +35,32 @@ export interface FlowBuildCache {
 export function createFlowBuildCache(): FlowBuildCache {
   return { items: new Map(), rows: new Map(), groups: new Map() }
 }
+
+/**
+ * Every chat-target node kind's disposition in this module, compile-checked
+ * against the merge-extensible {@link ChatNodeKind}: a new upstream kind (the
+ * map grows) fails the `Record` for its missing key, and a removed kind fails
+ * the excess-property check — a renamed event can no longer degrade silently
+ * into the `unknown` fallback row (the gap behind the system-prompt /
+ * turn-process / turn-max-tokens regressions).
+ */
+export const CHAT_KIND_DISPOSITION = {
+  'assistant-step': 'assistant',
+  'command': 'command',
+  'compaction': 'compaction',
+  'context': 'message',
+  'manual-compaction': 'manual-compaction',
+  'model-retry': 'retry',
+  'steering': 'message',
+  'system-prompt': 'system-prompt',
+  'tool-call': 'grouped',
+  'turn-error': 'turn-error',
+  'turn-max-tokens': 'turn-max-tokens',
+  'turn-process': 'dropped',
+  'turn-tail': 'turn-tail',
+  'unknown': 'unknown',
+  'user': 'message',
+} satisfies Record<ChatNodeKind, string>
 
 /** The node facts a cached item's validity depends on. */
 function nodeSignature(node: ChatConversationViewNode): unknown {
@@ -636,7 +662,15 @@ export function buildFocusFlow(
     }
     flush()
     const item = flowItemCached(cache, key, node, node.data as FocusNodeData)
-    if (item !== null) pushItem(item)
+    if (item !== null) {
+      pushItem(item)
+    } else {
+      // A dropped row (the turn-process control) still separates order
+      // positions: land the pending context batch here so whatever follows
+      // cannot overtake it (a run arriving next would emit its group first
+      // and push the batch below itself).
+      flushContext()
+    }
   }
   flush()
   flushFold(null)

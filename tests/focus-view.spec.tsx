@@ -1010,7 +1010,7 @@ it('renders the empty hint for an empty conversation', () => {
       at('c1', 'context', {
         kind: 'context', seq: 5, time: 5000,
         content: [{ type: 'text', text: 'injected rules' }],
-        source: { kind: 'file' }, provenance: { role: 'instructions', label: 'AGENTS.md' }, form: null,
+        source: { kind: 'file' }, provenance: { role: 'inject', label: 'AGENTS.md' }, form: null,
       }),
       at('a2', 'assistant-step', {
         status: 'settled', turn: 1, step: 1, time: 8000,
@@ -1238,7 +1238,7 @@ it('renders the empty hint for an empty conversation', () => {
     const context = (key: string, label: string, text: string) => at(key, 'context', {
       kind: 'context', seq: 5, time: 1500,
       content: [{ type: 'text', text }],
-      source: { kind: 'file' }, provenance: { role: 'instructions', label }, form: null,
+      source: { kind: 'file' }, provenance: { role: 'inject', label }, form: null,
     })
     renderView([
       context('c1', 'AGENTS.md', 'rules text'),
@@ -1274,7 +1274,7 @@ it('renders the empty hint for an empty conversation', () => {
     const context = (key: string, label: string, text: string) => at(key, 'context', {
       kind: 'context', seq: 5, time: 1500,
       content: [{ type: 'text', text }],
-      source: { kind: 'file' }, provenance: { role: 'instructions', label }, form: null,
+      source: { kind: 'file' }, provenance: { role: 'inject', label }, form: null,
     })
     renderView([
       context('c1', 'AGENTS.md', 'rules text'),
@@ -1303,6 +1303,42 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('AGENTS.md')).toBeTruthy()
     fireEvent.click(screen.getByText('AGENTS.md'))
     expect(screen.getByText('rules text')).toBeTruthy()
+  })
+
+  it('drops the turn-process control row without disturbing the context batch', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: undefined,
+      status: 'open',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('c1', 'context', {
+        kind: 'context', seq: 5, time: 1500,
+        content: [{ type: 'text', text: 'rules text' }],
+        source: { kind: 'file' }, provenance: { role: 'inject', label: 'AGENTS.md' }, form: null,
+      }),
+      at('p1', 'turn-process', {
+        turn: 1, controlAnchorSeq: 2, processStartSeq: 3, answerAnchorSeq: null,
+        answerStep: null, inlineReasoning: false, messageCount: 0, toolCallCount: 1, subagentCount: 0,
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1x', 'bash', '{"command":"build"}') }),
+    ])
+    // The control row paints nothing — no unknown-surface fallback row.
+    expect(screen.queryByText(/未知 surface 事件/)).toBeNull()
+    expect(screen.queryByText('rules text')).toBeNull()
+    // The context batch still lands before the run and absorbs into its
+    // summary line (the dropped row is an order separator, not a gap: a
+    // batch left pending here would surface below the following group).
+    expect(screen.getByText('载入了 1 项上下文，运行了 1 个命令')).toBeTruthy()
+    expect(screen.queryByText(/上下文注入/)).toBeNull()
   })
 
   it('classifies a tool-jobs notice injection into the background-jobs family', () => {
