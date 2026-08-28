@@ -5,6 +5,7 @@ import { basename } from '../helpers/format.ts'
 import { fitProducedFiles, moreLabel, PRODUCED_SHOWN } from './produced-fit.ts'
 import { MessageActions } from '../chrome/MessageActions.tsx'
 import { MessageFeedbackActions, type FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
+import { TurnUsageDisclosure } from './TurnUsageDisclosure.tsx'
 import css from './TurnTailRow.module.css'
 
 /** One completed turn's footer: the measured produced-files lane and the chat actions chrome. */
@@ -98,6 +99,9 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, f
             <span ref={moreProbe} className={css.producedMore} />
           </div>
         </div>
+      )}
+      {item.tokenUsage !== undefined && (
+        <TurnUsageDisclosure usage={item.tokenUsage} t={t} />
       )}
       {closingSeq !== null && (
         <MessageActions

@@ -3,18 +3,17 @@ import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client
 import type { MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-chat merge (useChat on the session standard kit).
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { TurnNavigationItem, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
-import { flattenText } from '../model/text.ts'
 import type { FocusFlowItem, FocusToolRow } from '../model/index.ts'
-import { firstLine } from './helpers/format.ts'
 import { markdownLabels } from './helpers/terminal.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
 import { PendingSteeringBubble } from './rows/UserBubble.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
-import { NavRail, type FocusNavEntry } from './chrome/NavRail.tsx'
+import { TurnNavigator } from './chrome/TurnNavigator.tsx'
 import type { FocusFeedbackActions } from './chrome/MessageFeedbackActions.tsx'
 import css from './FocusView.module.css'
 
@@ -33,6 +32,43 @@ const FOLLOW_THRESHOLD = 24
 
 /** Where a nav jump places the entry row: a small gap under the scrollport top. */
 const NAV_JUMP_OFFSET = 12
+
+/** The Turn one flow row belongs to (the official rail's mark anchor). */
+function flowTurnOf(item: FocusFlowItem, chat: ChatSnapshot): number | null {
+  if (item.kind === 'turn-fold' || item.kind === 'turn-tail') return item.turn
+  if (item.kind === 'tools') {
+    const nodeKey = item.group.nodeKeys[0]
+    if (nodeKey === undefined) return null
+    const location = chat.nodes.get(nodeKey)?.location
+    return location !== undefined && (location.kind === 'turn' || location.kind === 'step')
+      ? location.turn?.turn ?? null
+      : null
+  }
+  const location = chat.nodes.get(item.nodeKey)?.location
+  if (location === undefined || (location.kind !== 'turn' && location.kind !== 'step')) return null
+  return location.turn?.turn ?? null
+}
+
+/** Turn owning the row at a scrollport line; scroll frames are hot, so this
+ *  hit-tests the line first and falls back to one row scan when layout cannot
+ *  answer (jsdom, pre-paint). */
+function turnAtLine(list: HTMLElement, line: number): number | null {
+  const content = list.getBoundingClientRect()
+  if (typeof document.elementsFromPoint === 'function' && content.width > 0) {
+    for (const element of document.elementsFromPoint(content.left + content.width / 2, line)) {
+      const row = element instanceof HTMLElement ? element.closest<HTMLElement>('[data-focus-turn]') : null
+      const turn = Number(row?.dataset.focusTurn)
+      if (row !== null && list.contains(row) && Number.isSafeInteger(turn)) return turn
+    }
+  }
+  let found: number | null = null
+  for (const row of list.querySelectorAll<HTMLElement>('[data-focus-turn]')) {
+    if (row.getBoundingClientRect().top > line) break
+    const turn = Number(row.dataset.focusTurn)
+    if (Number.isSafeInteger(turn)) found = turn
+  }
+  return found
+}
 
 /** Active conversation column host when present; otherwise the view-local scroller. */
 function scrollerOf(from: HTMLElement): HTMLElement {
@@ -180,21 +216,10 @@ export function FocusView({
     () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current),
     [chat, cwd, home],
   )
-  // The in-view navigation rail entries: every user / steering message (its
-  // first text line), in flow order. Context injections, assistant rows, and
-  // tool runs never join the rail; a message without text (image-only) is not
-  // a useful jump target.
-  const navEntries = useMemo(() => {
-    const entries: FocusNavEntry[] = []
-    for (const item of flow) {
-      if (item.kind !== 'message' || (item.role !== 'user' && item.role !== 'steering')) continue
-      const text = firstLine(flattenText(item.content)).replace(/\s+/g, ' ').trim()
-      if (text === '') continue
-      entries.push({ key: flowKey(item), label: text })
-    }
-    return entries
-  }, [flow])
-  const [activeNavKey, setActiveNavKey] = useState<string | null>(null)
+  // The official turn-navigation rail's items, accumulated in the Chat
+  // snapshot: the array identity moves only when a Turn enters, leaves, or
+  // changes its preview.
+  const turnNavigationItems = chat.navigation.items()
   // The live-row debounce: a running call paints nothing until it has run
   // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
   // that settles into the summary a moment later (the flicker fix). The
@@ -316,6 +341,10 @@ export function FocusView({
   const columnRef = useRef<HTMLDivElement | null>(null)
   const atBottomRef = useRef(true)
   const [atBottom, setAtBottom] = useState(true)
+  /** The official turn rail's active mark (the Turn owning the reading line). */
+  const [activeTurn, setActiveTurn] = useState<number | null>(
+    () => turnNavigationItems.at(-1)?.turn ?? null,
+  )
   /** Last position delivered or written on the main thread. */
   const observedTopRef = useRef(0)
   /** Paging anchor: semantic row/position at click, restored after the prepend lands. */
@@ -339,6 +368,7 @@ export function FocusView({
     observedTopRef.current = el.scrollTop
     atBottomRef.current = true
     setAtBottom(true)
+    setActiveTurn(turnNavigationItems.at(-1)?.turn ?? null)
     scroll.save(null)
   }
 
@@ -394,62 +424,46 @@ export function FocusView({
     if (appendedUser || (tipMoved && atBottomRef.current)) toBottom(el)
   })
 
-  /** Cached navigation entry row elements (rebuilt when the entry list changes). */
-  const entryElementsRef = useRef<ReadonlyMap<string, HTMLElement>>(new Map())
-  /** Scroll-spy pass: the active entry is the one closest to the input bar —
-   *  the last entry whose row still clears the visible area's bottom edge
-   *  (the composer seat when present), not the one at the viewport top.
-   *  Before the first row clears, the first entry is. Runs on scroll, on
-   *  entry-list change, and after a nav jump. */
-  const updateNavActiveRef = useRef<() => void>(() => {})
-  updateNavActiveRef.current = () => {
+  // The official turn rail's active mark: the Turn owning the row at the
+  // reading line, refreshed on scroll (one rAF pass) and on resize.
+  const syncActiveTurnRef = useRef<() => void>(() => {})
+  syncActiveTurnRef.current = () => {
     const local = listRef.current
-    if (local === null || navEntries.length === 0) {
-      setActiveNavKey(null)
+    const first = turnNavigationItems[0]
+    if (local === null || first === undefined) {
+      setActiveTurn(null)
       return
     }
     const el = scrollerOf(local)
-    const viewport = el.getBoundingClientRect()
-    const composer = el.querySelector<HTMLElement>('[data-composer-seat]')
-    const visibleBottom = composer === null
-      ? viewport.bottom
-      : Math.min(viewport.bottom, composer.getBoundingClientRect().top)
-    let active: string | null = null
-    for (const entry of navEntries) {
-      const row = entryElementsRef.current.get(entry.key)
-      if (row !== undefined && row.getBoundingClientRect().top < visibleBottom) active = entry.key
-    }
-    setActiveNavKey(active ?? navEntries[0].key)
-  }
-  // Scroll events are hot: the spy coalesces into one pass per animation
-  // frame (latest wins), so a scroll storm never runs the O(entries)
-  // geometry pass more than once per frame. Unmount cancels the pending one.
-  const navFrameRef = useRef<number | null>(null)
-  useEffect(() => () => {
-    if (navFrameRef.current !== null) cancelAnimationFrame(navFrameRef.current)
-    navFrameRef.current = null
-  }, [])
-  const scheduleNavActive = useCallback(() => {
-    if (navFrameRef.current !== null) return
-    navFrameRef.current = requestAnimationFrame(() => {
-      navFrameRef.current = null
-      updateNavActiveRef.current()
-    })
-  }, [])
-  // Rebuild the entry-row cache and re-run the spy whenever the entry list
-  // changes (new messages, prepend, or a restored mount).
-  useLayoutEffect(() => {
-    const local = listRef.current
-    const map = new Map<string, HTMLElement>()
-    if (local !== null) {
-      for (const entry of navEntries) {
-        const row = anchorElement(local, entry.key)
-        if (row !== null) map.set(entry.key, row)
+    const readingLine = el.getBoundingClientRect().top + Math.min(96, el.clientHeight * 0.2)
+    const reading = turnAtLine(local, readingLine)
+    let next = first.turn
+    if (reading !== null) {
+      for (const item of turnNavigationItems) {
+        if (item.turn > reading) break
+        next = item.turn
       }
     }
-    entryElementsRef.current = map
-    updateNavActiveRef.current()
-  }, [navEntries])
+    if (el.scrollHeight - el.scrollTop - el.clientHeight <= FOLLOW_THRESHOLD + 1) {
+      next = turnNavigationItems.at(-1)?.turn ?? next
+    }
+    setActiveTurn(current => current === next ? current : next)
+  }
+  const activeTurnFrameRef = useRef<number | null>(null)
+  useEffect(() => () => {
+    if (activeTurnFrameRef.current !== null) cancelAnimationFrame(activeTurnFrameRef.current)
+    activeTurnFrameRef.current = null
+  }, [])
+  const scheduleActiveTurn = useCallback((): void => {
+    if (activeTurnFrameRef.current !== null) return
+    activeTurnFrameRef.current = requestAnimationFrame(() => {
+      activeTurnFrameRef.current = null
+      syncActiveTurnRef.current()
+    })
+  }, [])
+  useLayoutEffect(() => {
+    scheduleActiveTurn()
+  }, [scheduleActiveTurn, turnNavigationItems])
 
   const onScrollRef = useRef(() => {})
   onScrollRef.current = () => {
@@ -482,7 +496,7 @@ export function FocusView({
     if (isAtBottom) scroll.save(null)
     else if (position !== null) scroll.save(position)
     observedTopRef.current = el.scrollTop
-    scheduleNavActive()
+    scheduleActiveTurn()
   }
 
   // Bind the scroll listener on the resolved scrollport once per mount.
@@ -521,7 +535,12 @@ export function FocusView({
     if (column === null || local === null || typeof ResizeObserver === 'undefined') return
     const scrollport = scrollerOf(local)
     const composer = scrollport.querySelector<HTMLElement>('[data-composer-seat]')
-    const observer = new ResizeObserver(() => { followRef.current?.() })
+    // Flow-height changes move rows across the reading line without a scroll
+    // event, so the active turn mark resyncs here too.
+    const observer = new ResizeObserver(() => {
+      followRef.current?.()
+      syncActiveTurnRef.current?.()
+    })
     observer.observe(column)
     if (composer !== null) observer.observe(composer)
     return () => { observer.disconnect() }
@@ -543,21 +562,21 @@ export function FocusView({
     loadOlder()
   }
 
-  /** Jump the focus scrollport to one navigation entry's row (its top under
-   *  the scrollport edge); the reader is no longer pinned to the bottom. */
-  const jumpToNav = useCallback((key: string): void => {
+  /** Jump the focus scrollport to one turn's anchor row (the official rail's
+   *  navigation); the reader is no longer pinned to the bottom. */
+  const navigateToTurn = useCallback((item: TurnNavigationItem): void => {
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the rail only renders with the list mounted. */
     if (local === null) return
     const el = scrollerOf(local)
-    const row = anchorElement(local, key)
+    const row = anchorElement(local, item.anchorKey)
     if (row === null) return
     el.scrollTop += flowTop(row, el) - NAV_JUMP_OFFSET
     observedTopRef.current = el.scrollTop
     atBottomRef.current = false
     setAtBottom(false)
+    setActiveTurn(item.turn)
     scroll.save(scrollPosition(local, el))
-    updateNavActiveRef.current()
   }, [scroll])
 
   // The flow rows' element list, cached on exactly the inputs the rows
@@ -566,7 +585,12 @@ export function FocusView({
   // row's props object.
   const flowRows = useMemo(
     () => flow.map(item => (
-      <div key={flowKey(item)} className={css.flowItem} data-focus-anchor-key={flowKey(item)}>
+      <div
+        key={flowKey(item)}
+        className={css.flowItem}
+        data-focus-anchor-key={flowKey(item)}
+        data-focus-turn={flowTurnOf(item, chat) ?? undefined}
+      >
         <FlowRow
           item={item}
           t={t}
@@ -580,16 +604,15 @@ export function FocusView({
         />
       </div>
     )),
-    [flow, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback],
+    [flow, chat, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback],
   )
 
   return (
     <div className={css.root}>
       <div ref={listRef} className={css.scroll} data-focus-scroll="">
-        {/* The in-view navigation rail floats at the conversation's right
-            edge, vertically centered, via pure CSS (position:fixed,
-            top:50%) — no measuring, no scroll-following bookkeeping. */}
-        <NavRail entries={navEntries} activeKey={activeNavKey} onSelect={jumpToNav} t={t} />
+        {/* The official turn navigator floats over the transcript's right
+            gutter (pure CSS positioning, no measuring). */}
+        <TurnNavigator items={turnNavigationItems} activeTurn={activeTurn} onNavigate={navigateToTurn} t={t} />
         <div ref={columnRef} className={css.column} data-focus-flow="">
         {openState === 'loading' && <div className={css.hint}>{t('loadingHistory')}</div>}
         {openState === 'error' && openError !== null && (

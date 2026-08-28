@@ -4,7 +4,6 @@ import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-clie
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusFlowItem } from '../../model/types.ts'
-import { formatSeconds } from '../../model/text.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
 import { messageImageLabels } from '../helpers/image-labels.ts'
 import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
@@ -12,6 +11,7 @@ import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import { ThinkRow } from './ThinkRow.tsx'
 import { ToolGroupRow } from './ToolGroupRow.tsx'
 import { ContextFoldRow, ContextRow } from './ContextRow.tsx'
+import { SystemPromptRow } from './SystemPromptRow.tsx'
 import { MessageRow } from './UserBubble.tsx'
 import { TurnTailRow } from './TurnTailRow.tsx'
 import { CommandRow } from './CommandRow.tsx'
@@ -40,6 +40,8 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
         : <MessageRow item={item} t={t} mdLabels={mdLabels} loadImage={loadImage} />
     case 'context-fold':
       return <ContextFoldRow item={item} t={t} mdLabels={mdLabels} />
+    case 'system-prompt':
+      return <SystemPromptRow text={item.text} t={t} />
     case 'assistant': {
       // The chat assistant's shell rule: a node that is only tool-call heads
       // (or empty) paints nothing, so the flow shows no dead gap.
@@ -69,9 +71,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
                     key={index}
                     text={block.text}
                     running={item.running && index === last}
-                    title={item.running || item.thoughtMs === null
-                      ? t('think')
-                      : t('thought.duration', { n: formatSeconds(item.thoughtMs) })}
+                    // The official ReasoningRow keeps the plain Think title
+                    // whether streaming or settled.
+                    title={t('think')}
                     t={t}
                   />
                 )

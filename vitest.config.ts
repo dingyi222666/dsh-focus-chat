@@ -17,11 +17,23 @@ export default defineConfig({
       { find: /^@deepseek-ai\/dsh-client-ui-conversation\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-client-ui-conversation/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-ui-chat\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-client-ui-chat/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-locale\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-client-locale/src/client/index.ts') },
+      { find: /^@deepseek-ai\/dsh-client-test-runtime$/, replacement: local('node_modules/@deepseek-ai/dsh-client-test-runtime/src/index.ts') },
+      // The junctioned source tree resolves @deepseek-ai/cordis (and its
+      // cosmokit fork) from the dsh tree's own vendor; pin both to this
+      // package's instances so the test graph shares one cordis.
+      { find: /^@deepseek-ai\/cordis$/, replacement: local('node_modules/@deepseek-ai/cordis') },
+      { find: /^@deepseek-ai\/cosmokit$/, replacement: local('node_modules/@deepseek-ai/cosmokit') },
+      { find: /^cosmokit$/, replacement: local('node_modules/@deepseek-ai/cosmokit') },
       { find: /^@deepseek-ai\/dsh-client-connection\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-client-connection/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-api-session-controller\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-api-session-controller/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-api-workspace-controller\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-api-workspace-controller/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-api-remotes\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-api-remotes/src/client/index.ts') },
       { find: /^@deepseek-ai\/dsh-api-gateway\/client$/, replacement: local('node_modules/@deepseek-ai/dsh-api-gateway/src/client/index.ts') },
+      // Any remaining bare @deepseek-ai/dsh-* import inside the junctioned
+      // source tree (the test runtime, the host packages) resolves to this
+      // package's own node_modules instead of the dsh tree's workspace store.
+      { find: /^@deepseek-ai\/dsh-util-crypto$/, replacement: local('node_modules/@deepseek-ai/dsh-util-crypto/src/index.ts') },
+      { find: /^@deepseek-ai\/(dsh-[a-z0-9-]+)$/, replacement: match => local(`node_modules/@deepseek-ai/${match.slice('@deepseek-ai/'.length)}`) },
       // The junctioned packages sit inside the dsh source tree, whose own
       // node_modules carry a SECOND react copy; pin the react family (and its
       // uSES shim) to this package's instances so the test runtime and the
@@ -33,6 +45,13 @@ export default defineConfig({
       { find: /^use-sync-external-store$/, replacement: local('node_modules/use-sync-external-store') },
       { find: /^use-sync-external-store\/shim/, replacement: local('node_modules/use-sync-external-store/shim') },
     ],
+  },
+  server: {
+    fs: {
+      // The junctioned @deepseek-ai packages resolve into the dsh source
+      // trees (the checkout and the staging clone); let vite serve them.
+      allow: ['/Users/dingyi/projects/dsh', '/Users/dingyi/.dsh/source'],
+    },
   },
   test: {
     environment: 'jsdom',

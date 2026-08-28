@@ -5,6 +5,10 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 // (the 'deliverables' turn data the turn-tail row reads).
 import type {} from '@deepseek-ai/dsh-client-ui-deliverables/client'
 import type { AssistantBlock, ChatNodeDataMap, ContextMessageNode, SteeringMessageNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+// Type-only from the source module: TurnTokenUsage is declared in the chat
+// contract but not re-exported from the client entry; the src/* export seam
+// serves it for compile-time use (erased from the bundle).
+import type { TurnTokenUsage } from '@deepseek-ai/dsh-client-ui-chat/src/client/contract/chat-nodes.ts'
 
 /** Locale-owned label surfaces the render sites add to the shared card primitives. */
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
@@ -174,6 +178,12 @@ export type FocusFlowItem =
   }
   | { kind: 'tools'; group: FocusToolGroup }
   | {
+    kind: 'system-prompt'
+    nodeKey: string
+    /** Complete model-visible prompt text. */
+    text: string
+  }
+  | {
     kind: 'turn-fold'
     nodeKey: string
     turn: number
@@ -181,6 +191,11 @@ export type FocusFlowItem =
     durationMs: number
     /** The user stopped the turn: the line reads "用户 X 后停止" instead. */
     stopped: boolean
+    /** Turn-process counts (the official turn fold's measurement): durable
+     *  messages, tool calls, and subagent delegations in the folded turn. */
+    messageCount: number
+    toolCallCount: number
+    subagentCount: number
     /** The turn's folded rows — intermediate assistant items and tool runs — in flow order. */
     items: readonly FocusFlowItem[]
   }
@@ -207,6 +222,8 @@ export type FocusFlowItem =
     branchUnavailable: boolean
     /** Files produced by the closing turn, in first-seen order. */
     produced: readonly string[]
+    /** Exact provider-reported token accounting, when the turn recorded it. */
+    tokenUsage: TurnTokenUsage | undefined
   }
   | { kind: 'command'; nodeKey: string; name: string | null; args: string | null; outcomeText: string | null; outcomeError: boolean; running: boolean }
   | { kind: 'manual-compaction'; nodeKey: string; name: string | null; outcomeText: string | null; outcomeError: boolean; running: boolean; compaction: { summary: string | null; shadowedItemCount: number | null; shadowedTokenCount: number | null } | null }

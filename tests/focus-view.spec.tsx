@@ -6,7 +6,7 @@ import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type {
-  ChatConversationViewNode, ChatSnapshot, RunningToolCall, ToolResultNode,
+  ChatConversationViewNode, ChatSnapshot, RunningToolCall, ToolResultNode, TurnNavigationItem,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionListState, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -69,7 +69,7 @@ type ViewSlice = {
   chat: ChatSnapshot
 }
 
-function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean; hasMore?: boolean; loadingOlder?: boolean; queue?: SessionSnapshot['queue']; openState?: SessionSnapshot['openState']; openError?: SessionSnapshot['openError'] } = {}): ViewSlice {
+function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean; hasMore?: boolean; loadingOlder?: boolean; queue?: SessionSnapshot['queue']; openState?: SessionSnapshot['openState']; openError?: SessionSnapshot['openError']; navigation?: readonly TurnNavigationItem[] } = {}): ViewSlice {
   const nodesByKey = new Map(nodes.map(n => [n.key, n]))
   return {
     session: {
@@ -87,7 +87,7 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
         values: () => nodes,
       },
       locations: { getTurn: () => [], getStep: () => [] },
-      navigation: { items: () => [] },
+      navigation: { items: () => opts.navigation ?? [] },
       timeline: { turnOrder: [], turns: new Map() },
       legacy: {
         nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
@@ -194,7 +194,9 @@ it('renders the empty hint for an empty conversation', () => {
     // The user bubble renders the text (the nav rail duplicates the label).
     expect(within(document.querySelector('[data-focus-anchor-key="u1"]') as HTMLElement).getByText('hello')).toBeTruthy()
     expect(screen.getByText('answer text')).toBeTruthy()
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    // The official ReasoningRow chrome: the settled Think row keeps the plain
+    // Think title (the duration no longer rides the title).
+    expect(screen.getAllByText('Think').length).toBe(1)
   })
 
   it('keeps the plain Think title while running or without timing', () => {
@@ -215,18 +217,17 @@ it('renders the empty hint for an empty conversation', () => {
     fireEvent.click(screen.getByText('second line'))
     expect(screen.getByText(/first line/)).toBeTruthy()
     expect(screen.getByText(/second line/)).toBeTruthy()
-    // Completion flips the one-line summary back to the first line and the
-    // duration title appears (the manual expansion stays open). Settling is
-    // a structural transition (streaming activity ends), so it renders
-    // immediately.
+    // Completion flips the one-line summary back to the first line (the
+    // manual expansion stays open). Settling is a structural transition
+    // (streaming activity ends), so it renders immediately.
     act(() => {
       source.set(chatOf([
         assistantNode('a1', 'settled', 'first line\nsecond line', 3000),
       ]))
     })
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText(/first line/)).toBeTruthy()
-    fireEvent.click(screen.getByText('思考了 1.3 秒'))
+    fireEvent.click(screen.getByText('Think'))
     expect(screen.queryByText(/second line/)).toBeNull()
     expect(screen.getByText('first line')).toBeTruthy()
   })
@@ -248,7 +249,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Blocks keep their logged order (the chat AssistantMarkdown rule): the
     // Thought row sits above the reply, never below it.
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('思考了 0.5 秒')).toBeLessThan(column.indexOf('final answer'))
+    expect(column.indexOf('Think')).toBeLessThan(column.indexOf('final answer'))
   })
 
   it('stops tail-previewing the Think row once the assistant starts its text reply', () => {
@@ -342,7 +343,7 @@ it('renders the empty hint for an empty conversation', () => {
     })
     expect(screen.queryByText('two')).toBeNull()
     expect(screen.getByText('one')).toBeTruthy()
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
   })
 
   it('tail-preview only the last reasoning block while the step streams', () => {
@@ -373,13 +374,13 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }),
     ])
     // A leading think — no preceding run to fold into — stays on its
-    // assistant: the duration title row above, the run's group below.
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    // assistant: the plain Think row above, the run's group below.
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     const column = document.querySelector('[data-focus-flow]')?.textContent ?? ''
-    expect(column.indexOf('思考了 1.3 秒')).toBeLessThan(column.indexOf('运行了 1 个命令'))
+    expect(column.indexOf('Think')).toBeLessThan(column.indexOf('运行了 1 个命令'))
     // The Think row expands to its reasoning body.
-    fireEvent.click(screen.getByText('思考了 1.3 秒'))
+    fireEvent.click(screen.getByText('Think'))
     expect(screen.getByText(/more/)).toBeTruthy()
   })
 
@@ -706,7 +707,7 @@ it('renders the empty hint for an empty conversation', () => {
     // While the call runs the summary line reads the settled metrics only —
     // the thought is in, the call is not ("完成了才收进去摘要行") — and the
     // call renders as a live row at the end of the flow.
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.queryByText('运行了 1 个命令')).toBeNull()
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('pnpm build')).toBeTruthy()
@@ -717,12 +718,12 @@ it('renders the empty hint for an empty conversation', () => {
       ]))
     })
     // Once settled the call folds in: the summary line now counts it, the
-    // live row is gone; the leading think keeps its own duration row.
+    // live row is gone; the leading think keeps its own plain row.
     // Settling is a structural transition (streaming activity ends), so it
     // renders immediately.
     expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
   })
 
   it('keeps the streaming Think row standalone and folds it once the step settles', () => {
@@ -757,10 +758,11 @@ it('renders the empty hint for an empty conversation', () => {
     act(() => {
       source.set(chatOf([settled, call()]))
     })
-    // Settled: the reasoning folds into the group — the line carries the
-    // thinking metric and no standalone Think row remains.
-    expect(screen.queryByText('Think')).toBeNull()
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    // Settled: the streaming Think row settles to its plain title; the run's
+    // group paints no summary while its call still runs (the live row carries
+    // it), so no duration reading is visible.
+    expect(screen.getByText('Think')).toBeTruthy()
+    expect(screen.queryByText('思考了 1.3 秒')).toBeNull()
     expect(screen.getByText('doing it')).toBeTruthy()
   })
 
@@ -970,7 +972,7 @@ it('renders the empty hint for an empty conversation', () => {
     // the group (the chat order: the run ran, then the next step's Think
     // disclosure) and the directly-consecutive runs all merge into one
     // line whose thinking metric leads.
-    expect(screen.getByText('思考了 1.3 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('思考了 1.3 秒，运行了 3 个命令')).toBeTruthy()
     fireEvent.click(screen.getByText('思考了 1.3 秒，运行了 3 个命令'))
     // The folded rows keep flow order: the calls and the absorbed think.
@@ -1028,9 +1030,9 @@ it('renders the empty hint for an empty conversation', () => {
     // The user message stays visible outside the fold (the rail duplicates its label).
     expect(within(document.querySelector('[data-focus-anchor-key="u1"]') as HTMLElement).getByText('go')).toBeTruthy()
     // Expanding the fold reveals the folded rows — the leading think (its
-    // own duration row), the group, and the context injection.
+    // plain Think row), the group, and the context injection.
     fireEvent.click(screen.getByText('工作了 7 秒'))
-    expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     // The context injection row is inside the fold; expanding it reveals its
     // code-block card body.
@@ -1072,9 +1074,9 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('工作了 7 秒')).toBeTruthy()
     expect(screen.getByText('all done')).toBeTruthy()
     expect(screen.queryByText('Think')).toBeNull()
-    // Expanding the fold reveals the folded reasoning with its duration.
+    // Expanding the fold reveals the folded reasoning with its plain title.
     fireEvent.click(screen.getByText('工作了 7 秒'))
-    expect(screen.getByText('思考了 1.6 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('closing think')).toBeTruthy()
   })
 
@@ -1290,9 +1292,9 @@ it('renders the empty hint for an empty conversation', () => {
     // The context batch folds into the group's summary line (its count
     // leads a segment, its rows expand inside the group — session order:
     // context → thinking → calls); the assistant's leading think keeps its
-    // own duration row.
+    // own plain row.
     expect(screen.getByText('载入了 2 项上下文，运行了 1 个命令')).toBeTruthy()
-    expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
     expect(screen.queryByText('AGENTS.md')).toBeNull()
     // Expanding the group reveals the absorbed context rows first, each
@@ -1364,7 +1366,7 @@ it('renders the empty hint for an empty conversation', () => {
     ])
     // No fold while the turn is open: the leading think keeps its own row
     // and the group line stays visible.
-    expect(screen.getByText('思考了 0.5 秒')).toBeTruthy()
+    expect(screen.getByText('Think')).toBeTruthy()
     expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
     expect(screen.queryByText(/工作了/)).toBeNull()
   })
@@ -1702,92 +1704,137 @@ it('renders the empty hint for an empty conversation', () => {
     expect((document.querySelector('[data-focus-scroll]') as HTMLElement).scrollTop).toBe(120)
   })
 
-  it('lists user and steering messages in the in-view navigation rail', () => {
-    renderView([
-      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'first question\nmore' }], source: null }),
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
-      chatNode('s1', 'steering', { kind: 'steering', seq: 2, time: 2, content: [{ type: 'text', text: 'hold on' }] }),
-      chatNode('u2', 'user', { kind: 'user', seq: 3, time: 3, content: [{ type: 'text', text: 'second question' }], source: null }),
-      chatNode('c1', 'context', { kind: 'context', seq: 4, time: 4, content: [{ type: 'text', text: 'context text' }], source: { kind: 'file' }, provenance: { role: 'instructions', label: 'AGENTS.md' }, form: null }),
-      assistantNode('a1', 'settled', 'thinking', 3000),
-    ])
+  it('renders the turn navigation rail from the chat index', () => {
+    const nodes = [
+      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'one' }], source: null }),
+      chatNode('u2', 'user', { kind: 'user', seq: 2, time: 2, content: [{ type: 'text', text: 'two' }], source: null }),
+    ]
+    const navigation: TurnNavigationItem[] = [
+      { turn: 1, anchorKey: 'u1', prompt: 'one', response: 'r1' },
+      { turn: 2, anchorKey: 'u2', prompt: 'two', response: '' },
+    ]
+    renderView(nodes, { chat: chatOf(nodes, { navigation, openState: 'open' }) })
     const nav = screen.getByRole('navigation')
-    // One entry per user / steering message, first line only, in flow order;
-    // tool runs, context injections, and assistant rows never join the rail.
-    const labels = [...nav.querySelectorAll('button')].map(button => button.textContent)
-    expect(labels).toEqual(['first question', 'hold on', 'second question'])
-    expect(nav.textContent).not.toContain('context text')
-    expect(nav.textContent).not.toContain('thinking')
-    // No rail on an empty conversation.
+    // One mark per loaded Turn (the official rail), labelled by turn number.
+    const marks = [...nav.querySelectorAll('button')]
+    expect(marks).toHaveLength(2)
+    expect(marks[0].getAttribute('aria-label')).toBe('跳转到第 1 轮')
+    expect(marks[1].getAttribute('aria-label')).toBe('跳转到第 2 轮')
+    // Fewer than two Turns renders no rail.
     cleanup()
     renderView([])
     expect(screen.queryByRole('navigation')).toBeNull()
   })
 
-  it('expands the rail on hover and collapses on leave', () => {
-    renderView([
-      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'hello' }], source: null }),
-    ])
-    const nav = screen.getByRole('navigation')
-    expect(nav.getAttribute('data-open')).toBeNull()
-    fireEvent.mouseEnter(nav)
-    expect(nav.getAttribute('data-open')).toBe('true')
-    fireEvent.mouseLeave(nav)
-    expect(nav.getAttribute('data-open')).toBeNull()
-  })
-
-  it('jumps the focus scrollport to the selected navigation entry', () => {
+  it('jumps the focus scrollport to the selected turn', () => {
     const saved = vi.fn()
     const rect = (top: number, bottom: number) => ({
       top, bottom, left: 0, right: 400, width: 400, height: bottom - top, x: 0, y: 0, toJSON: () => ({}),
     })
-    renderView([
+    const nodes = [
       chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'first' }], source: null }),
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
       chatNode('u2', 'user', { kind: 'user', seq: 2, time: 2, content: [{ type: 'text', text: 'second' }], source: null }),
-    ], { scroll: { save: saved, read: () => null } })
+    ]
+    const navigation: TurnNavigationItem[] = [
+      { turn: 1, anchorKey: 'u1', prompt: 'first', response: '' },
+      { turn: 2, anchorKey: 'u2', prompt: 'second', response: '' },
+    ]
+    renderView(nodes, {
+      scroll: { save: saved, read: () => null },
+      chat: chatOf(nodes, { navigation, openState: 'open' }),
+    })
     const el = document.querySelector('[data-focus-scroll]') as HTMLElement
     Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect(0, 600), configurable: true })
     const target = document.querySelector('[data-focus-anchor-key="u2"]') as HTMLElement
     Object.defineProperty(target, 'getBoundingClientRect', { value: () => rect(200, 240), configurable: true })
-    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: 'second' }))
+    fireEvent.click(within(screen.getByRole('navigation')).getByRole('button', { name: '跳转到第 2 轮' }))
     // The row lands NAV_JUMP_OFFSET (12px) below the scrollport top.
     expect(el.scrollTop).toBe(188)
     expect(saved).toHaveBeenCalledWith(expect.objectContaining({ anchorKey: 'u2' }))
   })
 
-  it('highlights the active navigation entry as the reader scrolls', () => {
+  it('marks the active turn as the reader scrolls to the floor', () => {
     vi.useFakeTimers()
     const rect = (top: number, bottom: number) => ({
       top, bottom, left: 0, right: 400, width: 400, height: bottom - top, x: 0, y: 0, toJSON: () => ({}),
     })
-    renderView([
-      chatNode('u1', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'one' }], source: null }),
-      chatNode('u2', 'user', { kind: 'user', seq: 2, time: 2, content: [{ type: 'text', text: 'two' }], source: null }),
-      chatNode('u3', 'user', { kind: 'user', seq: 3, time: 3, content: [{ type: 'text', text: 'three' }], source: null }),
-    ])
+    const turn1 = {
+      turn: 1, start: { time: 0 }, end: { time: 1000 }, status: 'closed', steps: [],
+      data: { get: () => undefined },
+    }
+    const turn2 = {
+      turn: 2, start: { time: 2000 }, end: { time: 3000 }, status: 'closed', steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, turn: typeof turn1) => chatNode(key, 'assistant-step', {
+      status: 'settled', turn: turn.turn, step: 1, time: 3000,
+      blocks: [{ kind: 'text', text: key }],
+      finalNode: { kind: 'assistant', seq: 5, time: 3000, turn: turn.turn, step: 1, blocks: [] },
+    }, { kind: 'turn', turn } as never)
+    const nodes = [at('a1', turn1), at('a2', turn2)]
+    const navigation: TurnNavigationItem[] = [
+      { turn: 1, anchorKey: 'a1', prompt: 'one', response: '' },
+      { turn: 2, anchorKey: 'a2', prompt: 'two', response: '' },
+    ]
+    renderView(nodes, { chat: chatOf(nodes, { navigation, openState: 'open' }) })
     const el = document.querySelector('[data-focus-scroll]') as HTMLElement
     Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect(0, 600), configurable: true })
     Object.defineProperty(el, 'scrollHeight', { value: 2000, configurable: true })
     Object.defineProperty(el, 'clientHeight', { value: 600, configurable: true })
-    for (const row of document.querySelectorAll<HTMLElement>('[data-focus-anchor-key]')) {
-      const top = row.dataset.focusAnchorKey === 'u1' ? -300
-        : row.dataset.focusAnchorKey === 'u2' ? -100 : 700
-      Object.defineProperty(row, 'getBoundingClientRect', { value: () => rect(top, top + 40), configurable: true })
+    for (const row of document.querySelectorAll<HTMLElement>('[data-focus-turn]')) {
+      Object.defineProperty(row, 'getBoundingClientRect', { value: () => rect(200, 240), configurable: true })
     }
-    el.scrollTop = 500
+    el.scrollTop = 2000
     act(() => {
       fireEvent.scroll(el)
-      // The scroll-spy coalesces into one pass per animation frame.
+      // The active-mark sync coalesces into one pass per animation frame.
       vi.advanceTimersByTime(16)
     })
-    const items = [...screen.getByRole('navigation').querySelectorAll('button')]
-    // The active entry is the one closest to the input bar — the last whose
-    // row clears the visible bottom edge (top + height = 600): u1 and u2
-    // have, u3 (at 700) has not — so u2 is active.
-    expect(items[1].getAttribute('data-active')).toBe('true')
-    expect(items[0].getAttribute('data-active')).toBeNull()
-    expect(items[2].getAttribute('data-active')).toBeNull()
+    const marks = [...screen.getByRole('navigation').querySelectorAll('button')]
+    // Pinned to the floor: the newest Turn owns the mark.
+    expect(marks[1].getAttribute('aria-current')).toBe('true')
+    expect(marks[0].getAttribute('aria-current')).toBeNull()
+  })
+
+  it('renders the system prompt as a collapsible disclosure', () => {
+    renderView([
+      chatNode('sp1', 'system-prompt', { text: 'You are a helpful assistant.' }),
+    ])
+    expect(screen.getByText('系统提示词')).toBeTruthy()
+    expect(screen.queryByText('You are a helpful assistant.')).toBeNull()
+    fireEvent.click(screen.getByText('系统提示词'))
+    expect(screen.getByText('You are a helpful assistant.')).toBeTruthy()
+  })
+
+  it('renders the turn usage disclosure from the turn-tail tokenUsage', () => {
+    const turn = {
+      turn: 1, start: { time: 1000 }, end: { time: 9000 }, status: 'closed', steps: [],
+      data: { get: () => undefined },
+    }
+    renderView([
+      chatNode('tail', 'turn-tail', {
+        turn: 1, seq: 30, time: 9000,
+        closing: {
+          finalNode: { seq: 20, time: 8000, messageId: 'm1' },
+          blocks: [{ kind: 'text', text: 'done text' }],
+          time: 8000,
+        },
+        branchUnavailable: false,
+        tokenUsage: {
+          uncachedInputTokens: 100, outputTokens: 50, totalTokens: 200,
+          cacheReadTokens: 50, cacheWriteTokens: 30, reasoningTokens: 10,
+        },
+      }, { kind: 'turn', turn } as never),
+    ])
+    expect(screen.getByText('本轮用量')).toBeTruthy()
+    // The collapsed summary carries the total and the one-decimal cache share.
+    expect(screen.getByText('200 · 缓存命中率 33.3%')).toBeTruthy()
+    // Expanding reveals the exact buckets.
+    fireEvent.click(screen.getByText('本轮用量'))
+    expect(screen.getByText('未缓存输入')).toBeTruthy()
+    expect(screen.getByText('缓存读取')).toBeTruthy()
+    expect(screen.getByText('缓存写入')).toBeTruthy()
+    expect(screen.getByText('总计')).toBeTruthy()
   })
 
   it('expands a Think row into its reasoning body', () => {
@@ -1797,7 +1844,7 @@ it('renders the empty hint for an empty conversation', () => {
     // Collapsed: only the first line summary is visible.
     expect(screen.getByText('first line')).toBeTruthy()
     expect(screen.queryByText(/second line/)).toBeNull()
-    fireEvent.click(screen.getByText('思考了 1.3 秒'))
+    fireEvent.click(screen.getByText('Think'))
     expect(screen.getByText(/second line/)).toBeTruthy()
   })
 

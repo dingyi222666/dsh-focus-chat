@@ -1,11 +1,52 @@
+/* The official turn-process fold chrome: a bare label button with a
+   trailing chevron and the l2 separator underneath. */
 .turnFold {
   display: flex;
   flex-direction: column;
 }
 
-.turnFoldRow {
+.root {
+  box-sizing: border-box;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 33px;
+  padding: 0 0 8px;
+  border: none;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.root:not([data-open]) {
+  margin-bottom: 8px;
+}
+
+.chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  transform: rotate(-90deg);
+  transition: transform 100ms ease;
+}
+
+.root[data-open] .chevron {
+  transform: rotate(0deg);
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  /* The official fold's label type. */
+  font-size: 14px;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .turnFoldBody {
@@ -16,4 +57,8 @@
   padding-left: 14px;
 }
 
-/* Tool group: the step-summary line and its folded calls. */
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

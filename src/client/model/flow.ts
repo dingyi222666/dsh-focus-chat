@@ -1,5 +1,5 @@
 /** One condensed flow over the chat snapshot (React-free). */
-import type { AssistantChatData, ChatNodeDataMap, ManualCompactionChatData, ToolChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { AssistantChatData, ChatNodeDataMap, ManualCompactionChatData, ToolChatData, TurnProcessChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { toolGroup, type ToolRowModelCache } from './tools.ts'
 import { assistantText, producedForClosing, thoughtDurationMs } from './text.ts'
@@ -169,6 +169,10 @@ function flowItemOf(
       const error = data as TurnErrorNode
       return { kind: 'turn-error', nodeKey: key, message: error.message, code: error.code }
     }
+    case 'system-prompt': {
+      const prompt = data as { text: string }
+      return { kind: 'system-prompt', nodeKey: key, text: prompt.text }
+    }
     case 'turn-tail': {
       const tail = data as TurnTailChatData
       const location = node.location
@@ -193,6 +197,7 @@ function flowItemOf(
         tokensPerSecond: tail.tokensPerSecond ?? null,
         branchUnavailable: tail.branchUnavailable,
         produced,
+        tokenUsage: tail.tokenUsage,
       }
     }
     default:
@@ -231,6 +236,10 @@ export function buildFocusFlow(
   // closes the current fold segment: each stretch between two interjections
   // folds with its own duration).
   const nodeTurn = new Map<string, number>()
+  /** The official turn-process node per turn: the official turn fold's
+   *  measurement (message / tool-call / subagent counts) rides this instead
+   *  of the focus view re-deriving its own tallies. */
+  const turnProcessByTurn = new Map<number, TurnProcessChatData>()
   const turnPlans = new Map<number, {
     durationMs: number | null
     closingKey: string | null
@@ -246,6 +255,12 @@ export function buildFocusFlow(
     const turn = location.kind === 'turn' || location.kind === 'step' ? location.turn : undefined
     if (turn === undefined) continue
     nodeTurn.set(key, turn.turn)
+    // Turn-process node: the official turn fold's measurement (durable
+    // message / tool-call / subagent counts), carried onto the focus turn
+    // fold instead of re-deriving counts here.
+    if (node.kind === 'turn-process') {
+      turnProcessByTurn.set(turn.turn, node.data as TurnProcessChatData)
+    }
     const plan = turnPlans.get(turn.turn)
     if (plan === undefined) {
       turnPlans.set(turn.turn, {
@@ -310,6 +325,11 @@ export function buildFocusFlow(
       turn: turnId,
       durationMs,
       stopped: plan?.stopped ?? false,
+      // The official turn-process node's measurement (absent when the host
+      // did not project one — e.g. an interrupted turn — renders zero tallies).
+      messageCount: turnProcessByTurn.get(turnId)?.messageCount ?? 0,
+      toolCallCount: turnProcessByTurn.get(turnId)?.toolCallCount ?? 0,
+      subagentCount: turnProcessByTurn.get(turnId)?.subagentCount ?? 0,
       items: folded,
     })
   }
@@ -415,7 +435,10 @@ export function buildFocusFlow(
     }
     if (turnId === undefined
       || (item.kind === 'message' && item.role !== 'context')
-      || item.kind === 'turn-tail') {
+      || item.kind === 'turn-tail'
+      // The system prompt anchors its step's message series and never folds
+      // into the turn fold (the official TURN_PROCESS_INDEPENDENT_KINDS rule).
+      || item.kind === 'system-prompt') {
       flushFold(null)
       flow.push(item)
       return

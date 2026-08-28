@@ -1,0 +1,32 @@
+/* System-prompt disclosure: the official SystemPromptRow chrome — browse
+   icon, 14px/24px title, and the expanded body as a bounded code-block card
+   (the context-body surface). */
+.root {
+  min-width: 0;
+}
+
+.chevron {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.body {
+  box-sizing: border-box;
+  width: calc(100% - 22px);
+  max-height: 141px;
+  margin: 4px 0 0 22px;
+  overflow: auto;
+  padding: 10px 16px 12px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--dsw-alias-markdown-code-block);
+  color: var(--dsw-alias-label-tertiary);
+  font: 400 11px/16px var(--ds-font-family-code);
+}
+
+.text {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
