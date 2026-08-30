@@ -202,16 +202,14 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
                 {summaryText}
               </span>
             )}
-            {/* The git-style tally hugs the path/summary (the official
-                "Edit · tests/focus-view.spec.tsx +10 -10" reading); the
-                path does not flex to fill the row, so the badge never gets
-                pushed to the far edge. */}
+            {/* The official diff-row stat: the card's +/- totals as a mono
+                suffix after the path (the "Edit · path +3 -2" reading), both
+                sides always shown. Neutral at rest; the row's hover turns the
+                additions success-green and the removals error-red. */}
             {row.changeStat !== null && (
               <span className={css.changeStat} data-change-stat>
                 <span className={css.changeAdd}>+{row.changeStat.added}</span>
-                {row.changeStat.removed > 0 && (
-                  <span className={css.changeRemove}>-{row.changeStat.removed}</span>
-                )}
+                <span className={css.changeRemove}>-{row.changeStat.removed}</span>
               </span>
             )}
           </>

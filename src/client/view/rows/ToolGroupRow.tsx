@@ -63,13 +63,12 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
                 <span className={css.groupTitleFailed} data-group-title-failed>{segment.failed}</span>
               )}
               {/* The total change tally trails the edits segment (the official
-                  "edited N files +210 -213" reading). */}
+                  "edited N files +210 -213" reading); neutral at rest, the
+                  row's hover turns + green and - red like the call rows. */}
               {segment.kind === 'edits' && changeStat !== null && (
                 <span className={css.changeStat} data-change-stat>
                   <span className={css.changeAdd}>+{changeStat.added}</span>
-                  {changeStat.removed > 0 && (
-                    <span className={css.changeRemove}>-{changeStat.removed}</span>
-                  )}
+                  <span className={css.changeRemove}>-{changeStat.removed}</span>
                 </span>
               )}
             </Fragment>

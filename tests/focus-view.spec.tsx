@@ -671,10 +671,11 @@ it('renders the empty hint for an empty conversation', () => {
     // The folded group's total: +6 -2 (3+3 added lines, 2 removed).
     expect(fullText('编辑了 2 个文件+6-2')).toBeTruthy()
     // Expanding reveals each call's own tally: the edit row +3-2, the new
-    // write +3 with no removal side (the badge's text lives in child spans).
+    // write +3 with no removal side — both sides always read (the official
+    // diff-row stat; the badge's text lives in child spans).
     fireEvent.click(fullText('编辑了 2 个文件+6-2'))
     const badges = [...document.querySelectorAll('[data-change-stat]')].map(el => el.textContent)
-    expect(badges).toEqual(expect.arrayContaining(['+3-2', '+3']))
+    expect(badges).toEqual(expect.arrayContaining(['+3-2', '+3-0']))
   })
 
   it('renders a skill row with the Skill title and the skill name summary', () => {

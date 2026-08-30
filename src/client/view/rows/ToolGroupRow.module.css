@@ -22,22 +22,35 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* The group's total line-change tally: git-style "+210 -213", additions in
-   the success green, removals in the error red. */
+/* The group's total line-change tally (the official diffStat reading):
+   "+210 -213" in the code font, neutral caption at rest — the row's hover
+   turns additions success-green and removals error-red. */
 .changeStat {
   flex: none;
   display: inline-flex;
   gap: 4px;
-  margin-left: 8px;
+  margin-left: 10px;
+  font-family: var(--ds-font-family-code);
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
+  color: var(--dsw-alias-label-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transform: translateY(0.5px);
 }
 
 .changeAdd {
-  color: var(--dsw-alias-state-success-primary);
+  color: inherit;
 }
 
 .changeRemove {
+  color: inherit;
+}
+
+.groupRow:hover .changeAdd {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.groupRow:hover .changeRemove {
   color: var(--dsw-alias-state-error-primary);
 }
 

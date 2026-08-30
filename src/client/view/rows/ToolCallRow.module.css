@@ -101,24 +101,40 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Git-style line-change tally: "+210 -213", additions in the success
-   green, removals in the error red (the diff row's change badge). */
+/* Diff-row +/- totals (the official diffStat): the code font, matching the
+   diff body the numbers summarize; a wider gap keeps the digits from reading
+   as part of the path. Two px under the secondary tier (still riding the
+   axis): mono digits read optically larger than the sans path at the same
+   size. Caption, one step under the summary tier. */
 .changeStat {
   flex: none;
   display: inline-flex;
   gap: 4px;
-  margin-left: 8px;
-  font-size: var(--dsh-content-font-size-secondary, 13px);
+  margin-left: 10px;
+  font-family: var(--ds-font-family-code);
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  color: var(--dsw-alias-label-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transform: translateY(0.5px);
 }
 
+/* The +/- colors are a hover reveal: neutral caption at rest, the row's
+   hover turns additions success-green and removals error-red. */
 .changeAdd {
-  color: var(--dsw-alias-state-success-primary);
+  color: inherit;
 }
 
 .changeRemove {
+  color: inherit;
+}
+
+.callRow:hover .changeAdd {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.callRow:hover .changeRemove {
   color: var(--dsw-alias-state-error-primary);
 }
 

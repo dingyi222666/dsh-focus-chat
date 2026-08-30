@@ -92,6 +92,23 @@ function scrollerOf(from: HTMLElement): HTMLElement {
   return from.closest('[data-conversation-scroll]') ?? from
 }
 
+/** Publish the focus scrollport's live measurements the turn navigator's
+ *  rail reads (--dsh-conversation-viewport-height / --dsh-composer-height /
+ *  --dsh-composer-side-clearance) — the same variables the official chat's
+ *  ConversationRoot publishes on its scroller. The focus view scrolls the
+ *  shared conversation column in the app but must not depend on the chat
+ *  root being mounted, so it measures the band itself.
+ * @param scroller - the resolved scroll container.
+ */
+function publishNavigatorMetrics(scroller: HTMLElement): void {
+  const seat = scroller.querySelector<HTMLElement>('[data-composer-seat]')
+  scroller.style.setProperty('--dsh-composer-height', `${seat?.offsetHeight ?? 0}px`)
+  scroller.style.setProperty('--dsh-conversation-viewport-height', `${scroller.clientHeight}px`)
+  // The official ConversationRoot's resting clearance; the rail gives the
+  // transcript side padding back with it.
+  scroller.style.setProperty('--dsh-composer-side-clearance', '16px')
+}
+
 /** Find an already-rendered settled flow row without interpolating a selector. */
 function anchorElement(list: HTMLElement, key: string): HTMLElement | null {
   for (const row of list.querySelectorAll<HTMLElement>('[data-focus-anchor-key]')) {
@@ -465,6 +482,27 @@ export function FocusView({
 
   const listRef = useRef<HTMLDivElement | null>(null)
   const columnRef = useRef<HTMLDivElement | null>(null)
+  // The turn navigator's rail reads the scrollport band (viewport minus
+  // composer); publish the measurements like the official chat's
+  // ConversationRoot does, so the rail floats correctly even when the chat
+  // root is not mounted (the focus tab owns the column).
+  const navigatorObserver = useRef<ResizeObserver | null>(null)
+  const navigatorMetricsRef = useCallback((node: HTMLDivElement | null): void => {
+    listRef.current = node
+    navigatorObserver.current?.disconnect()
+    navigatorObserver.current = null
+    if (node === null) return
+    const scroller = scrollerOf(node)
+    publishNavigatorMetrics(scroller)
+    // jsdom (tests) has no ResizeObserver: publish the first measurements and
+    // skip the live re-measurement (the rail still renders).
+    if (typeof ResizeObserver === 'undefined') return
+    const seat = scroller.querySelector<HTMLElement>('[data-composer-seat]')
+    const observer = new ResizeObserver(() => { publishNavigatorMetrics(scroller) })
+    observer.observe(scroller)
+    if (seat !== null) observer.observe(seat)
+    navigatorObserver.current = observer
+  }, [])
   const atBottomRef = useRef(true)
   const [atBottom, setAtBottom] = useState(true)
   /** The official turn rail's active mark (the Turn owning the reading line). */
@@ -758,7 +796,7 @@ export function FocusView({
 
   return (
     <div className={css.root}>
-      <div ref={listRef} className={css.scroll} data-focus-scroll="">
+      <div ref={navigatorMetricsRef} className={css.scroll} data-focus-scroll="">
         {/* The official turn navigator floats over the transcript's right
             gutter (pure CSS positioning, no measuring). */}
         <TurnNavigator items={turnNavigationItems} activeTurn={activeTurn} onNavigate={navigateToTurn} t={t} />

@@ -375,15 +375,19 @@ function narrowDiffs(diffs: unknown): DiffHunk[] | null {
   return out
 }
 
-/** Non-empty lines of a diff side (the git +/− count reads lines, not bytes). */
-function nonEmptyLineCount(text: string): number {
+/** Content lines of one diff side (the official DiffBlock contentLines
+ *  rule): every line including blanks, without the terminating newline. */
+function contentLineCount(text: string): number {
   if (text === '') return 0
-  return text.split('\n').filter(line => line.trim() !== '').length
+  const body = text.endsWith('\n') ? text.slice(0, -1) : text
+  return body.split('\n').length
 }
 
 /** Git-style line-change tally over a settled mutation call's diff meta:
- *  added non-empty lines across the hunks' new text, removed across the old
- *  text. Null when the call is not a diff-bearing file mutation.
+ *  added lines across the hunks' new text, removed across the old text —
+ *  the same counts the official diffTotals reads (the official diff card's
+ *  footer rule), so the row and the card never disagree. Null when the call
+ *  is not a diff-bearing file mutation.
  * @param meta - the persisted result meta (the host's diff hunks).
  * @returns the tally, or null when there is nothing to count.
  */
@@ -393,8 +397,8 @@ function diffChangeStat(meta: unknown): { added: number; removed: number } | nul
   let added = 0
   let removed = 0
   for (const hunk of diffs) {
-    added += nonEmptyLineCount(hunk.newText)
-    removed += nonEmptyLineCount(hunk.oldText ?? '')
+    added += contentLineCount(hunk.newText)
+    removed += contentLineCount(hunk.oldText ?? '')
   }
   return added === 0 && removed === 0 ? null : { added, removed }
 }
