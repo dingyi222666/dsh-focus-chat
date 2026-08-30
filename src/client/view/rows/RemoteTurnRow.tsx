@@ -111,7 +111,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   } as const
 
   return (
-    <div className={css.remoteTurn} data-remote-turn={item.turn}>
+    <div className={foldCss.turnFold} data-remote-turn={item.turn}>
       {summary.opening.map(message => (
         <FlowRow
           key={`o${message.seq}`}
@@ -134,7 +134,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
         <IconChevronDownOutline14 className={foldCss.chevron} />
       </button>
       {slice !== undefined && expanded && (
-        <div className={css.remoteTurnBody} data-remote-turn-body>
+        <div className={foldCss.turnFoldBody} data-remote-turn-body>
           {slice.work.map(inner => (
             <FlowRow key={flowKey(inner)} item={inner} {...rowProps} />
           ))}
