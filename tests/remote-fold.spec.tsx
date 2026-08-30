@@ -271,7 +271,7 @@ describe('remote turn folds', () => {
     await waitFor(() => expect(screen.getByText('final reply 1')).toBeTruthy())
     expect(turnEvents).toHaveBeenCalledTimes(1)
     expect(turnEvents).toHaveBeenCalledWith(SID, 1)
-    expect(screen.getByText('运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('Bash')).toBeTruthy()
     // The collapsed preview never paints; the opening bubbles stay.
     expect(screen.getByText('ask 1')).toBeTruthy()
     expect(document.querySelector('[data-remote-preview]')).toBeNull()
@@ -296,14 +296,14 @@ describe('remote turn folds', () => {
     // The projected body carries the work rows only: the real closing reply
     // ("window residue of turn 3") keeps rendering exactly once from the
     // window rows below the fold.
-    await waitFor(() => expect(screen.getByText('运行了 1 个命令')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('Bash')).toBeTruthy())
     expect(turnEvents).toHaveBeenCalledTimes(1)
     expect(turnEvents).toHaveBeenCalledWith(SID, 3)
     expect(screen.getAllByText('window residue of turn 3')).toHaveLength(1)
     expect(document.querySelector('[data-remote-preview]')).toBeNull()
     // Collapse hides the work rows; the window-rendered closing stays.
     fireEvent.click(screen.getByText('工作了 9 秒'))
-    expect(screen.queryByText('运行了 1 个命令')).toBeNull()
+    expect(screen.queryByText('Bash')).toBeNull()
     expect(screen.getByText('window residue of turn 3')).toBeTruthy()
   })
 

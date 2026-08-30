@@ -9,6 +9,7 @@ import { messageImageLabels } from '../helpers/image-labels.ts'
 import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
 import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import { ThinkRow } from './ThinkRow.tsx'
+import { ToolCallRow } from './ToolCallRow.tsx'
 import { ToolGroupRow } from './ToolGroupRow.tsx'
 import { ContextFoldRow, ContextRow } from './ContextRow.tsx'
 import { SystemPromptRow } from './SystemPromptRow.tsx'
@@ -117,8 +118,20 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
         </div>
       )
     }
-    case 'tools':
-      return <ToolGroupRow group={item.group} t={t} mdLabels={mdLabels} openFile={openFile} />
+    case 'tools': {
+      // A group that folded exactly one settled call — with nothing absorbed
+      // — paints the call's own row instead of a summary line: the first
+      // tool call of a run reads its row, the fold only starts once a second
+      // call joins.
+      const group = item.group
+      if (group.items.length === 1
+        && group.context.length === 0
+        && 'callId' in group.items[0]
+        && group.items[0].state !== 'running') {
+        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} />
+      }
+      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} />
+    }
     case 'turn-fold':
       return (
         <TurnFoldRow
