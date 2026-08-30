@@ -1,5 +1,4 @@
 import { memo, useRef, useState } from 'react'
-import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -9,6 +8,7 @@ import { formatElapsed } from '../helpers/format.ts'
 import type { ImageLoader } from '../chrome/MessageImage.tsx'
 import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
 import { FlowRow, flowKey } from './FlowRow.tsx'
+import { TurnFoldLine } from './TurnFoldRow.tsx'
 import foldCss from './TurnFoldRow.module.css'
 import css from './RemoteTurnRow.module.css'
 
@@ -119,20 +119,13 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
           {...rowProps}
         />
       ))}
-      <button
-        type="button"
-        className={foldCss.root}
-        data-open={(expanded && slice !== undefined) || undefined}
-        aria-expanded={expanded && slice !== undefined}
-        onClick={request}
-      >
-        <span className={foldCss.label}>
-          {summary.stopped
-            ? t('turnFold.stopped', { duration })
-            : t('worked', { duration })}
-        </span>
-        <IconChevronDownOutline14 className={foldCss.chevron} />
-      </button>
+      <TurnFoldLine
+        duration={duration}
+        stopped={summary.stopped}
+        open={expanded && slice !== undefined}
+        onToggle={request}
+        t={t}
+      />
       {slice !== undefined && expanded && (
         <div className={foldCss.turnFoldBody} data-remote-turn-body>
           {slice.work.map(inner => (
