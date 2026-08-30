@@ -1278,6 +1278,46 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('用户在 5 秒后停止')).toBeTruthy()
   })
 
+  it("folds a tool settling after the closing reply into its own short stretch, not a second full-turn line", () => {
+    // The chat can emit the closing text, then keep running tools in the same
+    // step: the tool that settles after the reply must not fold from the turn
+    // start (which would re-read the whole wall time as a duplicate "worked"
+    // line beside the reply) — it reads its own stretch from the reply.
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 24000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 5000,
+        blocks: [{ kind: 'text', text: 'working' }],
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      at('a2', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 12000,
+        blocks: [{ kind: 'text', text: 'done' }],
+      }),
+      at('t2', 'tool-call', { root: settledCall('c2', 'bash', '{}', {
+        callTime: 13000,
+        content: [{ type: 'text', text: 'slow result' }],
+      }) }),
+    ])
+    // One full-turn worked line for the pre-reply work, one short stretch for
+    // the post-reply tool — never two identical full-turn lines.
+    expect(screen.getByText('工作了 23 秒')).toBeTruthy()
+    expect(screen.getByText('工作了 12 秒')).toBeTruthy()
+    expect(screen.getAllByText('工作了 23 秒')).toHaveLength(1)
+  })
+
   it('reads a stop during tool execution as stopped-after (synthetic unknown-outcome result)', () => {
     // The real stop-mid-tool shape (repair.ts): the assistant settled its
     // reply normally, then the running tool lands a synthetic result with

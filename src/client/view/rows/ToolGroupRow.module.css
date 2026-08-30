@@ -5,10 +5,12 @@
   padding: 2px 0;
 }
 
-/* The group's summary line: one flexible ellipsizing run; failure tallies
-   (parentheses included) render in the error color. */
+/* The group's summary line: one ellipsizing run that hugs its content (the
+   tally keeps the line's right side tight instead of the line filling to the
+   row's far edge); failure tallies (parentheses included) render in the
+   error color. */
 .groupTitleLine {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
@@ -33,7 +35,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 10px;
+  margin-left: 4px;
   font-family: var(--ds-font-family-code);
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
   color: var(--dsw-alias-label-caption);

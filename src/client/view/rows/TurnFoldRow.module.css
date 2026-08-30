@@ -54,7 +54,6 @@
   flex-direction: column;
   gap: 8px;
   margin: 12px 0 6px;
-  padding-left: 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -535,7 +535,17 @@ export function buildFocusFlow(
       // the same step), flushing now would clear the segment start and the
       // later rows would fold from the turn start, misreading the stretch.
       if (pendingFold.length > 0 || pendingFoldStart === null) {
+        const flushedRows = pendingFold.length > 0
         flushFold(null)
+        if (flushedRows) {
+          // Rows that land after the closing reply (a tool settling in the
+          // same step) start their stretch at the reply: folding them from
+          // the turn start would re-read the whole turn's wall time as a
+          // second line beside the reply — the duplicate "worked" line.
+          const closingNode = getNode(key)
+          const closingTime = (closingNode?.data as AssistantChatData | undefined)?.time
+          pendingFoldStart = typeof closingTime === 'number' ? closingTime : plan?.endTime ?? null
+        }
       }
       flow.push(closing)
       return
