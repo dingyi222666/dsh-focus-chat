@@ -181,37 +181,40 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
              its title shows no trailing dot). */
           <>
             <span className={css.callSeparator} aria-hidden />
-            {fileLink ? (
-              <button
-                type="button"
-                className={css.callFileLink}
-                onClick={(event) => {
-                  event.stopPropagation()
-                  openFile(row.filePath as string)
-                }}
-                onKeyDown={(event) => {
-                  // Keep Enter/Space on the focused path link from bubbling to
-                  // the row's keydown handler (the chat row's analogue).
-                  if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
-                }}
-              >
-                {summaryText}
-              </button>
-            ) : (
-              <span className={`${css.callSummary}${failureLine !== null ? ` ${css.callErrorSummary}` : ''}`}>
-                {summaryText}
-              </span>
-            )}
-            {/* The git-style tally trails the path/summary (like the failure
-                count follows the summary), not the title. */}
-            {row.changeStat !== null && (
-              <span className={css.changeStat} data-change-stat>
-                <span className={css.changeAdd}>+{row.changeStat.added}</span>
-                {row.changeStat.removed > 0 && (
-                  <span className={css.changeRemove}>-{row.changeStat.removed}</span>
-                )}
-              </span>
-            )}
+            <span className={css.callSummaryRow}>
+              {fileLink ? (
+                <button
+                  type="button"
+                  className={css.callFileLink}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    openFile(row.filePath as string)
+                  }}
+                  onKeyDown={(event) => {
+                    // Keep Enter/Space on the focused path link from bubbling to
+                    // the row's keydown handler (the chat row's analogue).
+                    if (event.key === 'Enter' || event.key === ' ') event.stopPropagation()
+                  }}
+                >
+                  {summaryText}
+                </button>
+              ) : (
+                <span className={`${css.callSummary}${failureLine !== null ? ` ${css.callErrorSummary}` : ''}`}>
+                  {summaryText}
+                </span>
+              )}
+              {/* The git-style tally hugs the path/summary (the official
+                  "Edit · tests/focus-view.spec.tsx +10 -10" reading) instead
+                  of being pushed to the row's far edge. */}
+              {row.changeStat !== null && (
+                <span className={css.changeStat} data-change-stat>
+                  <span className={css.changeAdd}>+{row.changeStat.added}</span>
+                  {row.changeStat.removed > 0 && (
+                    <span className={css.changeRemove}>-{row.changeStat.removed}</span>
+                  )}
+                </span>
+              )}
+            </span>
           </>
         )}
       >

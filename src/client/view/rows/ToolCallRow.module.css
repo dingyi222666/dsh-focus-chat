@@ -84,12 +84,26 @@
   background: var(--dsw-alias-label-caption);
 }
 
-.callSummary {
+.callSummaryRow {
   flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: baseline;
+  overflow: hidden;
+}
+
+/* The path/summary hugs its content (the change tally follows it tightly
+   instead of being pushed to the row's far edge). */
+.callSummary,
+.callFileLink {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.callSummary {
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
