@@ -27,15 +27,15 @@
 }
 
 /* The group's total line-change tally (the official diffStat reading):
-   "+210 -213" in the code font, neutral caption at rest — the row's hover
-   turns additions success-green and removals error-red. The inline-flex
-   centers its spans on the summary text's vertical axis. */
+   "+210 -213" in the code font, additions success-green and removals
+   error-red (the diff reading itself, never a neutral resting state). The
+   inline-flex centers its spans on the summary text's vertical axis. */
 .changeStat {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 4px;
+  margin-left: 5px;
   font-family: var(--ds-font-family-code);
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
   color: var(--dsw-alias-label-caption);
@@ -43,19 +43,13 @@
   white-space: nowrap;
 }
 
+/* The +/- colors are the diff reading itself: additions success-green,
+   removals error-red, always — never a neutral resting state. */
 .changeAdd {
-  color: inherit;
-}
-
-.changeRemove {
-  color: inherit;
-}
-
-.groupRow:hover .changeAdd {
   color: var(--dsw-alias-state-success-primary);
 }
 
-.groupRow:hover .changeRemove {
+.changeRemove {
   color: var(--dsw-alias-state-error-primary);
 }
 

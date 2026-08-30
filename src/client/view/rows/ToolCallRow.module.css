@@ -105,14 +105,14 @@
    diff body the numbers summarize; a wider gap keeps the digits from reading
    as part of the path. Two px under the secondary tier (still riding the
    axis): mono digits read optically larger than the sans path at the same
-   size. Caption, one step under the summary tier. The inline-flex centers
-   its spans on the summary text's vertical axis. */
+   size. Additions success-green, removals error-red — the diff reading
+   itself. The inline-flex centers its spans on the summary text's axis. */
 .changeStat {
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 4px;
+  margin-left: 5px;
   font-family: var(--ds-font-family-code);
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
@@ -121,21 +121,13 @@
   white-space: nowrap;
 }
 
-/* The +/- colors are a hover reveal: neutral caption at rest, the row's
-   hover turns additions success-green and removals error-red. */
+/* The +/- colors are the diff reading itself: additions success-green,
+   removals error-red, always — never a neutral resting state. */
 .changeAdd {
-  color: inherit;
-}
-
-.changeRemove {
-  color: inherit;
-}
-
-.callRow:hover .changeAdd {
   color: var(--dsw-alias-state-success-primary);
 }
 
-.callRow:hover .changeRemove {
+.changeRemove {
   color: var(--dsw-alias-state-error-primary);
 }
 
