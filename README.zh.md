@@ -58,6 +58,8 @@ dsh web
 
 ## 开发
 
+> 本构建面向 dsh v0.1.2-alpha.2 客户端界面，所有 `@deepseek-ai/*` 运行时依赖都从 npm registry 安装（见 `package.json`）。这些包发布的 `/client` 入口是 `window.__ModuleLoader__` 浏览器闭包，而 dsh 测试运行时是按源码树构建的，所以 `yarn test` 会把 `@deepseek-ai` 客户端界面解析到同一 0.1.2-alpha.2 的主线源码检出：`vitest.config.ts` 从该检出的 tsconfig 路径映射派生别名（`MAINLINE` 常量）——保持检出在 alpha.2 发布线上，其余全部走 npm 安装。
+
 - `yarn run build` — 产出浏览器 bundle 和 Node 半边。
 - `src/client/model/` — 纯逻辑（折叠、合并、行模型、远端回合切片投影）；`src/client/view/FocusView.tsx` — 视图；`src/host/` — 宿主半边的回合索引与 RPC 通道；`src/protocol.ts` — 双半共享的线协议。
 - `yarn test` — 行为测试；`yarn run typecheck` — 类型门禁。

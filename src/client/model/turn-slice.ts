@@ -16,12 +16,16 @@
 
 import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
+// Pulls the dsh-commands SessionEventMap augmentation (the command/run and
+// command/done event kinds this projection renders as command rows) into the
+// compile graph: the events are declared by the commands package, not by the
+// base session vocabulary.
+import type {} from '@deepseek-ai/dsh-commands/types'
 import type {
   AssistantBlock, ContextProvenanceView, KnownContextForm, ToolCallBlock, ToolResultNode,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { TurnTokenUsage } from '@deepseek-ai/dsh-client-ui-chat/src/client/contract/chat-nodes.ts'
 import { toolGroup } from './tools.ts'
-import type { FocusContextItem, FocusFlowItem, FocusGroupThink } from './types.ts'
+import type { FocusContextItem, FocusFlowItem, FocusGroupThink, TurnTokenUsage } from './types.ts'
 
 /** One projected turn: the work rows, the closing reply, and the turn tail. */
 export interface TurnSlice {

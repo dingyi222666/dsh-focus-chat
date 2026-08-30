@@ -4,11 +4,12 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 // Type-only: pulls ui-deliverables' ConversationTurnDataMap augmentation
 // (the 'deliverables' turn data the turn-tail row reads).
 import type {} from '@deepseek-ai/dsh-client-ui-deliverables/client'
-import type { AssistantBlock, ChatNodeDataMap, ContextMessageNode, SteeringMessageNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
-// Type-only from the source module: TurnTokenUsage is declared in the chat
-// contract but not re-exported from the client entry; the src/* export seam
-// serves it for compile-time use (erased from the bundle).
-import type { TurnTokenUsage } from '@deepseek-ai/dsh-client-ui-chat/src/client/contract/chat-nodes.ts'
+import type { AssistantBlock, ChatNodeDataMap, ContextMessageNode, SteeringMessageNode, TurnTailChatData, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+// TurnTokenUsage is declared in the chat contract but not re-exported from
+// the client entry; the turn-tail chat data carries it, so the type derives
+// from the public entry (the src/* export seam is absent from the npm
+// package, so a source-module import would not resolve for consumers).
+export type TurnTokenUsage = NonNullable<TurnTailChatData['tokenUsage']>
 import type { TurnSummary } from '../../protocol.ts'
 
 /** Locale-owned label surfaces the render sites add to the shared card primitives. */

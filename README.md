@@ -23,7 +23,7 @@ Switch to it whenever you want the "what happened?" view, and flip back for the 
 ## Install
 
 ```sh
-# Install from npm (requires dsh >= 0.1.2-alpha.1)
+# Install from npm (requires dsh >= 0.1.2-alpha.2)
 dsh plugin --profile web add @dingyi222666/dsh-focus-chat
 # Restart dsh web; the tab mounts automatically
 dsh web
@@ -58,7 +58,7 @@ Focus chat is a faithful reading surface, not a second chat view:
 
 ## Development
 
-> This build targets the dsh v0.1.2-alpha.1 client surface. The new `@deepseek-ai/*` packages it needs are not on npm yet: after `yarn install`, junction/symlink each `@deepseek-ai/dsh-*` entry in `node_modules` to the matching `packages/<group>/<pkg>` directory of a built dsh checkout — that supplies both the types and the runtime for `yarn typecheck` / `yarn test`. The host half additionally reads `@deepseek-ai/dsh-session-query` through the same junction recipe.
+> This build targets the dsh v0.1.2-alpha.2 client surface, and every `@deepseek-ai/*` runtime dependency installs from the npm registry (see `package.json`). The `/client` entries those packages ship are `window.__ModuleLoader__` browser closures, and the dsh test runtime is built against the source tree, so `yarn test` resolves the `@deepseek-ai` client surface from the dsh mainline source checkout at the same 0.1.2-alpha.2 line: `vitest.config.ts` derives its aliases from that checkout's own tsconfig path map (the `MAINLINE` constant in the config) — keep the checkout on the alpha.2 release and everything else stays npm-installed.
 
 - `yarn run build` — builds the browser bundle and the Node half.
 - `src/client/model/` — the pure logic (folding, merging, row models, the remote turn-slice projection); `src/client/view/FocusView.tsx` — the view; `src/host/` — the host half's turn index and RPC channel; `src/protocol.ts` — the wire contract shared by both halves.
