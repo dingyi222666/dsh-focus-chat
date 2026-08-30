@@ -122,9 +122,11 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* File-tool path: same geometry as the summary, with a persistent link. */
+/* File-tool path: same geometry as the summary, with a persistent link.
+   It hugs its content (flex 0 1 auto) so the change tally stays glued to
+   it instead of being pushed to the row's far edge. */
 .callFileLink {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

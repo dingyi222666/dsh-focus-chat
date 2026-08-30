@@ -461,11 +461,14 @@ export function buildFocusFlow(
     }
     if (item.kind === 'message' && item.role === 'context') {
       // A completed turn folds the injection individually (below); an open or
-      // plan-less turn batches consecutive injections into one collapsed line.
+      // plan-less turn batches CONSECUTIVE injections into one collapsed
+      // line. Consecutiveness is the only gate: background notices
+      // (subagent-report / subagent-settled / repeat-tool-reminder) may carry
+      // differing turn locations within the same stream, and batching by turn
+      // would split a single notice run back into a pile of rows.
       const plan = turnId === undefined ? undefined : turnPlans.get(turnId)
       if (plan === undefined || plan.durationMs === null) {
-        if (pendingContext.length > 0 && pendingContextTurn !== turnId) flushContext()
-        pendingContextTurn = turnId
+        if (pendingContext.length === 0) pendingContextTurn = turnId
         // TS narrows the kind but not the object's role property (property
         // narrowing applies to accesses, not to the object argument); the
         // guard above proves the role.
@@ -491,10 +494,7 @@ export function buildFocusFlow(
     }
     if (turnId === undefined
       || (item.kind === 'message' && item.role !== 'context')
-      || item.kind === 'turn-tail'
-      // The system prompt anchors its step's message series and never folds
-      // into the turn fold (the official TURN_PROCESS_INDEPENDENT_KINDS rule).
-      || item.kind === 'system-prompt') {
+      || item.kind === 'turn-tail') {
       flushFold(null)
       flow.push(item)
       return
@@ -538,6 +538,7 @@ export function buildFocusFlow(
     }
     if (item.kind === 'assistant'
       || item.kind === 'tools'
+      || item.kind === 'system-prompt'
       || (item.kind === 'message' && item.role === 'context')) {
       if (pendingFoldTurn !== null && pendingFoldTurn !== turnId) flushFold(null)
       pendingFoldTurn = turnId

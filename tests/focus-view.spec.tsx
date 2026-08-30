@@ -1109,6 +1109,37 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('closing think')).toBeTruthy()
   })
 
+  it('folds a completed turn’s system prompt into the worked line', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 8000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('sp1', 'system-prompt', { text: 'You are a helpful assistant.' }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 8000,
+        blocks: [{ kind: 'text', text: 'all done' }],
+        finalNode: {
+          kind: 'assistant', seq: 20, time: 8000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 6000, firstTokenTime: 7000, completedTime: 8000 },
+        },
+      }),
+    ])
+    // The system prompt rides the turn fold: no standalone prompt row, and
+    // the fold expands to reveal it.
+    expect(screen.getByText('工作了 7 秒')).toBeTruthy()
+    expect(screen.queryByText('You are a helpful assistant.')).toBeNull()
+    fireEvent.click(screen.getByText('工作了 7 秒'))
+    expect(screen.getByText('系统提示词')).toBeTruthy()
+    fireEvent.click(screen.getByText('系统提示词'))
+    expect(screen.getByText('You are a helpful assistant.')).toBeTruthy()
+  })
+
   it('folds each interjection-delimited stretch with its own worked duration', () => {
     const turn = {
       turn: 1,
