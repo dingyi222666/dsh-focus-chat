@@ -254,6 +254,14 @@ function flowItemOf(
  * @param cache - optional cross-build derivation cache: unchanged nodes and
  *  tool calls keep their previous item/row object identities, so memoized
  *  rows bail out while only the streaming tail changes.
+ * @param hideFrom - per-turn keep-from anchor seq: window rows of that turn
+ *  whose node anchor sits below the seq drop — the remote turn fold renders
+ *  the turn's interior from the Host's event slice, so those residual rows
+ *  must not double-render. Rows at or above the seq — the boundary turn's
+ *  real closing reply and turn tail — keep rendering from the window (the
+ *  boundary turn shows the real closing, not a reconstruction). `Infinity`
+ *  drops the whole turn (the index's closing lies beyond the window). A
+ *  running turn is never in the index, so it is never hidden.
  * @returns the condensed flow in order.
  */
 export function buildFocusFlow(
@@ -262,6 +270,7 @@ export function buildFocusFlow(
   cwd?: string,
   home?: string,
   cache?: FlowBuildCache,
+  hideFrom?: ReadonlyMap<number, number>,
 ): FocusFlowItem[] {
   // Pre-scan the order once: per-node turn membership, and for each turn the
   // wall boundaries (start/end), the closing assistant — the last assistant
@@ -368,7 +377,9 @@ export function buildFocusFlow(
     })
   }
 
-  /** Emit the buffered running-turn context batch as one collapsed line. */
+  /** Emit the buffered running-turn context batch as one collapsed line. A
+   *  hidden turn's rows never reach the buffer (the keep-from check drops them
+   *  at push time), so the batch always renders what it holds. */
   const flushContext = (): void => {
     if (pendingContext.length === 0) return
     const first = pendingContext[0]
@@ -387,6 +398,19 @@ export function buildFocusFlow(
    *  arrives. User and steering messages stay visible — they are the
    *  conversation's anchors. */
   const pushItem = (item: FocusFlowItem): void => {
+    const key = keyOf(item)
+    const turnId = nodeTurn.get(key)
+    // The keep-from rule: a hidden turn's rows below its keep-from seq drop —
+    // the remote turn fold renders them from the Host's event slice, so the
+    // window's residuals must not double-render. The row anchored exactly at
+    // the keep-from seq is the boundary turn's real closing reply, and the
+    // turn tail follows it: both keep rendering from the window. Rows past it
+    // are the post-closing process — folded into the remote fold's work.
+    const keepFrom = turnId === undefined ? undefined : hideFrom?.get(turnId)
+    if (keepFrom !== undefined) {
+      const anchor = getNode(key)?.anchorSeq ?? Number.NEGATIVE_INFINITY
+      if (anchor < keepFrom || (anchor > keepFrom && item.kind !== 'turn-tail')) return
+    }
     // A settled assistant that paints nothing — only tool-call heads, the
     // chat shell rule — is a dead gap: drop it so no empty row sits between
     // the runs it separates (they still merge).
@@ -435,8 +459,6 @@ export function buildFocusFlow(
         }
       }
     }
-    const key = keyOf(item)
-    const turnId = nodeTurn.get(key)
     if (item.kind === 'message' && item.role === 'context') {
       // A completed turn folds the injection individually (below); an open or
       // plan-less turn batches consecutive injections into one collapsed line.

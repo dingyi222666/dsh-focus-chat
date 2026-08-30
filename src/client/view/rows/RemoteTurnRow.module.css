@@ -1,0 +1,56 @@
+/* One completed pre-window turn: the opening bubbles, the fold line, and —
+   once its slice is loaded — the same rows the window fold would draw. */
+.remoteTurn {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The fold line mirrors the local turn fold's chrome exactly: the shared
+   TurnFoldRow classes keep both lines pixel-identical. */
+
+.remoteTurnBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 14px;
+}
+
+.remoteTurnHint {
+  padding: 8px 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.remoteTurnError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.remoteTurnErrorText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remoteTurnRetry {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.remoteTurnRetry:hover {
+  color: var(--dsw-alias-label-primary);
+}

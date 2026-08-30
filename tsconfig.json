@@ -1,8 +1,12 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    // The dsh base line's target: ES2024's default full lib carries
+    // Disposable/Symbol.dispose, which the host half's observation leases
+    // and the dsh session types reference.
+    "target": "ES2024",
     "lib": [
-      "ES2023",
+      "ES2024",
+      "ESNext.Disposable",
       "DOM",
       "DOM.Iterable"
     ],

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-chat merge (useChat on the session standard kit).
@@ -6,16 +6,31 @@ import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { TurnNavigationItem, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
-import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS } from '../model/index.ts'
-import type { FocusFlowItem, FocusToolRow } from '../model/index.ts'
+import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
+import type { FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
+import type { TurnSummary } from '../../protocol.ts'
 import { markdownLabels } from './helpers/terminal.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
 import { PendingSteeringBubble } from './rows/UserBubble.tsx'
+import { RemoteTurnRow } from './rows/RemoteTurnRow.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
 import { TurnNavigator } from './chrome/TurnNavigator.tsx'
 import type { FocusFeedbackActions } from './chrome/MessageFeedbackActions.tsx'
 import css from './FocusView.module.css'
+
+/** The remote-turn slice cache holds at most this many expanded turns. */
+const SLICE_CACHE_LIMIT = 12
+
+/** How many pre-head turn folds render at first, and how many the pager above
+ *  the stack prepends per click (the chat window's 50-message rhythm). */
+const FOLD_PAGE = 50
+
+/** The turn-index fetch lifecycle for one session. */
+type TurnIndexState =
+  | { status: 'pending' }
+  | { status: 'ready'; turns: readonly TurnSummary[] }
+  | { status: 'failed' }
 
 /** Latest open turn's logged start time, mirroring the chat view's clock anchor. */
 function runningTurnStartTime(timeline: ConversationTimelineSnapshot): number | null {
@@ -35,6 +50,8 @@ const NAV_JUMP_OFFSET = 12
 
 /** The Turn one flow row belongs to (the official rail's mark anchor). */
 function flowTurnOf(item: FocusFlowItem, chat: ChatSnapshot): number | null {
+  // Remote turns carry no rail anchor (the rail lists window turns only).
+  if (item.kind === 'remote-turn') return null
   if (item.kind === 'turn-fold' || item.kind === 'turn-tail') return item.turn
   if (item.kind === 'tools') {
     const nodeKey = item.group.nodeKeys[0]
@@ -180,8 +197,8 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
  */
 
 export function FocusView({
-  useSession, useChat, sessionId, useSessions, loadOlder, loadImage, openFile, forkAt, fileMentions,
-  isLoopback, scroll, useHostHome, useFeedback,
+  useSession, useChat, sessionId, useSessions, loadImage, openFile, forkAt, fileMentions,
+  turnIndex, turnEvents, isLoopback, scroll, useHostHome, useFeedback,
   ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
@@ -197,7 +214,6 @@ export function FocusView({
   const chat = useChat(s => s)
   const running = useSession(s => s.running)
   const hasMore = useSession(s => s.hasMore)
-  const loadingOlder = useSession(s => s.loadingOlder)
   const inbox = useSession(s => s.queue)
   const openState = useSession(s => s.openState)
   const openError = useSession(s => s.openError)
@@ -212,10 +228,120 @@ export function FocusView({
   // Cross-build derivation cache: unchanged nodes keep their flow item and
   // tool-row identities, so memoized rows bail out during streaming.
   const flowCacheRef = useRef(createFlowBuildCache())
-  const flow = useMemo(
-    () => buildFocusFlow(chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current),
-    [chat, cwd, home],
+  // The Host's completed-turn index (the remote turn folds): one fetch per
+  // session; a rejection — or an absent optional service — degrades to the
+  // window-only flow. The first-frame scroll restore waits for this request
+  // to settle, so the opening frame already carries the folded overview.
+  const [turnIndexState, setTurnIndexState] = useState<TurnIndexState>({ status: 'pending' })
+  // The rendered fold stack is paged: only the newest FOLD_PAGE pre-head turns
+  // render at first, and the pager above the stack prepends older ones from
+  // the already-fetched index. A turn's process detail loads on expand only.
+  const [foldLimit, setFoldLimit] = useState(FOLD_PAGE)
+  useEffect(() => {
+    let cancelled = false
+    setTurnIndexState({ status: 'pending' })
+    setFoldLimit(FOLD_PAGE)
+    if (turnIndex === undefined) {
+      setTurnIndexState({ status: 'ready', turns: [] })
+      return () => { cancelled = true }
+    }
+    turnIndex(sessionId).then(
+      response => { if (!cancelled) setTurnIndexState({ status: 'ready', turns: response.turns }) },
+      (cause: unknown) => {
+        if (cancelled) return
+        console.warn('dsh-focus-chat: the turn index failed; rendering the window flow only', cause)
+        setTurnIndexState({ status: 'failed' })
+      },
+    )
+    return () => { cancelled = true }
+  }, [turnIndex, sessionId])
+  // The loaded window's first log position: every turn whose slice starts
+  // before it renders as a remote fold. A fully loaded window (no older
+  // pages) has no head, so nothing renders remotely.
+  const windowHead = useMemo(() => {
+    if (!hasMore) return 0
+    let min = Infinity
+    for (const node of chat.nodes.values()) {
+      if (node.anchorSeq < min) min = node.anchorSeq
+    }
+    return Number.isFinite(min) ? min : 0
+  }, [chat, hasMore])
+  // The pre-head turns: index turns entirely or partially before the window
+  // head, in log order. A turn that later pages into the window drops out of
+  // this list on its own (the head moves down), and the window rows resume.
+  const preHeadTurns = useMemo(() => {
+    if (turnIndexState.status !== 'ready' || windowHead === 0) return []
+    return turnIndexState.turns.filter(summary => summary.startSeq < windowHead)
+  }, [turnIndexState, windowHead])
+  // The rendered folds: the newest FOLD_PAGE pre-head turns. Older ones stay
+  // behind the pager above the stack — the fold overview stays bounded, and
+  // each fold's process detail loads on expand.
+  const remoteTurns = useMemo(
+    () => preHeadTurns.slice(Math.max(0, preHeadTurns.length - foldLimit)),
+    [preHeadTurns, foldLimit],
   )
+  // The keep-from rule per pre-head turn: when the index's closing reply sits
+  // at or above the window head, the window itself paints the real closing
+  // reply and turn tail — the fold line keeps only the rows below it, and the
+  // row draws no collapsed reply of its own. An index closing beyond the
+  // window head hides the whole turn (the remote fold renders the reply).
+  const hideFrom = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const summary of preHeadTurns) {
+      map.set(summary.turn, summary.closingSeq !== null && summary.closingSeq >= windowHead
+        ? summary.closingSeq
+        : Number.POSITIVE_INFINITY)
+    }
+    return map
+  }, [preHeadTurns, windowHead])
+  // Expanded-turn slice cache: the projected flow items per turn, LRU-bounded
+  // (an expanded fold's rows stay warm while the reader scrolls back to it).
+  const slicesRef = useRef(new Map<number, TurnSlice>())
+  const [sliceVersion, bumpSliceVersion] = useReducer(count => count + 1, 0)
+  const requestTurnSlice = useCallback(async (turn: number): Promise<void> => {
+    if (turnEvents === undefined) throw new Error('turn slices are unavailable')
+    const cache = slicesRef.current
+    if (cache.has(turn)) {
+      bumpSliceVersion()
+      return
+    }
+    const response = await turnEvents(sessionId, turn)
+    const slice = projectTurnSlice(response.events, cwd, home)
+    // LRU refresh: re-insertion moves the turn to the newest end.
+    cache.delete(turn)
+    while (cache.size >= SLICE_CACHE_LIMIT) {
+      const oldest = cache.keys().next().value
+      if (oldest === undefined) break
+      cache.delete(oldest)
+    }
+    cache.set(turn, slice)
+    bumpSliceVersion()
+  }, [turnEvents, sessionId, cwd, home])
+  const flow = useMemo(() => {
+    const windowFlow = buildFocusFlow(
+      chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current,
+      hideFrom.size > 0 ? hideFrom : undefined,
+    )
+    if (remoteTurns.length === 0) return windowFlow
+    const remote = remoteTurns.map(summary => {
+      const slice = slicesRef.current.get(summary.turn)
+      return {
+        kind: 'remote-turn' as const,
+        nodeKey: `remote-turn:${summary.turn}`,
+        turn: summary.turn,
+        summary,
+        state: slice === undefined ? 'collapsed' as const : 'loaded' as const,
+        keepClosing: summary.closingSeq !== null && summary.closingSeq >= windowHead,
+        work: slice?.work ?? [],
+        closing: slice?.closing ?? null,
+        tail: slice?.tail ?? null,
+        error: null,
+      }
+    })
+    return [...remote, ...windowFlow]
+    // sliceVersion: a slice landing re-composes the remote rows with the
+    // cached projection; the window flow's identities survive unchanged.
+  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion])
   // The official turn-navigation rail's items, accumulated in the Chat
   // snapshot: the array identity moves only when a Turn enters, leaves, or
   // changes its preview.
@@ -376,6 +502,10 @@ export function FocusView({
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: React attaches the ref before layout effects run. */
     if (local === null) return
+    // First-frame gating: the opening scroll restore waits for the turn-index
+    // request, so the first painted frame already carries the folded overview
+    // and the restore never displaces.
+    if (openState === 'open' && !openedRef.current && turnIndexState.status === 'pending') return
     const el = scrollerOf(local)
     // Mount (once the session is open — the chat view's gate): restore the
     // saved position — unless the reader was pinned to the bottom, which
@@ -546,7 +676,10 @@ export function FocusView({
     return () => { observer.disconnect() }
   }, [])
 
-  const loadOlderAnchored = (): void => {
+  /** The fold-stack pager: prepend one older page of turn folds from the
+   *  already-fetched index, preserving the settled row the reader anchored
+   *  at. No transport rides this click — the index holds every turn. */
+  const loadOlderTurnsAnchored = (): void => {
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the paging button renders inside the list tree. */
     if (local !== null) {
@@ -559,7 +692,7 @@ export function FocusView({
         }
       }
     }
-    loadOlder()
+    setFoldLimit(limit => limit + FOLD_PAGE)
   }
 
   /** Jump the focus scrollport to one turn's anchor row (the official rail's
@@ -591,20 +724,36 @@ export function FocusView({
         data-focus-anchor-key={flowKey(item)}
         data-focus-turn={flowTurnOf(item, chat) ?? undefined}
       >
-        <FlowRow
-          item={item}
-          t={t}
-          mdLabels={mdLabels}
-          openFile={requestOpenFile}
-          forkAt={forkAt}
-          mentionsByKey={mentionsByKey}
-          loadImage={loadImage}
-          feedback={feedback}
-          isLoopback={isLoopback}
-        />
+        {item.kind === 'remote-turn' ? (
+          <RemoteTurnRow
+            item={item}
+            slice={slicesRef.current.get(item.turn)}
+            onExpand={requestTurnSlice}
+            t={t}
+            mdLabels={mdLabels}
+            openFile={requestOpenFile}
+            forkAt={forkAt}
+            mentionsByKey={mentionsByKey}
+            loadImage={loadImage}
+            feedback={feedback}
+            isLoopback={isLoopback}
+          />
+        ) : (
+          <FlowRow
+            item={item}
+            t={t}
+            mdLabels={mdLabels}
+            openFile={requestOpenFile}
+            forkAt={forkAt}
+            mentionsByKey={mentionsByKey}
+            loadImage={loadImage}
+            feedback={feedback}
+            isLoopback={isLoopback}
+          />
+        )}
       </div>
     )),
-    [flow, chat, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback],
+    [flow, chat, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, requestTurnSlice],
   )
 
   return (
@@ -620,10 +769,13 @@ export function FocusView({
             {t('loadError', { message: openError.message, code: openError.code })}
           </div>
         )}
-        {hasMore && (
+        {/* The fold-stack pager: older turns sit behind it as folds of the
+            already-fetched index — the raw-message pager is gone, a turn's
+            process detail loads when its fold expands. */}
+        {preHeadTurns.length > remoteTurns.length && (
           <div className={css.older}>
-            <button type="button" className={css.olderButton} disabled={loadingOlder} onClick={loadOlderAnchored}>
-              {loadingOlder ? t('loading') : t('loadOlder')}
+            <button type="button" className={css.olderButton} onClick={loadOlderTurnsAnchored}>
+              {t('loadOlderTurns')}
             </button>
           </div>
         )}
