@@ -1305,11 +1305,12 @@ it('renders the empty hint for an empty conversation', () => {
         content: [{ type: 'text', text: 'slow result' }],
       }) }),
     ])
-    // One full-turn worked line for the pre-reply work, one short stretch for
-    // the post-reply tool — never two identical full-turn lines.
+    // One full-turn worked line for the pre-reply work; the post-reply tool
+    // renders as a visible row instead of a second fold.
     expect(screen.getByText('工作了 23 秒')).toBeTruthy()
-    expect(screen.getByText('工作了 12 秒')).toBeTruthy()
+    expect(screen.queryByText('工作了 12 秒')).toBeNull()
     expect(screen.getAllByText('工作了 23 秒')).toHaveLength(1)
+    expect(screen.getByText('Bash')).toBeTruthy()
   })
 
   it('reads a stop during tool execution as stopped-after (synthetic unknown-outcome result)', () => {

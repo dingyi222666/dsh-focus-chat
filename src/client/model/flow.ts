@@ -306,6 +306,14 @@ export function buildFocusFlow(
     }
     const plan = turnPlans.get(turn.turn)
     if (plan === undefined) {
+      // The turn's own end reason (the TurnLocation carries the full end
+      // event): a user stop lands as `aborted`, a crash-orphaned reload as
+      // `interrupted` — both read stopped, matching the host index. The
+      // interrupted-step signal alone misses an aborted turn whose final
+      // assistant was never flagged (the stop landed between steps).
+      const endReason = (turn.end as { data?: { reason?: { kind?: string } } } | undefined)?.data?.reason
+      const turnStopped = endReason !== undefined
+        && (endReason.kind === 'interrupted' || endReason.kind === 'aborted')
       turnPlans.set(turn.turn, {
         durationMs: turn.start !== undefined && turn.end !== undefined
           ? Math.max(0, turn.end.time - turn.start.time)
@@ -313,7 +321,7 @@ export function buildFocusFlow(
         closingKey: node.kind === 'assistant-step' && assistantHasText(node.data) ? key : null,
         startTime: turn.start?.time ?? null,
         endTime: turn.end?.time ?? null,
-        stopped: stepInterrupted(node),
+        stopped: stepInterrupted(node) || turnStopped,
       })
     } else {
       if (node.kind === 'assistant-step' && assistantHasText(node.data)) plan.closingKey = key
@@ -330,6 +338,11 @@ export function buildFocusFlow(
   /** The buffered segment's wall-clock start: the turn start, or the previous
    *  interjection's time — the segment's worked duration reads end − start. */
   let pendingFoldStart: number | null = null
+  /** The turn whose closing reply already flushed: later rows of the same
+   *  turn (the closing step's own tool settling, a repair result) render as
+   *  visible rows instead of folding — a second fold would paint a spurious
+   *  line beside the reply. */
+  let postClosingTurn: number | null = null
   /** Running-turn context batch: consecutive context injections merge into
    *  one collapsed line while the turn is open (a completed turn folds them
    *  individually into the turn fold instead). */
@@ -543,15 +556,20 @@ export function buildFocusFlow(
         flushFold(null)
         if (flushedRows) {
           // Rows that land after the closing reply (a tool settling in the
-          // same step) start their stretch at the reply: folding them from
-          // the turn start would re-read the whole turn's wall time as a
-          // second line beside the reply — the duplicate "worked" line.
-          const closingNode = getNode(key)
-          const closingTime = (closingNode?.data as AssistantChatData | undefined)?.time
-          pendingFoldStart = typeof closingTime === 'number' ? closingTime : plan?.endTime ?? null
+          // same step) render as visible rows: folding them from the turn
+          // start would re-read the whole turn's wall time as a second line
+          // beside the reply, and even a reply-anchored stretch would paint a
+          // spurious tiny fold. The flag makes them visible instead.
+          postClosingTurn = turnId
         }
       }
       flow.push(closing)
+      return
+    }
+    if (turnId === postClosingTurn) {
+      // Post-closing rows of the flushed turn: visible, never folded.
+      flushFold(null)
+      flow.push(item)
       return
     }
     if (item.kind === 'assistant'
