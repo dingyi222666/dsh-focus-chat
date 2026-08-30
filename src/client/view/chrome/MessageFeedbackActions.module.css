@@ -9,14 +9,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: calc(28px + var(--dsh-content-font-delta, 0px));
+  height: calc(28px + var(--dsh-content-font-delta, 0px));
   padding: 6px;
   border: none;
   border-radius: 28px;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
+}
+
+/* The 15px glyphs follow the same px delta as the text they serve; the CSS
+   edge overrides each svg's own width/height attributes. */
+.action svg {
+  width: calc(15px + var(--dsh-content-font-delta, 0px));
+  height: calc(15px + var(--dsh-content-font-delta, 0px));
 }
 
 .action:hover {

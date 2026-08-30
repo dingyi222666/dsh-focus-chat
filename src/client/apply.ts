@@ -65,7 +65,7 @@ export function apply(ctx: Context): void {
   const feedbackControllerFor = (sessionId: SessionId): MessageFeedbackController => {
     let controller = feedbackControllers.get(sessionId)
     if (controller === undefined) {
-      controller = new MessageFeedbackController(ctx.remote.messageFeedback, sessionId)
+      controller = new MessageFeedbackController(ctx, sessionId)
       feedbackControllers.set(sessionId, controller)
     }
     return controller

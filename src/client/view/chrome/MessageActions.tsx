@@ -1,21 +1,14 @@
 import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { IconBranchOutline16, IconCheckOutline16, IconCopyOutline16, Tooltip, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
-import { formatElapsed, formatMessageClock, formatTokensPerSecond, useCalendarDay } from '../helpers/format.ts'
-import { formatSeconds } from '../../model/text.ts'
+import { formatMessageClock, useCalendarDay } from '../helpers/format.ts'
 import css from './MessageActions.module.css'
 
-export const MessageActions = memo(function MessageActions({ text, time, runMs, ttftMs, tokensPerSecond, clock, onBranch, branchUnavailable = false, extraActions, t }: {
+export const MessageActions = memo(function MessageActions({ text, time, clock, onBranch, branchUnavailable = false, extraActions, usageAction, t }: {
   /** Plain text the copy action writes. */
   text: string
   /** Unix epoch ms for the clock label; null hides the clock. */
   time: number | null
-  /** Turn wall time, appended as `· 用时 15s`; null omits the reading. */
-  runMs: number | null
-  /** Turn first-step TTFT in ms; null omits the reading. */
-  ttftMs: number | null
-  /** Turn decode throughput; null omits the reading. */
-  tokensPerSecond: number | null
   /** Clock before the icons (user) or after (assistant tail). */
   clock: 'start' | 'end'
   /** Fork the session at this message; omission hides the branch action. */
@@ -25,6 +18,9 @@ export const MessageActions = memo(function MessageActions({ text, time, runMs, 
   /** Slot-rendered actions owned by independent plugins (the chat's
    *  assistant-actions strip), placed between copy and branch. */
   extraActions?: ReactNode | undefined
+  /** Icon-row Turn-stat triggers (the TurnUsagePanel / TurnTimePanel pills),
+   *  seated after the branch control at the end of the icon cluster. */
+  usageAction?: ReactNode | undefined
   t: FocusTranslate
 }) {
   const day = useCalendarDay()
@@ -57,30 +53,6 @@ export const MessageActions = memo(function MessageActions({ text, time, runMs, 
   const clockEl = time === null ? null : (
     <span className={css.messageClock}>
       {formatMessageClock(time, t, day)}
-      {runMs !== null && (
-        <>
-          {' '}
-          <span className={css.messageClockDot} aria-hidden>·</span>
-          {' '}
-          {t('ranFor', { duration: formatElapsed(runMs, t) })}
-        </>
-      )}
-      {ttftMs !== null && (
-        <>
-          {' '}
-          <span className={css.messageClockDot} aria-hidden>·</span>
-          {' '}
-          {t('ttft', { seconds: formatSeconds(ttftMs) })}
-        </>
-      )}
-      {tokensPerSecond !== null && (
-        <>
-          {' '}
-          <span className={css.messageClockDot} aria-hidden>·</span>
-          {' '}
-          {t('tokensPerSecond', { tps: formatTokensPerSecond(tokensPerSecond) })}
-        </>
-      )}
     </span>
   )
   return (
@@ -112,6 +84,7 @@ export const MessageActions = memo(function MessageActions({ text, time, runMs, 
           </button>
         </Tooltip>
       )}
+      {usageAction}
       {clock === 'end' ? clockEl : null}
     </div>
   )

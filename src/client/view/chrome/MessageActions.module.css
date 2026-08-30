@@ -1,8 +1,8 @@
 .messageActions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 28px;
+  gap: 8px;
+  height: calc(28px + var(--dsh-content-font-delta, 0px));
 }
 
 /* Clock paddings (the chat MessageIconActions rule): the start clock pads
@@ -21,8 +21,9 @@
 }
 
 .messageClock {
-  /* The official icon-actions clock tier: the Settings font-size axis. */
-  font-size: var(--dsh-content-font-size, 14px);
+  /* The official icon-actions clock tier: the Settings font-size axis,
+     secondary tier (the tail's stat pills read the same). */
+  font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
@@ -44,25 +45,25 @@
   }
 }
 
-/* The dot is decorative and stays hidden, but its margins separate the
-   readings only on screen: without the flanking spaces a reader hears one
-   run-on string instead of three facts (the chat row's rule). */
-.messageClockDot {
-  margin: 0 10px;
-}
-
 .messageAction {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: calc(28px + var(--dsh-content-font-delta, 0px));
+  height: calc(28px + var(--dsh-content-font-delta, 0px));
   padding: 6px;
   border: none;
   border-radius: 28px;
   background: transparent;
   color: var(--dsw-alias-label-tertiary);
   cursor: pointer;
+}
+
+/* The 15px action glyphs follow the same px delta as the text they serve;
+   the CSS edge overrides each svg's own width/height attributes. */
+.messageAction svg {
+  width: calc(15px + var(--dsh-content-font-delta, 0px));
+  height: calc(15px + var(--dsh-content-font-delta, 0px));
 }
 
 .messageAction:hover {

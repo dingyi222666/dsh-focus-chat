@@ -45,9 +45,6 @@ export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImag
       <MessageActions
         text={text}
         time={item.time}
-        runMs={null}
-        ttftMs={null}
-        tokensPerSecond={null}
         clock="start"
         t={t}
       />
@@ -88,9 +85,6 @@ export const PendingSteeringBubble = memo(function PendingSteeringBubble({ conte
       <MessageActions
         text={text}
         time={null}
-        runMs={null}
-        ttftMs={null}
-        tokensPerSecond={null}
         clock="start"
         t={t}
       />

@@ -31,6 +31,110 @@ export function formatTokensPerSecond(tps: number): string {
   return clamped >= 10 ? String(Math.round(clamped)) : String(Math.round(clamped * 10) / 10)
 }
 
+/**
+ * Localized elapsed-time label for the turn-time pill (the chat
+ * formatRunDuration): whole minutes with padded seconds, or whole seconds.
+ * @param ms - Elapsed duration in milliseconds (negatives clamp to zero).
+ * @param t - focus locale seat supplying the duration templates.
+ * @returns the display string.
+ */
+export function formatRunDuration(ms: number, t: FocusTranslate): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+  return minutes > 0
+    ? t('duration.minutes', { minutes, seconds: String(seconds).padStart(2, '0') })
+    : t('duration.seconds', { seconds })
+}
+
+/** Sub-turn latency figure: one decimal under ten seconds, whole seconds
+ *  beyond (the chat formatLatencySeconds). */
+export function formatLatencySeconds(ms: number): string {
+  const s = Math.max(0, ms) / 1000
+  return s < 10 ? String(Math.round(s * 10) / 10) : String(Math.round(s))
+}
+
+/** Compact token count: 517 / 12.2K / 517K / 1.2M (the chat reading). */
+export function formatTokens(value: number, t: FocusTranslate): string {
+  const scaled = (candidate: number): string =>
+    candidate >= 100 ? String(Math.round(candidate)) : String(Math.round(candidate * 10) / 10)
+  if (value < 1_000) return String(value)
+  if (value < 1_000_000) return t('number.thousand', { value: scaled(value / 1_000) })
+  return t('number.million', { value: scaled(value / 1_000_000) })
+}
+
+/** Exact integer token count with locale-owned digit grouping (the chat reading). */
+export function formatExactTokens(value: number, t: FocusTranslate): string {
+  const digits = String(value)
+  const groups: string[] = []
+  for (let end = digits.length; end > 0; end -= 3) {
+    groups.unshift(digits.slice(Math.max(0, end - 3), end))
+  }
+  return groups.join(t('number.groupSeparator'))
+}
+
+/** Round a cache-read ratio to exact percentage units, with positive ties rounded up. */
+function roundedPercentUnits(cacheReadTokens: number, denominator: number, decimalPlaces: 0 | 1): number {
+  const unitsPerPercent = decimalPlaces === 0 ? 1 : 10
+  const scale = unitsPerPercent * 100
+  const doubledScale = scale * 2
+  const denominatorQuotient = Math.floor(denominator / doubledScale)
+  const denominatorRemainder = denominator % doubledScale
+  let lower = 0
+  let upper = scale
+  while (lower < upper) {
+    const candidate = Math.floor((lower + upper + 1) / 2)
+    const factor = candidate * 2 - 1
+    const threshold = factor * denominatorQuotient
+      + Math.ceil(factor * denominatorRemainder / doubledScale)
+    if (cacheReadTokens >= threshold) lower = candidate
+    else upper = candidate - 1
+  }
+  return lower
+}
+
+function displayPercentUnits(units: number, decimalPlaces: 0 | 1): string {
+  if (decimalPlaces === 0) return String(units)
+  const whole = Math.floor(units / 10)
+  const tenths = units % 10
+  return tenths === 0 ? String(whole) : `${whole}.${tenths}`
+}
+
+/** Display-ready cache-hit share without rounding a partial hit to 100%
+ *  (the chat formatCacheHitPercent). */
+export function formatCacheHitPercent(
+  cacheReadTokens: number,
+  promptTokens: number,
+  decimalPlaces: 0 | 1 = 0,
+): string | null {
+  if (promptTokens === 0) return null
+  const missedInputTokens = promptTokens - cacheReadTokens
+  if (missedInputTokens === 0) return '100'
+
+  const roundedUnits = roundedPercentUnits(cacheReadTokens, promptTokens, decimalPlaces)
+  const fullHitUnits = decimalPlaces === 0 ? 100 : 1_000
+  if (roundedUnits < fullHitUnits) return displayPercentUnits(roundedUnits, decimalPlaces)
+
+  let distinguishingPlaces = 1
+  let scaledDoubleGap = missedInputTokens * 200
+  const denominatorTens = Math.floor(promptTokens / 10)
+  while (scaledDoubleGap <= denominatorTens) {
+    scaledDoubleGap *= 10
+    distinguishingPlaces += 1
+  }
+  const denominatorOnes = promptTokens % 10
+  let roundedLoss = 5
+  for (let loss = 1; loss < 5; loss += 1) {
+    const factor = loss * 2 + 1
+    const threshold = factor * denominatorTens + Math.floor(factor * denominatorOnes / 10)
+    if (scaledDoubleGap <= threshold) {
+      roundedLoss = loss
+      break
+    }
+  }
+  return `99.${'9'.repeat(distinguishingPlaces - 1)}${10 - roundedLoss}`
+}
+
 /** Local calendar-day epoch (ms at local midnight) for an instant. */
 export function startOfLocalDay(ms: number): number {
   const d = new Date(ms)

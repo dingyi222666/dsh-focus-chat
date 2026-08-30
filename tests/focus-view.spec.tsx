@@ -1634,10 +1634,15 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('产物')).toBeTruthy()
     expect(screen.getByRole('button', { name: /report\.html/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /a\.ts/ })).toBeNull()
-    // The actions footer: clock + turn readings (one clock span), copy, fork.
+    // The actions footer: the clock pill carries the turn wall time; the
+    // speed and TTFT readings live in its dialog.
     expect(screen.getByText(/用时 8 秒/)).toBeTruthy()
-    expect(screen.getByText(/首 token 1.2秒/)).toBeTruthy()
-    expect(screen.getByText(/34 tok\/s/)).toBeTruthy()
+    expect(screen.queryByText(/34 tok\/s/)).toBeNull()
+    fireEvent.click(screen.getByText(/用时 8 秒/))
+    expect(screen.getByText('输出速度（TPS）')).toBeTruthy()
+    expect(screen.getByText('34 tok/s')).toBeTruthy()
+    expect(screen.getByText('首 token 用时（TTFT）')).toBeTruthy()
+    expect(screen.getByText(/1\.2\s*秒/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: '在新对话中分支' }))
     expect(forkAt).toHaveBeenCalledWith(20)
     // The produced chip opens through the host opener.
@@ -1941,7 +1946,7 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('You are a helpful assistant.')).toBeTruthy()
   })
 
-  it('renders the turn usage disclosure from the turn-tail tokenUsage', () => {
+  it('renders the turn usage pill and opens the usage dialog from the turn-tail tokenUsage', () => {
     const turn = {
       turn: 1, start: { time: 1000 }, end: { time: 9000 }, status: 'closed', steps: [],
       data: { get: () => undefined },
@@ -1961,15 +1966,28 @@ it('renders the empty hint for an empty conversation', () => {
         },
       }, { kind: 'turn', turn } as never),
     ])
-    expect(screen.getByText('本轮用量')).toBeTruthy()
-    // The collapsed summary carries the total and the one-decimal cache share.
-    expect(screen.getByText('200 · 缓存命中率 33.3%')).toBeTruthy()
-    // Expanding reveals the exact buckets.
-    fireEvent.click(screen.getByText('本轮用量'))
+    // The icon-row pill carries the compact total; the dialog holds the buckets.
+    expect(screen.getByText('用量 200 tok')).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByText('用量 200 tok'))
+    const dialog = screen.getByRole('dialog', { name: '本轮用量' })
+    expect(dialog).toBeTruthy()
+    // The heading row carries the exact total; no separate Total row.
+    expect(screen.getByText('200 tok')).toBeTruthy()
+    expect(screen.queryByText('总计')).toBeNull()
+    expect(screen.getByText('缓存命中')).toBeTruthy()
+    expect(screen.getByText('33.3%')).toBeTruthy()
     expect(screen.getByText('未缓存输入')).toBeTruthy()
     expect(screen.getByText('缓存读取')).toBeTruthy()
     expect(screen.getByText('缓存写入')).toBeTruthy()
-    expect(screen.getByText('总计')).toBeTruthy()
+    expect(screen.getByText('输出')).toBeTruthy()
+    // The bucket values ride the details rows; the output value carries its
+    // reasoning share on the same row (the chat TurnUsagePanel reading).
+    const details = dialog.querySelector('[data-turn-usage-details]') as HTMLElement
+    expect(details.textContent).toContain('100 tok')
+    expect(details.textContent).toContain('50 tok')
+    expect(details.textContent).toContain('30 tok')
+    expect(details.textContent).toContain('（其中推理 10 tok）')
   })
 
   it('expands a Think row into its reasoning body', () => {

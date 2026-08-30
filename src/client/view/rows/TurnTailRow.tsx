@@ -5,7 +5,7 @@ import { basename } from '../helpers/format.ts'
 import { fitProducedFiles, moreLabel, PRODUCED_SHOWN } from './produced-fit.ts'
 import { MessageActions } from '../chrome/MessageActions.tsx'
 import { MessageFeedbackActions, type FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
-import { TurnUsageDisclosure } from './TurnUsageDisclosure.tsx'
+import { TurnTimePanel, TurnUsagePanel } from './TurnUsagePanel.tsx'
 import css from './TurnTailRow.module.css'
 
 /** One completed turn's footer: the measured produced-files lane and the chat actions chrome. */
@@ -100,16 +100,10 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, f
           </div>
         </div>
       )}
-      {item.tokenUsage !== undefined && (
-        <TurnUsageDisclosure usage={item.tokenUsage} t={t} />
-      )}
       {closingSeq !== null && (
         <MessageActions
           text={item.closingText}
           time={item.closingTime}
-          runMs={item.runMs}
-          ttftMs={item.ttftMs}
-          tokensPerSecond={item.tokensPerSecond}
           clock="end"
           onBranch={() => { forkAt(closingSeq) }}
           branchUnavailable={item.branchUnavailable}
@@ -123,6 +117,19 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, f
               clearNote={feedback.clearNote}
               t={t}
             />
+          )}
+          usageAction={(
+            <>
+              {item.tokenUsage !== undefined && <TurnUsagePanel usage={item.tokenUsage} t={t} />}
+              {item.runMs !== null && (
+                <TurnTimePanel
+                  runMs={item.runMs}
+                  tokensPerSecond={item.tokensPerSecond ?? undefined}
+                  ttftMs={item.ttftMs ?? undefined}
+                  t={t}
+                />
+              )}
+            </>
           )}
           t={t}
         />
