@@ -8,6 +8,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConvViewProps, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { MessageFeedbackActionResult, MessageFeedbackView } from '../model/feedback-controller.ts'
 import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { TurnEventsResponse, TurnIndexResponse } from '../../protocol.ts'
 
 /** One reflow-resistant scroll position (the chat view's saved shape). */
 export interface FocusScrollPosition {
@@ -31,8 +33,6 @@ export interface FocusTurnTailOwner {
 
 /** Injected business face of the focus view entry. */
 export interface FocusViewInjected {
-  /** Load one older page of history into the session window (chat-view semantics). */
-  loadOlder: () => void
   /** Resolve a session-authorized historical image for inline display. */
   loadImage: (attachment: ImageAttachmentRef) => Promise<string>
   /** Open a workspace path through the Host; refusals reject so the view can surface its dialog. */
@@ -41,6 +41,19 @@ export interface FocusViewInjected {
   forkAt: (seq: number) => void
   /** Prose file-mention vocabulary for a closing assistant (optional service). */
   fileMentions: (owner: FocusTurnTailOwner) => MarkdownFileMentions | undefined
+  /**
+   * The Host's completed-turn index for one session (the remote turn folds'
+   * collapsed facts). Optional service: an absent binding — or a rejection —
+   * degrades to the window-only flow. The apply side caches the index per
+   * session, so tab switches stay free.
+   */
+  turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
+  /**
+   * One completed turn's raw event slice (the expand-then-load transport).
+   * Optional service, same posture as {@link turnIndex}; rejections surface
+   * on the row with a retry.
+   */
+  turnEvents?: (sessionId: SessionId, turn: number) => Promise<TurnEventsResponse>
   /** Whether the browser itself is connected over loopback (produced-chip gating). */
   isLoopback: boolean
   /** Per-session scroll-position ledger (the chat view's persistence). */

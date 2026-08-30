@@ -18,6 +18,8 @@ Instead of watching every step live, one assistant turn collapses into a single 
 
 …and the whole turn can fold into one `Worked for Xm Ys` line. Click any line to expand the full detail — tool cards, thinking, context injections, produced files, copy/fork actions — all drawn the same way as the normal chat rows. Your mid-turn interjections split the fold into per-stretch lines, each carrying its own duration, and a stopped turn reads `Stopped after X` instead of "worked". A background-task settlement — a tool-jobs `notice` injection like `bash pnpm install [status: completed]` — classifies into the summary line's `N background jobs` segment instead of riding it as a verbatim `injected …` account; expanding the line still shows the full notice body. File operations (edits / reads) never carry a failure tally on the summary line — `edited N files` reads the outcome — only command execution and other tools annotate failures.
 
+**The whole conversation shows up folded right after a refresh.** The session window only holds the most recent ~50 messages; older turns used to require paging through "Load earlier messages" one click at a time. The plugin's host half now serves a per-turn summary (start/end times, stopped state, opening user messages, and the full closing reply) to the view over an RPC channel (`/focus-chat-api`): every turn before the window renders as "opening user message + `Worked for Xm Ys` + the assistant's actual closing reply" with **no paging at all** — the reply is carried in full by the index, not summarized into a preview. A long turn the window cuts through keeps its real closing reply and turn tail rendered from the window rows below the fold — the fold line covers only the process above them, so the last exchange reads "user message → worked-for line → the assistant's actual reply" with no clicks. Clicking a fold line fetches that turn's raw event slice on demand, projects it locally, and draws exactly the rows the in-window fold would; slices cache per turn (LRU, 12 turns). Very long histories page the fold stack itself: the newest 50 folds render at first, and the top pager ("Load earlier turns") prepends older folds from the already-fetched index — the old raw-message pager is gone, because a turn's process detail belongs to its fold's expansion. If the host half's RPC channel is absent (an older host) or the index request fails, the view silently degrades to the in-window folds, exactly as before.
+
 Switch to it whenever you want the "what happened?" view, and flip back for the full transcript.
 
 ## Install
@@ -54,13 +56,14 @@ Focus chat is a faithful reading surface, not a second chat view:
 - **Third-party tool-card extensions don't render here.** Cards that other plugins add to the chat view won't appear in the focus view; the built-in card renderers are used instead.
 - **Folding is per consecutive tool-run.** Any visible content between two runs (a reply, a command, your interjection) keeps them separate.
 - **Inline file links need the optional file-mentions service** — the same off switch the chat view uses.
+- **Remote fold lines lack a few window-only readings.** The turn navigator rail lists window turns only; remote turns render no produced-file list (the ui-deliverables turn data), no inline file mentions, and their closing reply cannot fork (branching stays available on window turns). Per-message feedback (like/dislike) is unaffected.
 
 ## Development
 
-> This build targets the dsh v0.1.2-alpha.1 client surface. The new `@deepseek-ai/*` packages it needs are not on npm yet: after `yarn install`, junction/symlink each `@deepseek-ai/dsh-*` entry in `node_modules` to the matching `packages/<group>/<pkg>` directory of a built dsh checkout — that supplies both the types and the runtime for `yarn typecheck` / `yarn test`.
+> This build targets the dsh v0.1.2-alpha.1 client surface. The new `@deepseek-ai/*` packages it needs are not on npm yet: after `yarn install`, junction/symlink each `@deepseek-ai/dsh-*` entry in `node_modules` to the matching `packages/<group>/<pkg>` directory of a built dsh checkout — that supplies both the types and the runtime for `yarn typecheck` / `yarn test`. The host half additionally reads `@deepseek-ai/dsh-session-query` through the same junction recipe.
 
 - `yarn run build` — builds the browser bundle and the Node half.
-- `src/client/focus-model.ts` — the pure logic (folding, merging, row models); `src/client/FocusView.tsx` — the view.
+- `src/client/model/` — the pure logic (folding, merging, row models, the remote turn-slice projection); `src/client/view/FocusView.tsx` — the view; `src/host/` — the host half's turn index and RPC channel; `src/protocol.ts` — the wire contract shared by both halves.
 - `yarn test` — behavior tests; `yarn run typecheck` — type gate.
 - A `--dev` `dsh web` server hot-reloads rebuilt bundles — `yarn run build` alone is usually enough to see changes.
 

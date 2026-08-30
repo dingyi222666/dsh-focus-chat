@@ -17,6 +17,8 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import { FOCUS_RPC_CHANNEL } from '../protocol.ts'
+import type { TurnEventsResponse, TurnIndexResponse } from '../protocol.ts'
 import { FocusView } from './view/FocusView.tsx'
 import type { FocusHooksInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
 import { MessageFeedbackController } from './model/feedback-controller.ts'
@@ -69,6 +71,16 @@ export function apply(ctx: Context): void {
     return controller
   }
 
+  // The focus RPC channel: the Host's turn index and per-turn event slices.
+  // The index caches per session for the plugin's lifetime (tab switches stay
+  // free); the slices cache in the view instead — they are render-shaped.
+  const turnIndexCache = new Map<SessionId, TurnIndexResponse>()
+  const focusRpc = async <T,>(endpoint: string, payload: unknown): Promise<T> => {
+    const result = await connection.rpc.call(FOCUS_RPC_CHANNEL, endpoint, payload)
+    if (!result.ok) throw new Error(result.error.message === '' ? result.error.code : result.error.message)
+    return result.value as T
+  }
+
   ctx.slots.inject('conversation.view', () => {
     const dispose = ctx.slots.register({
     name: 'conversation.view',
@@ -83,13 +95,6 @@ export function apply(ctx: Context): void {
     inject: (sessionId: SessionId): FocusViewInjected & FocusHooksInjected => {
       const feedback = feedbackControllerFor(sessionId)
       return {
-        // History paging through the session face (chat-view semantics);
-        // absent binding degrades to a no-op, matching the chat view's
-        // optional-service posture.
-        loadOlder: () => {
-          const session = ctx.sessions.binding(sessionId)?.session
-          void session?.loadOlder()
-        },
         // Session-authorized historical image resolution (the chat view's
         // image gallery loader, served by the Conversation assembly).
         loadImage: (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
@@ -118,6 +123,22 @@ export function apply(ctx: Context): void {
             | undefined
           return service?.forClosing(owner)
         },
+        // The Host's completed-turn index (the remote turn folds): one RPC
+        // read per session, cached for the plugin's lifetime. The optional
+        // service degrades to the window-only flow when the channel is not
+        // registered (an older host half).
+        turnIndex: (id) => {
+          const cached = turnIndexCache.get(id)
+          if (cached !== undefined) return Promise.resolve(cached)
+          return focusRpc<TurnIndexResponse>('focus/turnIndex', { sessionId: id })
+            .then(response => {
+              turnIndexCache.set(id, response)
+              return response
+            })
+        },
+        // One completed turn's raw event slice (the expand-then-load fetch);
+        // the view projects and caches the slice.
+        turnEvents: (id, turn) => focusRpc<TurnEventsResponse>('focus/turnEvents', { sessionId: id, turn }),
         // Whether the browser itself is connected over loopback (produced-chip gating).
         isLoopback: connection.isLoopback,
         scroll: {

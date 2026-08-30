@@ -9,6 +9,7 @@ import type { AssistantBlock, ChatNodeDataMap, ContextMessageNode, SteeringMessa
 // contract but not re-exported from the client entry; the src/* export seam
 // serves it for compile-time use (erased from the bundle).
 import type { TurnTokenUsage } from '@deepseek-ai/dsh-client-ui-chat/src/client/contract/chat-nodes.ts'
+import type { TurnSummary } from '../../protocol.ts'
 
 /** Locale-owned label surfaces the render sites add to the shared card primitives. */
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
@@ -241,6 +242,40 @@ export type FocusFlowItem =
   }
   | { kind: 'turn-error'; nodeKey: string; message: string; code: string | undefined }
   | { kind: 'turn-max-tokens'; nodeKey: string }
+  | {
+    /**
+     * One completed turn before the loaded window, rendered from the Host's
+     * turn index and — once expanded — its event slice. Collapsed it draws
+     * the opening bubbles, the "worked for X" line, and the closing-reply
+     * preview; loaded it draws the same rows the window fold would.
+     */
+    kind: 'remote-turn'
+    /** `remote-turn:${turn}` — stable across slice loads. */
+    nodeKey: string
+    turn: number
+    summary: TurnSummary
+    /**
+     * The composition-time cache state: `collapsed` until the slice is
+     * cached, `loaded` once it is. The row's own state machine refines
+     * `loading` and `error` while a fetch is in flight.
+     */
+    state: 'collapsed' | 'loading' | 'loaded' | 'error'
+    /** Loaded: the turn's interior rows in flow order. */
+    work: readonly FocusFlowItem[]
+    /**
+     * Whether the turn's real closing reply and turn tail still render from
+     * the window rows (the boundary turn's keep-from rule): when true the row
+     * draws no collapsed preview and its expanded body carries the work only,
+     * because the window below the fold line already paints the real rows.
+     */
+    keepClosing: boolean
+    /** Loaded: the closing reply's assistant row. */
+    closing: FocusFlowItem | null
+    /** Loaded: the turn-tail row (branch disabled; the deliverables lane is window-only). */
+    tail: FocusFlowItem | null
+    /** Loaded: the slice fetch's failure text; null while the slice is absent. */
+    error: string | null
+  }
   | { kind: 'unknown'; nodeKey: string; nodeKind: string; data: unknown }
 
 /** The chat node data union the focus view narrows, keyed by the merge-extensible map. */

@@ -12,6 +12,7 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionListState, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { FocusView } from '../src/client/view/FocusView.tsx'
+import { buildFocusFlow } from '../src/client/model/flow.ts'
 import type { FocusViewProps } from '../src/client/contract/props.ts'
 import type { FocusScrollPosition } from '../src/client/contract/props.ts'
 import { zh } from '../src/client/locales.ts'
@@ -30,9 +31,10 @@ function chatNode(
   kind: string,
   data: unknown,
   location: ChatConversationViewNode['location'] = { kind: 'unresolved' },
+  anchorSeq = 1,
 ): NonNullable<ReturnType<ChatSnapshot['nodes']['get']>> {
   return {
-    key, kind, id: key, target: 'chat', anchorSeq: 1,
+    key, kind, id: key, target: 'chat', anchorSeq,
     location,
     visibility: 'visible',
     data,
@@ -106,7 +108,6 @@ function viewOf<T>(source: { getSnapshot(): ViewSlice; subscribe(listener: () =>
 
 function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   cwd?: string
-  loadOlder?: () => void
   loadImage?: (attachment: unknown) => Promise<string>
   openFile?: (path: string) => void
   forkAt?: (seq: number) => void
@@ -133,7 +134,6 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     useSessions: bindSnapshotSelector(sessionsStore(opts.cwd)),
     useWorkspaces: (() => undefined) as never,
     useProjection: (() => undefined) as never,
-    loadOlder: opts.loadOlder ?? (() => {}),
     loadImage,
     openFile: opts.openFile ?? (() => Promise.resolve()),
     forkAt: opts.forkAt ?? (() => {}),
@@ -310,7 +310,6 @@ it('renders the empty hint for an empty conversation', () => {
       useSessions: bindSnapshotSelector(sessionsStore(undefined)),
       useWorkspaces: (() => undefined) as never,
       useProjection: (() => undefined) as never,
-      loadOlder: () => {},
       openFile: () => Promise.resolve(),
       forkAt: () => {},
       fileMentions: (() => undefined) as never,
@@ -2045,21 +2044,6 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText(/tool-result/)).toBeTruthy()
   })
 
-  it('offers the load-older pager while more history exists', () => {
-    const loadOlder = vi.fn()
-    const { source } = renderView([], {
-      loadOlder,
-      chat: chatOf([], { hasMore: true }),
-    })
-    fireEvent.click(screen.getByText('加载更早的消息'))
-    expect(loadOlder).toHaveBeenCalledTimes(1)
-    act(() => {
-      source.set(chatOf([], { hasMore: true, loadingOlder: true }))
-    })
-    expect(screen.getByText('加载中…')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /加载中/ })).toHaveProperty('disabled', true)
-  })
-
   it('shows the Deep diving running signal with an elapsed clock past 15s', () => {
     vi.useFakeTimers()
     vi.setSystemTime(100_000)
@@ -2182,6 +2166,91 @@ describe('resubmitted turn durations', () => {
   })
 })
 
+describe('buildFocusFlow hideFrom', () => {
+  const turnLocation = (turn: number) => ({
+    kind: 'turn' as const,
+    turn: { turn, start: { seq: 1, time: 1000 }, end: { seq: 90, time: 9000 }, status: 'closed' as const, steps: [], data: { get: () => undefined } },
+  })
+  const at = (key: string, kind: string, data: unknown, turn: number, anchorSeq = 1) =>
+    chatNode(key, kind, data, turnLocation(turn) as never, anchorSeq)
+
+  it('drops every window row of a turn hidden from Infinity, including its tail and context batch', () => {
+    const nodes = [
+      at('c1', 'context', {
+        kind: 'context', seq: 5, time: 1500, content: [{ type: 'text', text: 'injected' }],
+        source: { kind: 'plugin', plugin: 'watcher' }, provenance: { role: 'inject', label: 'watcher' }, form: null,
+      }, 3),
+      at('a3', 'assistant-step', {
+        status: 'settled', turn: 3, step: 1, time: 2000,
+        blocks: [{ kind: 'text', text: 'hidden reply' }],
+      }, 3),
+      at('t3', 'tool-call', { root: settledCall('c3', 'bash', '{}') }, 3),
+      at('tail3', 'turn-tail', {
+        turn: 3, seq: 90, time: 9000, closing: null, branchUnavailable: false,
+      }, 3),
+      at('a4', 'assistant-step', {
+        status: 'settled', turn: 4, step: 1, time: 10000,
+        blocks: [{ kind: 'text', text: 'kept reply' }],
+      }, 4),
+    ]
+    const byKey = new Map(nodes.map(node => [node.key, node]))
+    const flow = buildFocusFlow(nodes.map(node => node.key), key => byKey.get(key), '/w', undefined, undefined, new Map([[3, Number.POSITIVE_INFINITY]]))
+    // Turn 3's context batch, assistant row, tool group, and tail all drop;
+    // turn 4's rows stay.
+    expect(flow.map(item => item.kind)).toEqual(['assistant'])
+    const kept = flow[0]
+    if (kept?.kind !== 'assistant') throw new Error('expected the kept assistant')
+    expect(kept.blocks[0]).toMatchObject({ kind: 'text', text: 'kept reply' })
+  })
+
+  it('keeps a boundary turn at its keep-from seq: the closing reply and tail render, earlier rows drop', () => {
+    const nodes = [
+      at('c1', 'context', {
+        kind: 'context', seq: 5, time: 1500, content: [{ type: 'text', text: 'injected' }],
+        source: { kind: 'plugin', plugin: 'watcher' }, provenance: { role: 'inject', label: 'watcher' }, form: null,
+      }, 3),
+      at('a3', 'assistant-step', {
+        status: 'settled', turn: 3, step: 1, time: 2000,
+        blocks: [{ kind: 'text', text: 'folded reply' }],
+      }, 3, 8),
+      at('a3b', 'assistant-step', {
+        status: 'settled', turn: 3, step: 2, time: 6000,
+        blocks: [{ kind: 'text', text: 'closing reply' }],
+      }, 3, 60),
+      at('tail3', 'turn-tail', {
+        turn: 3, seq: 61, time: 9000,
+        closing: { seq: 60, time: 6000, blocks: [{ kind: 'text' as const, text: 'closing reply' }], finalNode: { seq: 60, messageId: 'm3' } },
+        branchUnavailable: false,
+      }, 3, 61),
+      at('a4', 'assistant-step', {
+        status: 'settled', turn: 4, step: 1, time: 10000,
+        blocks: [{ kind: 'text', text: 'kept reply' }],
+      }, 4),
+    ]
+    const byKey = new Map(nodes.map(node => [node.key, node]))
+    const flow = buildFocusFlow(nodes.map(node => node.key), key => byKey.get(key), '/w', undefined, undefined, new Map([[3, 60]]))
+    // The pre-closing context batch and assistant row drop; the closing reply
+    // and the turn tail keep rendering from the window rows.
+    expect(flow.map(item => item.kind)).toEqual(['assistant', 'turn-tail', 'assistant'])
+    const closing = flow[0]
+    if (closing?.kind !== 'assistant') throw new Error('expected the closing assistant')
+    expect(closing.blocks[0]).toMatchObject({ kind: 'text', text: 'closing reply' })
+  })
+
+  it('keeps the same flow when no turn is hidden', () => {
+    const nodes = [
+      at('a4', 'assistant-step', {
+        status: 'settled', turn: 4, step: 1, time: 10000,
+        blocks: [{ kind: 'text', text: 'kept reply' }],
+      }, 4),
+    ]
+    const byKey = new Map(nodes.map(node => [node.key, node]))
+    const withParam = buildFocusFlow(nodes.map(node => node.key), key => byKey.get(key), '/w', undefined, undefined, new Map())
+    const withoutParam = buildFocusFlow(nodes.map(node => node.key), key => byKey.get(key))
+    expect(withParam).toHaveLength(withoutParam.length)
+  })
+})
+
 describe('plugin apply', () => {
   it('registers the focus tab on a real slot ring and disposes with the fiber', async () => {
     const { Context, Service } = await import('@deepseek-ai/cordis')
@@ -2229,10 +2298,5 @@ describe('plugin apply', () => {
     expect(focus !== undefined && resolveSlotLabel(focus.options.label)).toBe('Focus chat')
     await fiber.dispose()
     expect(slots.entries('conversation.view')).toHaveLength(0)
-  })
-
-  it('keeps the host half a no-op apply', async () => {
-    const { apply: nodeApply } = await import('../src/index.ts')
-    expect(() => { nodeApply() }).not.toThrow()
   })
 })
