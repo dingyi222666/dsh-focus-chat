@@ -63,6 +63,9 @@ export interface FocusToolRow {
   card: FocusCard | null
   /** Recursive child rows (the sub-call tree), in dispatch order. */
   subcalls: readonly FocusToolRow[]
+  /** Git-style line-change tally for file-mutation calls (added/removed
+   *  non-empty lines across the diff hunks); null for non-edit tools. */
+  changeStat: { added: number; removed: number } | null
 }
 
 /** One reasoning row absorbed into a tool group (the chat Think disclosure). */

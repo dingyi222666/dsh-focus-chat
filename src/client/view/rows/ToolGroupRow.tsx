@@ -1,4 +1,4 @@
-import { Fragment, memo, useState } from 'react'
+import { Fragment, memo, useMemo, useState } from 'react'
 import { DisclosureRow, IconSparkle16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
@@ -22,6 +22,21 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
   // row at the end of the flow meanwhile. Failure tallies render in the
   // error color, parentheses included.
   const segments = caseSegments(groupTitleParts(group, t))
+  // The group's total line-change tally: every settled file-mutation call's
+  // added/removed lines summed into one git-style reading ("+210 -213").
+  const changeStat = useMemo(() => {
+    let added = 0
+    let removed = 0
+    let any = false
+    for (const item of group.items) {
+      if ('changeStat' in item && item.changeStat !== null) {
+        added += item.changeStat.added
+        removed += item.changeStat.removed
+        any = true
+      }
+    }
+    return any ? { added, removed } : null
+  }, [group.items])
   // A group with no line — every call still running (the live row at the
   // end of the flow carries the display) or younger than the live-row
   // debounce — paints nothing: the summary gains the entries directly once
@@ -49,6 +64,14 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
               )}
             </Fragment>
           ))}
+          {changeStat !== null && (
+            <span className={css.changeStat} data-change-stat>
+              <span className={css.changeAdd}>+{changeStat.added}</span>
+              {changeStat.removed > 0 && (
+                <span className={css.changeRemove}>-{changeStat.removed}</span>
+              )}
+            </span>
+          )}
         </span>
       )}
     >

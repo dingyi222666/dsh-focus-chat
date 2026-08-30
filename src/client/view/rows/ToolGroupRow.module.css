@@ -22,6 +22,25 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
+/* The group's total line-change tally: git-style "+210 -213", additions in
+   the success green, removals in the error red. */
+.changeStat {
+  flex: none;
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.changeAdd {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.changeRemove {
+  color: var(--dsw-alias-state-error-primary);
+}
+
 /* The current step's running calls at the END of the flow (the chat live
    row's position): the same 16px rhythm as every flow row — between the
    parallel running calls and around the section — so the running row's

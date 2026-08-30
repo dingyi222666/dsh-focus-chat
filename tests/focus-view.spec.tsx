@@ -659,6 +659,24 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('2 个子代理 · 1 个运行中')).toBeTruthy()
   })
 
+  it('shows the git-style change tally on edit rows and the group total', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"/ws/a.ts"}', {
+        meta: { diffs: [{ path: '/ws/a.ts', oldText: 'a\nb', newText: 'a\nb\nc' }] },
+      }) }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'write', '{"path":"/ws/b.ts"}', {
+        meta: { diffs: [{ path: '/ws/b.ts', oldText: '', newText: 'x\ny\nz\n' }] },
+      }) }),
+    ])
+    // The folded group's total: +6 -2 (3+3 added lines, 2 removed).
+    expect(fullText('编辑了 2 个文件+6-2')).toBeTruthy()
+    // Expanding reveals each call's own tally: the edit row +3-2, the new
+    // write +3 with no removal side (the badge's text lives in child spans).
+    fireEvent.click(fullText('编辑了 2 个文件+6-2'))
+    const badges = [...document.querySelectorAll('[data-change-stat]')].map(el => el.textContent)
+    expect(badges).toEqual(expect.arrayContaining(['+3-2', '+3']))
+  })
+
   it('renders a skill row with the Skill title and the skill name summary', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'skill', '{"name":"web-browse"}') }),

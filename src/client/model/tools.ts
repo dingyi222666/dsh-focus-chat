@@ -375,6 +375,30 @@ function narrowDiffs(diffs: unknown): DiffHunk[] | null {
   return out
 }
 
+/** Non-empty lines of a diff side (the git +/− count reads lines, not bytes). */
+function nonEmptyLineCount(text: string): number {
+  if (text === '') return 0
+  return text.split('\n').filter(line => line.trim() !== '').length
+}
+
+/** Git-style line-change tally over a settled mutation call's diff meta:
+ *  added non-empty lines across the hunks' new text, removed across the old
+ *  text. Null when the call is not a diff-bearing file mutation.
+ * @param meta - the persisted result meta (the host's diff hunks).
+ * @returns the tally, or null when there is nothing to count.
+ */
+function diffChangeStat(meta: unknown): { added: number; removed: number } | null {
+  const diffs = narrowDiffs((meta as Record<string, unknown> | null)?.diffs)
+  if (diffs === null) return null
+  let added = 0
+  let removed = 0
+  for (const hunk of diffs) {
+    added += nonEmptyLineCount(hunk.newText)
+    removed += nonEmptyLineCount(hunk.oldText ?? '')
+  }
+  return added === 0 && removed === 0 ? null : { added, removed }
+}
+
 type IntendedDiff = { tool: 'write' | 'edit' | 'str_replace_editor'; diff: DiffHunk }
 
 function intendedDiff(block: ToolCallBlock): IntendedDiff | null {
@@ -737,6 +761,7 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     body: deriveBody(variant, argsRaw),
     card,
     subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home, cache)),
+    changeStat: done ? diffChangeStat(block.meta) : null,
   }
 }
 
