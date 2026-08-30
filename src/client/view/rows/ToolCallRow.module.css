@@ -101,7 +101,7 @@
   flex: none;
   display: inline-flex;
   gap: 4px;
-  margin-right: 8px;
+  margin-left: 8px;
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   font-variant-numeric: tabular-nums;

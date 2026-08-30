@@ -181,14 +181,6 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
              its title shows no trailing dot). */
           <>
             <span className={css.callSeparator} aria-hidden />
-            {row.changeStat !== null && (
-              <span className={css.changeStat} data-change-stat>
-                <span className={css.changeAdd}>+{row.changeStat.added}</span>
-                {row.changeStat.removed > 0 && (
-                  <span className={css.changeRemove}>-{row.changeStat.removed}</span>
-                )}
-              </span>
-            )}
             {fileLink ? (
               <button
                 type="button"
@@ -208,6 +200,16 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
             ) : (
               <span className={`${css.callSummary}${failureLine !== null ? ` ${css.callErrorSummary}` : ''}`}>
                 {summaryText}
+              </span>
+            )}
+            {/* The git-style tally trails the path/summary (like the failure
+                count follows the summary), not the title. */}
+            {row.changeStat !== null && (
+              <span className={css.changeStat} data-change-stat>
+                <span className={css.changeAdd}>+{row.changeStat.added}</span>
+                {row.changeStat.removed > 0 && (
+                  <span className={css.changeRemove}>-{row.changeStat.removed}</span>
+                )}
               </span>
             )}
           </>
