@@ -118,11 +118,16 @@ export function useThrottledVisualUpdate(
 
 export function formatElapsed(ms: number, t: FocusTranslate): string {
   const total = Math.max(0, Math.floor(ms / 1000))
-  const minutes = Math.floor(total / 60)
+  const days = Math.floor(total / 86_400)
+  const hours = Math.floor((total % 86_400) / 3_600)
+  const minutes = Math.floor((total % 3_600) / 60)
   const seconds = total % 60
-  return minutes > 0
-    ? t('duration.minutes', { minutes, seconds: String(seconds).padStart(2, '0') })
-    : t('duration.seconds', { seconds })
+  // Long-running turns read compact: "1h 23m", "1day 3h 20m" — a pure
+  // minute reading (123m) is unreadable once the clock passes an hour.
+  if (days > 0) return t('duration.days', { days, hours, minutes })
+  if (hours > 0) return t('duration.hours', { hours, minutes })
+  if (minutes > 0) return t('duration.minutes', { minutes, seconds: String(seconds).padStart(2, '0') })
+  return t('duration.seconds', { seconds })
 }
 
 /** Turn-level running signal: "Deep diving..." plus an elapsed clock past 15s. */
