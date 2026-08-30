@@ -13,6 +13,10 @@ import { formatSeconds } from '../../model/text.ts'
 export interface GroupTitleSegment {
   text: string
   failed?: string | undefined
+  /** The metric family this segment reports; the edits segment carries the
+   *  group's git-style change tally right after it (the official "edited N
+   *  files +210 -213" reading). */
+  kind?: MetricFamily | undefined
 }
 
 export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSegment[] {
@@ -112,7 +116,10 @@ export function metricPart(
 ): void {
   if (total === 0) return
   if (!FAILURE_FAMILIES.has(family) || failed === 0) {
-    parts.push({ text: countSegment(family, total, t) })
+    // The edits segment carries its family marker so the group row can hang
+    // the total change tally (+N -M) right after it (write calls join the
+    // edit family, so their lines are part of the same tally).
+    parts.push({ text: countSegment(family, total, t), ...(family === 'edits' ? { kind: 'edits' as const } : {}) })
     return
   }
   const ok = total - failed
