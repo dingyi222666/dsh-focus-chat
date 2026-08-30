@@ -105,10 +105,12 @@
    diff body the numbers summarize; a wider gap keeps the digits from reading
    as part of the path. Two px under the secondary tier (still riding the
    axis): mono digits read optically larger than the sans path at the same
-   size. Caption, one step under the summary tier. */
+   size. Caption, one step under the summary tier. The inline-flex centers
+   its spans on the summary text's vertical axis. */
 .changeStat {
   flex: none;
   display: inline-flex;
+  align-items: center;
   gap: 4px;
   margin-left: 10px;
   font-family: var(--ds-font-family-code);
@@ -117,7 +119,6 @@
   color: var(--dsw-alias-label-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transform: translateY(0.5px);
 }
 
 /* The +/- colors are a hover reveal: neutral caption at rest, the row's
@@ -138,9 +139,13 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* File-tool path: same geometry as the summary, with a persistent link.
-   It hugs its content (flex 0 1 auto) so the change tally stays glued to
-   it instead of being pushed to the row's far edge. */
+/* File-tool path: same geometry as the summary, with a persistent link
+   affordance. Dotted dimmed underline: visible enough to say "clickable",
+   light enough that a long path doesn't read as one heavy rule under the
+   row (the official ToolRow rule). Shrink-to-fit (flex 0): the click target
+   ends where the path text ends — the row's empty remainder stays the
+   expand/collapse toggle. It hugs its content so the change tally stays
+   glued to it instead of being pushed to the row's far edge. */
 .callFileLink {
   flex: 0 1 auto;
   min-width: 0;
@@ -156,8 +161,9 @@
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-secondary);
-  text-decoration: underline;
-  text-decoration-color: var(--dsw-alias-label-quaternary);
+  text-decoration: underline dotted;
+  text-decoration-color: var(--dsw-alias-label-tertiary);
+  text-decoration-thickness: 1px;
   text-underline-offset: 3px;
   cursor: pointer;
 }
@@ -176,6 +182,7 @@
 .callBodyWrap {
   display: flex;
   flex-direction: column;
+  margin-top: 8px;
 }
 
 /* Expanded-body scroll wrapper for the run_code CodeBlock; the IN/OUT card
@@ -190,7 +197,7 @@
 .ioCard {
   display: flex;
   flex-direction: column;
-  margin: 4px 0 4px 4px;
+  margin: 8px 0;
   border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 12px;
   background: var(--dsw-alias-markdown-code-block);
@@ -275,7 +282,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 4px 0 2px 22px;
+  margin: 8px 0 6px 22px;
   padding-left: 8px;
   border-left: 1px solid var(--dsw-alias-border-l2);
 }

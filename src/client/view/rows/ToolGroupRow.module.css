@@ -1,6 +1,8 @@
 .groupRow {
   display: flex;
   flex-direction: column;
+  /* A little breathing above and below the summary line. */
+  padding: 2px 0;
 }
 
 /* The group's summary line: one flexible ellipsizing run; failure tallies
@@ -24,10 +26,12 @@
 
 /* The group's total line-change tally (the official diffStat reading):
    "+210 -213" in the code font, neutral caption at rest — the row's hover
-   turns additions success-green and removals error-red. */
+   turns additions success-green and removals error-red. The inline-flex
+   centers its spans on the summary text's vertical axis. */
 .changeStat {
   flex: none;
   display: inline-flex;
+  align-items: center;
   gap: 4px;
   margin-left: 10px;
   font-family: var(--ds-font-family-code);
@@ -35,7 +39,6 @@
   color: var(--dsw-alias-label-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transform: translateY(0.5px);
 }
 
 .changeAdd {
@@ -69,7 +72,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 8px;
+  margin: 12px 0 6px;
   padding-left: 14px;
   /* The summary line's second-level content keeps one continuous indent
      line; only the worked-fold expansion is line-free. */
