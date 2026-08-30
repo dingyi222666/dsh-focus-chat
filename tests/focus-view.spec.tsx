@@ -2374,6 +2374,39 @@ describe('buildFocusFlow hideFrom', () => {
     expect(closing.blocks[0]).toMatchObject({ kind: 'text', text: 'closing reply' })
   })
 
+  it("keeps a boundary turn's reasoning-carrying closing reply whole — no second full-turn worked line", () => {
+    // A pre-head turn whose closing reply (with reasoning) sits in the window:
+    // the remote fold already carries the worked line, so the window flow must
+    // not split the closing's reasoning into a fold that re-reads the whole
+    // turn's duration beside the remote fold. The reply stays whole.
+    const turn = { turn: 3, start: { time: 1000 }, end: { time: 14000 }, status: 'closed', steps: [], data: { get: () => undefined } }
+    const at = (key: string, kind: string, data: unknown, anchorSeq: number) => chatNode(key, kind, data, { kind: 'turn', turn } as never, anchorSeq)
+    const nodes = [
+      at('u3', 'user', { kind: 'user', seq: 1, time: 1, content: [{ type: 'text', text: 'go' }], source: null }, 1),
+      at('a3', 'assistant-step', {
+        status: 'settled', turn: 3, step: 1, time: 5000,
+        blocks: [
+          { kind: 'reasoning', text: 'remote think' },
+          { kind: 'text', text: 'closing reply' },
+        ],
+      }, 60),
+      at('t3', 'tool-call', { root: settledCall('c3', 'bash', '{}') }, 61),
+      at('tail3', 'turn-tail', {
+        turn: 3, seq: 62, time: 14000,
+        closing: { seq: 60, time: 5000, blocks: [], finalNode: { seq: 60, messageId: 'm3' } },
+        branchUnavailable: false,
+      }, 62),
+    ]
+    const byKey = new Map(nodes.map(node => [node.key, node]))
+    const flow = buildFocusFlow(nodes.map(node => node.key), key => byKey.get(key), '/w', undefined, undefined, new Map([[3, 60]]))
+    // Only the whole closing reply and the tail render — no turn-fold line
+    // duplicating the remote fold's "worked" reading.
+    expect(flow.map(item => item.kind)).toEqual(['assistant', 'turn-tail'])
+    const closing = flow[0]
+    if (closing?.kind !== 'assistant') throw new Error('expected the closing assistant')
+    expect(closing.blocks.map(block => block.kind)).toEqual(['reasoning', 'text'])
+  })
+
   it('keeps the same flow when no turn is hidden', () => {
     const nodes = [
       at('a4', 'assistant-step', {

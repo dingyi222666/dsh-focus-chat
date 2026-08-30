@@ -512,11 +512,15 @@ export function buildFocusFlow(
     // Completed turn: keep only the closing assistant's own reply visible.
     // Its own reasoning is part of the folded work — it moves into the fold
     // (the last folded row) instead of painting a second Thought row beside
-    // the reply.
+    // the reply. A boundary turn — the pre-head rows rendered by the remote
+    // fold — keeps the reply whole instead: the remote fold already carries
+    // the worked line and the slice's Think rows, so splitting the reasoning
+    // here would fold a second full-turn line beside it.
     const isClosing = item.kind === 'assistant' && key === plan.closingKey
     if (isClosing) {
       let closing: FocusFlowItem = item
-      if (item.kind === 'assistant' && item.blocks.some(block => block.kind === 'reasoning')) {
+      if (item.kind === 'assistant' && item.blocks.some(block => block.kind === 'reasoning')
+        && hideFrom?.has(turnId) !== true) {
         const blocks: AssistantBlock[] = []
         for (const block of item.blocks) {
           if (block.kind === 'reasoning') {
