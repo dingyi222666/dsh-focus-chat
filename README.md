@@ -14,7 +14,7 @@ A plugin for the dsh web GUI that adds a **focus chat** tab — a condensed, Cla
 
 Instead of watching every step live, one assistant turn collapses into a single summary line:
 
-> Thought for 36s, loaded 3 context items, ran 2 shell commands, edited 8 files, read 17 files, listed 18 directories
+> Thought for 36s, edited 8 files, read 17 files, listed 18 directories, ran 2 shell commands, loaded 3 context items
 
 A whole turn can fold further into one `Worked for Xm Ys` line — expanding it draws the full detail (tool cards, thinking, context, produced files, copy/fork) exactly like the chat rows; mid-turn interjections split the fold into per-stretch lines, and a stopped turn reads `Stopped after X`. **After a refresh the whole conversation shows up folded**: every turn beyond the ~50-message window renders from a Host-side index as "user message + worked-for line + the assistant's actual closing reply", and its process detail loads only when that fold expands. Very long histories page the fold stack via "Load earlier turns"; a missing index silently degrades to the in-window folds.
 

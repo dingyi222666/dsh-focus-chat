@@ -414,7 +414,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'read', '{}') }),
       chatNode('t4', 'tool-call', { root: settledCall('c4', 'glob', '{}') }),
     ])
-    expect(screen.getByText('运行了 1 个命令，搜索了 1 个正则，读取了 1 个文件，列出了 1 个目录')).toBeTruthy()
+    expect(screen.getByText('搜索了 1 个正则，读取了 1 个文件，列出了 1 个目录，运行了 1 个命令')).toBeTruthy()
   })
 
   it('appends a failure tally to a mixed family in the summary line', () => {
@@ -580,7 +580,7 @@ it('renders the empty hint for an empty conversation', () => {
         content: [{ type: 'text', text: 'line 1' }],
       }) }),
     ], { cwd: '/ws' })
-    const summary = screen.getByText('运行了 1 个命令，读取了 1 个文件')
+    const summary = screen.getByText('读取了 1 个文件，运行了 1 个命令')
     expect(summary).toBeTruthy()
     // Collapsed: no call rows yet (the chat row titles).
     expect(screen.queryByText('Bash')).toBeNull()
@@ -614,7 +614,7 @@ it('renders the empty hint for an empty conversation', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(fullText('运行了 1 个命令（1 次失败），编辑了 2 个文件，搜索了 1 个正则，更新了待办，载入了 1 个技能，读取了 1 个文件，调用了 2 个工具'))
+    fireEvent.click(fullText('编辑了 2 个文件，搜索了 1 个正则，读取了 1 个文件，运行了 1 个命令（1 次失败），更新了待办，载入了 1 个技能，调用了 2 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
@@ -823,7 +823,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"query":"x"}') }),
     ])
     // Expand the group first: the rows carry the chat outranking summaries.
-    fireEvent.click(screen.getByText('运行了 1 个命令，搜索了 1 个正则'))
+    fireEvent.click(screen.getByText('搜索了 1 个正则，运行了 1 个命令'))
     expect(screen.getByText('Build the app')).toBeTruthy()
     expect(screen.getByText('x')).toBeTruthy()
     expect(screen.queryByText('pnpm build')).toBeNull()
@@ -1353,13 +1353,13 @@ it('renders the empty hint for an empty conversation', () => {
     // leads a segment, its rows expand inside the group — session order:
     // context → thinking → calls); the assistant's leading think keeps its
     // own plain row.
-    expect(screen.getByText('载入了 2 项上下文，运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令，载入了 2 项上下文')).toBeTruthy()
     expect(screen.getByText('思考')).toBeTruthy()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
     expect(screen.queryByText('AGENTS.md')).toBeNull()
     // Expanding the group reveals the absorbed context rows first, each
     // expanding to its body.
-    fireEvent.click(screen.getByText('载入了 2 项上下文，运行了 1 个命令'))
+    fireEvent.click(screen.getByText('运行了 1 个命令，载入了 2 项上下文'))
     expect(screen.getByText('AGENTS.md')).toBeTruthy()
     fireEvent.click(screen.getByText('AGENTS.md'))
     expect(screen.getByText('rules text')).toBeTruthy()
@@ -1397,7 +1397,7 @@ it('renders the empty hint for an empty conversation', () => {
     // The context batch still lands before the run and absorbs into its
     // summary line (the dropped row is an order separator, not a gap: a
     // batch left pending here would surface below the following group).
-    expect(screen.getByText('载入了 1 项上下文，运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令，载入了 1 项上下文')).toBeTruthy()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
   })
 

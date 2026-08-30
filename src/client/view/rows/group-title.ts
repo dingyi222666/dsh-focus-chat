@@ -4,10 +4,11 @@ import { METRIC_BY_TOOL } from '../../model/tools.ts'
 import { formatSeconds } from '../../model/text.ts'
 
 /** The step-summary line parts (pre-casing): the thinking duration leads,
- *  then the absorbed context count, the metric families with per-family
- *  failure tallies, and the metric-less tool calls as a "called N tools"
- *  segment. While the run executes the line is replaced by the running
- *  call's own row title. */
+ *  then the "what happened" metric line — edits, searches, the file
+ *  exploration, and the command runs — followed by the auxiliary readings
+ *  (the absorbed context count, the agentic families) and the metric-less
+ *  tool calls as a "called N tools" segment. While the run executes the line
+ *  is replaced by the running call's own row title. */
 /** One summary-line segment: plain text plus an optional failure tally
  *  (parentheses included) rendered in the error color. */
 export interface GroupTitleSegment {
@@ -28,19 +29,25 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
   if (group.thoughtMs !== null) {
     parts.push({ text: t('tool.thought', { n: formatSeconds(group.thoughtMs) }) })
   }
+  // The "what happened" metric line: edits, searches, the file exploration,
+  // then the command runs.
+  metricPart(parts, edits, 0, 'edits', t)
+  metricPart(parts, searches, searchesFailed, 'searches', t)
+  if (files > 0 && dirs > 0) {
+    parts.push({ text: t('tool.explored.both', { files, dirs }) })
+  } else if (files > 0) {
+    parts.push({ text: t(files === 1 ? 'tool.explored.files.one' : 'tool.explored.files', { n: files }) })
+  } else if (dirs > 0) {
+    parts.push({ text: t(dirs === 1 ? 'tool.explored.dirs.one' : 'tool.explored.dirs', { n: dirs }) })
+  }
+  metricPart(parts, commands, commandsFailed, 'commands', t)
+  // The auxiliary readings trail the metric line: the absorbed context
+  // count, then the agentic families.
   if (group.contextCount > 0) {
     parts.push({ text: t(group.contextCount === 1 ? 'tool.context.one' : 'tool.context', {
       n: group.contextCount,
     }) })
   }
-  metricPart(parts, commands, commandsFailed, 'commands', t)
-  // File operations never read failure tallies: the edit count is the
-  // outcome, so the segment is always the plain count.
-  metricPart(parts, edits, 0, 'edits', t)
-  metricPart(parts, searches, searchesFailed, 'searches', t)
-  // The agentic families replace the generic "called N tools" remainder for
-  // their own tools: delegation, todo, goal, workflow, skill, question, and
-  // plan calls read their own segments.
   agentPart(parts, subagents, 'subagents', t)
   agentPart(parts, todos, 'todos', t)
   agentPart(parts, goals, 'goals', t)
@@ -52,13 +59,6 @@ export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): Group
   // own segment: a tool-jobs settlement counts here instead of riding the
   // line as a verbatim "injected <summary>" account.
   agentPart(parts, jobs, 'jobs', t)
-  if (files > 0 && dirs > 0) {
-    parts.push({ text: t('tool.explored.both', { files, dirs }) })
-  } else if (files > 0) {
-    parts.push({ text: t(files === 1 ? 'tool.explored.files.one' : 'tool.explored.files', { n: files }) })
-  } else if (dirs > 0) {
-    parts.push({ text: t(dirs === 1 ? 'tool.explored.dirs.one' : 'tool.explored.dirs', { n: dirs }) })
-  }
   // The metric-less remainder counts the settled calls whose tool has no
   // metric family directly (the edit family's metric reads distinct files,
   // not calls, so a subtractive remainder would leak family members).
