@@ -110,10 +110,11 @@ describe('projectTurnSlice', () => {
       assistantMessage(7, 1, 8, 4000, [text('all green')], { messageId: 'final-1' }),
       turnEnd(7, 9, 5000),
     ], '/workspace', '/home/u')
-    // The intermediate assistant row (its Think above its reply) folds into
-    // the work exactly like the window fold's body; the closing reply alone
+    // The intermediate assistant row folds into the work with its reply only
+    // — a leading think never paints a standalone row in the remote fold
+    // (the fold line carries the turn already); the closing reply alone
     // stays out.
-    expect(describeWork(slice.work)).toEqual(['assistant:[reasoning,text]', 'group(1cmd,0jobs,2items)'])
+    expect(describeWork(slice.work)).toEqual(['assistant:[text]', 'group(1cmd,0jobs,2items)'])
     expect(slice.closing).not.toBeNull()
     const closing = slice.closing as Extract<FocusFlowItem, { kind: 'assistant' }>
     expect(closing.blocks.map(block => block.kind)).toEqual(['text'])

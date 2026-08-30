@@ -843,18 +843,11 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
           if (!blocks.some(block => block.kind !== 'tool-call')) { closingProto = null; continue }
           blocks = absorbReasoning(proto, blocks)
           flushContext()
-          if (blocks.some(block => block.kind === 'reasoning')) {
-            // A leading think — no preceding run — renders above the reply.
-            blocks.forEach((block, index) => {
-              if (block.kind !== 'reasoning') return
-              work.push({
-                kind: 'assistant', nodeKey: `${keyOf('a', proto.seq)}:r${index}`,
-                blocks: [block], running: false, interrupted: false,
-                thoughtMs: proto.thoughtMs ?? null, finalSeq: proto.seq,
-              })
-            })
-            blocks = blocks.filter(block => block.kind !== 'reasoning')
-          }
+          // A leading think with no preceding run to absorb into: the window
+          // flow folds it into the worked line; the remote fold's line
+          // carries the turn already, so the think drops rather than painting
+          // a stray row beside the reply.
+          blocks = blocks.filter(block => block.kind !== 'reasoning')
           closingBlocks = blocks
           closingInterrupted = proto.interrupted === true
           continue
@@ -866,6 +859,11 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
         // heads — drops so no empty row sits between the runs it separates.
         if (!proto.interrupted && !blocks.some(block => block.kind !== 'tool-call')) continue
         blocks = absorbReasoning(proto, blocks)
+        // A leading think with no preceding run to absorb into never paints a
+        // standalone row in the remote fold — the work shows the runs and
+        // the replies only.
+        blocks = blocks.filter(block => block.kind !== 'reasoning')
+        if (blocks.length === 0) continue
         if (!proto.interrupted && !blocks.some(block => block.kind !== 'tool-call')) continue
         flushContext()
         work.push({
