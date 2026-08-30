@@ -126,7 +126,13 @@ export function computeTurnIndex(events: readonly SessionEvent[]): TurnIndex {
     if (open === null) continue
     if (event.type === 'turn/end') {
       if (event.data.turn !== open.turn) continue
-      if (event.data.reason.kind === 'interrupted') open.stopped = true
+      // The window fold reads a user-stopped turn from the chat snapshot's
+      // interrupted assistant step; the durable log carries that as an
+      // `aborted` end (a cancellation requested by the user or the shell)
+      // — the `interrupted` kind is only the crash-orphaned reload marker.
+      // Both read stopped, so the remote fold matches the window.
+      const reason = event.data.reason
+      if (reason.kind === 'interrupted' || reason.kind === 'aborted') open.stopped = true
       close(event.time, event.seq)
       continue
     }

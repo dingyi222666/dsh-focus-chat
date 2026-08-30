@@ -344,7 +344,11 @@ export function buildFocusFlow(
    *  as the end, so each stretch between two interjections carries its own
    *  worked duration; a null end falls back to the turn's total wall time. A
    *  duration-less window cut renders the rows unfolded rather than a
-   *  meaningless line. */
+   *  meaningless line. The stop reading is per-stretch: only the stretch that
+   *  reaches the turn's end (a null `end`) can have been cut off by the stop
+   *  — stretches closed by an interjection ran their course, so a
+   *  user-stopped turn reads worked for them and stopped for its final
+   *  stretch. */
   const flushFold = (end: number | null): void => {
     const turnId = pendingFoldTurn
     pendingFoldTurn = null
@@ -367,7 +371,7 @@ export function buildFocusFlow(
       nodeKey: keyOf(folded[0]),
       turn: turnId,
       durationMs,
-      stopped: plan?.stopped ?? false,
+      stopped: (plan?.stopped ?? false) && end === null,
       // The official turn-process node's measurement (absent when the host
       // did not project one — e.g. an interrupted turn — renders zero tallies).
       messageCount: turnProcessByTurn.get(turnId)?.messageCount ?? 0,

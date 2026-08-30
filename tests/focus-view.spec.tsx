@@ -1239,6 +1239,45 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText(/运行了 1 个命令/)).toBeTruthy()
   })
 
+  it('reads only the final stretch of a user-stopped turn as stopped-after', () => {
+    // An interjected, then stopped, turn: the stretches closed by an
+    // interjection ran their course (worked), only the stretch that reaches
+    // the turn's end was cut off (stopped-after).
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 8000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 2000,
+        blocks: [{ kind: 'text', text: 'first stretch' }],
+      }),
+      at('s1', 'steering', {
+        kind: 'steering', seq: 5, time: 3000,
+        content: [{ type: 'text', text: 'keep going' }], source: null,
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      at('a2', 'assistant-step', {
+        status: 'interrupted', turn: 1, step: 1, time: 7000,
+        blocks: [{ kind: 'text', text: 'cut off' }],
+      }),
+    ])
+    // The first stretch (1000→3000 = 2s) ran its course: worked. The final
+    // stretch (3000→8000 = 5s) reached the stop with work in flight: the
+    // buffered tool run folds as stopped-after.
+    expect(screen.getByText('工作了 2 秒')).toBeTruthy()
+    expect(screen.getByText('用户在 5 秒后停止')).toBeTruthy()
+  })
+
   it('reads a stop during tool execution as stopped-after (synthetic unknown-outcome result)', () => {
     // The real stop-mid-tool shape (repair.ts): the assistant settled its
     // reply normally, then the running tool lands a synthetic result with
