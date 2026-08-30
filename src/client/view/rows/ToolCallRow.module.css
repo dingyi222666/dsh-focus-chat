@@ -84,14 +84,6 @@
   background: var(--dsw-alias-label-caption);
 }
 
-.callSummaryRow {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: baseline;
-  overflow: hidden;
-}
-
 /* The path/summary hugs its content (the change tally follows it tightly
    instead of being pushed to the row's far edge). */
 .callSummary,
