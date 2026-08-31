@@ -139,18 +139,21 @@ describe('ChangesBarDiff', () => {
     files: (count: number) => `${count} 个文件`,
   }
 
-  it('renders the path header, aligned rows, change bars, and footer', () => {
+  it('renders the path header with its own stat, aligned rows, and change bars', () => {
     render(<ChangesBarDiff diffs={[
       { path: 'src/a.ts', oldText: 'a\nb', newText: 'a\nb\nc' },
     ]} labels={labels} maxLines={8} />)
-    expect(screen.getByText('src/a.ts')).toBeTruthy()
+    // The path header carries this file's +1 -0 reading on its right.
+    const header = screen.getByText('src/a.ts').closest('[data-changes-bar-path]')
+    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-0')
     // The two context rows 'a' and 'b' and the added 'c'.
     expect(screen.getByText('a')).toBeTruthy()
     expect(screen.getByText('b')).toBeTruthy()
     expect(screen.getByText('c')).toBeTruthy()
-    expect(screen.getByText((_content, element) => element?.textContent === '└ +1 -0 · 1 个文件')).toBeTruthy()
     expect(screen.queryAllByText('+').length).toBe(1)
     expect(screen.queryAllByText('-').length).toBe(0)
+    // No card footer anymore.
+    expect(document.body.textContent).not.toContain('└')
   })
 
   it('marks deletions and pairs the delta words', () => {
@@ -170,8 +173,9 @@ describe('ChangesBarDiff', () => {
     }
     expect(lineOf('keep old line')?.querySelector('[class*="delta"]')?.textContent).toBe('old')
     expect(lineOf('keep new line')?.querySelector('[class*="delta"]')?.textContent).toBe('new')
-    // Footer counts one deletion and one insertion.
-    expect(screen.getByText((_content, element) => element?.textContent === '└ +1 -1 · 1 个文件')).toBeTruthy()
+    // The header's stat counts one deletion and one insertion.
+    const header = screen.getByText('b.ts').closest('[data-changes-bar-path]')
+    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-1')
   })
 
   it('folds the middle beyond the cap and expands it', () => {

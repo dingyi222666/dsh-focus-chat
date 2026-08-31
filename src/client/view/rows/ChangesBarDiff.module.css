@@ -1,8 +1,9 @@
 /* The Codex-style changes-bar diff surface: the same card geometry as the
-   official DiffBlock (code-block fill, radius, copy button, footer), but the
-   body reads as a unified column with a per-line change bar — solid green
-   for additions, striped red for deletions — and the line's tinted band
-   extending to the widest line. */
+   official DiffBlock (code-block fill, radius, copy button), but the body
+   reads as a unified column with a per-line change bar — solid green for
+   additions, striped red for deletions — and the line's tinted band
+   extending to the widest line. Each file header carries that file's own
+   +A -R reading on the path's right; there is no card footer. */
 
 .block {
   position: relative;
@@ -35,13 +36,40 @@
   overflow-y: hidden;
 }
 
-/* A file header: the path in the primary tone, reserved right space so the
-   copy button never sits on its tail (DiffBlock parity). */
+/* A file header: the path in the primary tone with its +/- reading hugged
+   to the path's right; reserved right space so the copy button never sits
+   on the stat's tail. */
 .path {
-  color: var(--dsw-alias-label-primary);
-  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   padding-right: 56px;
   white-space: pre;
+}
+
+.pathText {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+/* The file's own +/- reading, matching the tool row's tally: additions
+   success-green, removals error-red, code font. */
+.pathStat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--ds-font-family-code);
+  font-size: 0.875em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pathAdd {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.pathRemove {
+  color: var(--dsw-alias-state-error-primary);
 }
 
 /* One body line: the change bar column (2px) + sign + content, all on one
@@ -131,11 +159,4 @@
 
 .expand:hover {
   color: var(--dsw-alias-label-secondary);
-}
-
-/* The change summary, dim under the body (DiffBlock parity). */
-.footer {
-  padding: 0 14px 12px;
-  font: var(--dsw-font-markdown-code-block);
-  color: var(--dsw-alias-label-tertiary);
 }

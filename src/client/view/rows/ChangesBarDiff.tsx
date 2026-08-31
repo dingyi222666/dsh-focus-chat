@@ -4,16 +4,15 @@
  * change bar per line — solid green for additions, striped red for
  * deletions — and the line's tinted background band extending to the widest
  * line. Paired delete/insert rows highlight their changed words, so the eye
- * lands on the delta instead of the whole line. Same chrome contract as the
- * official DiffBlock (path headers, head/tail fold, copy, and the
- * `└ +A -R · N file(s)` footer), so it is a drop-in replacement for the
- * diff card when the preference opts in.
+ * lands on the delta instead of the whole line. Each file's header carries
+ * that file's own `+A -R` reading on the path's right (the row-level stat,
+ * matching the tool row's tally), instead of a card footer.
  *
  * The hunks are whole-file prior/new texts (the same DiffHunk the official
  * DiffBlock draws as an all-deletes-then-all-adds block), so this viewer
- * first aligns the two sides line by line (an LCS trace) and then paints
- * each row: context rows get no bar, deleted rows a striped red bar, added
- * rows a solid green bar.
+ * first aligns the two sides line by line and then paints each row: context
+ * rows get no bar, deleted rows a striped red bar, added rows a solid green
+ * bar.
  */
 
 import { useMemo, useState } from 'react'
@@ -87,6 +86,11 @@ function splitDelta(text: string, partner: string | undefined): { head: string; 
   }
 }
 
+/** One flattened body row: a file header (with its own +/- reading) or a line. */
+type FlatRow =
+  | { kind: 'path'; text: string; added: number; removed: number }
+  | { kind: 'ctx' | 'del' | 'add'; text: string; oldText?: string; newText?: string }
+
 /**
  * Render a file mutation as the Codex-style changes-bar diff surface.
  * @param props - hunks, localized chrome, height cap, and caller position.
@@ -103,21 +107,24 @@ export function ChangesBarDiff({ diffs, labels, maxLines = 16, className }: {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // Per-file aligned rows, plus the running path header between files.
-  const files = useMemo(() => diffs.map(diff => ({
-    path: diff.path,
-    rows: alignLines(diff.oldText, diff.newText),
-  })), [diffs])
-  // The +/- totals count the aligned changed rows only — a context row is
-  // not a change — so the footer agrees with the bars the body draws (the
-  // official DiffBlock's naive all-old/all-new block counts would disagree
-  // with the unified view). Distinct files, as the footer prints.
-  const fileCount = useMemo(() => new Set(diffs.map(diff => diff.path)).size, [diffs])
+  // Per-file aligned rows, plus each file's own +/- totals (context rows are
+  // not changes, so the header's reading agrees with the bars the body
+  // draws).
+  const files = useMemo(() => diffs.map(diff => {
+    const rows = alignLines(diff.oldText, diff.newText)
+    let added = 0
+    let removed = 0
+    for (const row of rows) {
+      if (row.kind === 'add') added += 1
+      else if (row.kind === 'del') removed += 1
+    }
+    return { path: diff.path, rows, added, removed }
+  }), [diffs])
 
   const flatRows = useMemo(() => {
-    const rows: Array<{ kind: 'path' | Row['kind']; text: string; oldText?: string; newText?: string }> = []
+    const rows: FlatRow[] = []
     for (const file of files) {
-      rows.push({ kind: 'path', text: file.path })
+      rows.push({ kind: 'path', text: file.path, added: file.added, removed: file.removed })
       for (const row of file.rows) {
         if (row.kind === 'ctx') rows.push({ kind: 'ctx', text: row.old })
         else if (row.kind === 'del') rows.push({ kind: 'del', text: row.old, oldText: row.old, newText: row.new })
@@ -126,18 +133,6 @@ export function ChangesBarDiff({ diffs, labels, maxLines = 16, className }: {
     }
     return rows
   }, [files])
-
-  // The footer's +/- totals from the aligned body: each del row is one
-  // removed line, each add row one added line.
-  const { added, removed } = useMemo(() => {
-    let added = 0
-    let removed = 0
-    for (const row of flatRows) {
-      if (row.kind === 'add') added += 1
-      else if (row.kind === 'del') removed += 1
-    }
-    return { added, removed }
-  }, [flatRows])
 
   const hidden = flatRows.length - maxLines
   const capped = hidden > 0 && !expanded
@@ -184,15 +179,24 @@ export function ChangesBarDiff({ diffs, labels, maxLines = 16, className }: {
         )}
         {tail.map((row, index) => <RowLine key={`t${index}`} row={row} />)}
       </div>
-      <div className={css.footer}>└ +{added} -{removed} · {labels.files(fileCount)}</div>
     </div>
   )
 }
 
-/** One body line: the left change bar, the tinted band, and the content. */
-function RowLine({ row }: { row: { kind: 'path' | Row['kind']; text: string; oldText?: string; newText?: string } }) {
+/** One body line: a file header (path + its +/- reading) or a change line. */
+function RowLine({ row }: { row: FlatRow }) {
   if (row.kind === 'path') {
-    return <div className={css.path}>{row.text}</div>
+    return (
+      <div className={css.path} data-changes-bar-path>
+        <span className={css.pathText}>{row.text}</span>
+        {(row.added > 0 || row.removed > 0) && (
+          <span className={css.pathStat} data-changes-bar-stat>
+            <span className={css.pathAdd}>+{row.added}</span>
+            <span className={css.pathRemove}>-{row.removed}</span>
+          </span>
+        )}
+      </div>
+    )
   }
   if (row.kind === 'del') {
     const { head, delta, tail } = splitDelta(row.text, row.newText)

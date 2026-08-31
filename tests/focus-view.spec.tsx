@@ -2153,7 +2153,10 @@ it('renders the empty hint for an empty conversation', () => {
     // The changes-bar surface renders (its data attribute marks the card);
     // the official DiffBlock does not carry it.
     expect(document.querySelector('[data-changes-bar-diff]')).toBeTruthy()
-    expect(screen.getByText((_content, element) => element?.textContent === '└ +1 -1 · 1 个文件')).toBeTruthy()
+    // The collapsed row's file link also prints the path; the header stat
+    // lives inside the changes-bar card.
+    const header = document.querySelector('[data-changes-bar-path]')
+    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-1')
   })
 
   it('keeps the official DiffBlock when the diff style stays default', () => {
