@@ -1,7 +1,9 @@
 import { memo, useState } from 'react'
 import { CodeBlock, DiffBlock, DisclosureRow, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ChangesBarDiff } from './ChangesBarDiff.tsx'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusKey } from '../../locales.ts'
+import type { DiffStyle } from '../../../settings.ts'
 import { planSummary } from '../../model/todo.ts'
 import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
@@ -13,7 +15,7 @@ import a11yCss from '../accessibility.module.css'
 import css from './ToolCallRow.module.css'
 
 /** One call's card material through the shared card primitives (the same family the chat rows draw). */
-function CardBody({ card, t }: { card: FocusCard; t: FocusTranslate }) {
+function CardBody({ card, t, diffStyle }: { card: FocusCard; t: FocusTranslate; diffStyle: DiffStyle }) {
   switch (card.kind) {
     case 'terminal':
       return (
@@ -30,7 +32,9 @@ function CardBody({ card, t }: { card: FocusCard; t: FocusTranslate }) {
         />
       )
     case 'diff':
-      return <DiffBlock diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
+      return diffStyle === 'codex-bar'
+        ? <ChangesBarDiff diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
+        : <DiffBlock diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
     case 'read':
       return <ReadBlock label={card.label} lines={card.lines} totalLines={card.totalLines} lang={card.lang} labels={readLabels(t)} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
     case 'search':
@@ -128,10 +132,12 @@ function agentsSummary(row: FocusToolRow, t: FocusTranslate): string {
 }
 
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
-export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
+export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffStyle = 'default' }: {
   row: FocusToolRow
   t: FocusTranslate
   openFile: (path: string) => void
+  /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
+  diffStyle?: DiffStyle
 }) {
   const [expanded, setExpanded] = useState(false)
   const card = row.card
@@ -217,7 +223,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile }: {
       >
         <div className={css.callBodyWrap}>
           {card !== null ? (
-            <CardBody card={card} t={t} />
+            <CardBody card={card} t={t} diffStyle={diffStyle} />
           ) : (
             <>
               {row.variant === 'code' && row.body !== null && (

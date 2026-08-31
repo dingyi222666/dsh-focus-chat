@@ -396,6 +396,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@deepseek-ai/dsh-client-ui-settings@npm:^0.1.2-alpha.2":
+  version: 0.1.2-alpha.2
+  resolution: "@deepseek-ai/dsh-client-ui-settings@npm:0.1.2-alpha.2"
+  peerDependencies:
+    "@deepseek-ai/cordis": ^4.0.2
+  checksum: 10c0/3a71977479ffff1f5fac3d7b1d2ff41f395596a6f44be3ad1dac913ce9df72f8c927cf755ff7dc1c3007d2b639524b6b856d580324dc4aa883f2f87e22b7b174
+  languageName: node
+  linkType: hard
+
 "@deepseek-ai/dsh-client-ui-slots@npm:^0.1.2-alpha.2":
   version: 0.1.2-alpha.2
   resolution: "@deepseek-ai/dsh-client-ui-slots@npm:0.1.2-alpha.2"
@@ -522,6 +531,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@deepseek-ai/dsh-settings@npm:^0.1.2-alpha.2":
+  version: 0.1.2-alpha.2
+  resolution: "@deepseek-ai/dsh-settings@npm:0.1.2-alpha.2"
+  dependencies:
+    "@deepseek-ai/dsh-util-values": "npm:^0.1.2-alpha.2"
+  peerDependencies:
+    "@deepseek-ai/cordis": ^4.0.2
+    "@deepseek-ai/dsh-brand": ^0.1.2-alpha.2
+    "@deepseek-ai/dsh-invariants": ^0.1.2-alpha.2
+    "@deepseek-ai/dsh-session": ^0.1.2-alpha.2
+    "@deepseek-ai/schemastery": ^3.18.2
+  checksum: 10c0/e942e887b5ed976eb72f2e9cd6f450a78ba814c9e1784d7f5eb0f4374ae79f7f5055cc481991759b132f0f0970b6a39bba0fad67f2d90eb10d68cc1acc5d330a
+  languageName: node
+  linkType: hard
+
 "@deepseek-ai/dsh-timeout@npm:^0.1.2-alpha.2":
   version: 0.1.2-alpha.2
   resolution: "@deepseek-ai/dsh-timeout@npm:0.1.2-alpha.2"
@@ -572,7 +596,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@deepseek-ai/schemastery@npm:^3.18.2":
+"@deepseek-ai/schemastery@npm:^3.18.1, @deepseek-ai/schemastery@npm:^3.18.2":
   version: 3.18.2
   resolution: "@deepseek-ai/schemastery@npm:3.18.2"
   dependencies:
@@ -604,6 +628,7 @@ __metadata:
     "@deepseek-ai/dsh-client-ui-primitives": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-client-ui-renderer": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-client-ui-session": "npm:^0.1.2-alpha.2"
+    "@deepseek-ai/dsh-client-ui-settings": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-client-ui-slots": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-commands": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-deque": "npm:^0.1.2-alpha.2"
@@ -612,9 +637,11 @@ __metadata:
     "@deepseek-ai/dsh-llm": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-message-feedback": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-session": "npm:^0.1.2-alpha.2"
+    "@deepseek-ai/dsh-settings": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-typert-protocol": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-util-crypto": "npm:^0.1.2-alpha.2"
     "@deepseek-ai/dsh-util-workspace-path": "npm:^0.1.2-alpha.2"
+    "@deepseek-ai/schemastery": "npm:^3.18.1"
     "@testing-library/dom": "npm:^10.4.0"
     "@testing-library/react": "npm:^16.1.0"
     "@types/node": "npm:^22.0.0"

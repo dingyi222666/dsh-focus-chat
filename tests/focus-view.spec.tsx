@@ -121,6 +121,8 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     toggle?: (messageId: string, rating: string) => Promise<unknown>
   }
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
+  diffStyle?: 'default' | 'codex-bar'
+  mdStyle?: 'default' | 'highlight'
 } = {}): {
   result: ReturnType<typeof render>
   source: ReturnType<typeof createSnapshotStore<ViewSlice>>
@@ -142,6 +144,8 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
     useHostHome: (selector: (home: string | undefined) => string | undefined) => selector(opts.home),
     useFeedback: (_selector: unknown) => undefined,
+    useDiffStyle: (selector: (style: 'default' | 'codex-bar') => 'default' | 'codex-bar') => selector(opts.diffStyle ?? 'default'),
+    useMdStyle: (selector: (style: 'default' | 'highlight') => 'default' | 'highlight') => selector(opts.mdStyle ?? 'default'),
     ensureFeedback: () => Promise.resolve({ ok: true as const }),
     rateFeedback: opts.feedback?.rate ?? (() => Promise.resolve({ ok: true as const })),
     toggleFeedback: opts.feedback?.toggle ?? (() => Promise.resolve({ ok: true as const })),
@@ -315,6 +319,8 @@ it('renders the empty hint for an empty conversation', () => {
       fileMentions: (() => undefined) as never,
       scroll: { save: () => {}, read: () => null },
       useHostHome: () => undefined,
+      useDiffStyle: () => 'default',
+      useMdStyle: () => 'default',
       t,
     } as unknown as FocusViewProps)} />)
     expect(screen.getByText('two')).toBeTruthy()
@@ -2136,6 +2142,52 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('DSH')).toBeTruthy()
   })
 
+  it('renders the Codex changes-bar diff when the diff style opts in', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"a.ts","old_string":"old","new_string":"new"}', {
+        meta: { diffs: [{ path: 'a.ts', oldText: 'old', newText: 'new' }] },
+      }) }),
+    ], { diffStyle: 'codex-bar' })
+    // A lone call paints its own row: expand it to open the diff card.
+    fireEvent.click(screen.getByText('编辑'))
+    // The changes-bar surface renders (its data attribute marks the card);
+    // the official DiffBlock does not carry it.
+    expect(document.querySelector('[data-changes-bar-diff]')).toBeTruthy()
+    expect(screen.getByText((_content, element) => element?.textContent === '└ +1 -1 · 1 个文件')).toBeTruthy()
+  })
+
+  it('keeps the official DiffBlock when the diff style stays default', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"a.ts","old_string":"old","new_string":"new"}', {
+        meta: { diffs: [{ path: 'a.ts', oldText: 'old', newText: 'new' }] },
+      }) }),
+    ])
+    // A lone call paints its own row: expand it to open the diff card.
+    fireEvent.click(screen.getByText('编辑'))
+    expect(document.querySelector('[data-changes-bar-diff]')).toBeNull()
+    expect(document.querySelector('[data-diff]')).toBeTruthy()
+  })
+
+  it('paints the markdown highlight mode on the view root when opted in', () => {
+    renderView([
+      chatNode('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 1000,
+        blocks: [{ kind: 'text', text: 'run \`code\` now' }],
+      }),
+    ], { mdStyle: 'highlight' })
+    expect(document.querySelector('[data-focus-md-style="highlight"]')).toBeTruthy()
+  })
+
+  it('keeps the official markdown root marker when the md style stays default', () => {
+    renderView([
+      chatNode('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 1000,
+        blocks: [{ kind: 'text', text: 'run \`code\` now' }],
+      }),
+    ])
+    expect(document.querySelector('[data-focus-md-style="default"]')).toBeTruthy()
+  })
+
   it('renders running and outcome-less command rows and a bare compaction marker', () => {
     renderView([
       chatNode('run', 'command', {
@@ -2431,13 +2483,25 @@ describe('plugin apply', () => {
     const slots = new SlotRegistry(ctx)
     slots.register({
       name: 'root',
-      children: { 'conversation.view': { kind: 'list', scope: 'session' } },
+      children: {
+        'conversation.view': { kind: 'list', scope: 'session' },
+        'settings.general.item': { kind: 'list', scope: 'root' },
+      },
     }, (_p: { renderSlot?: unknown }) => null)
     ctx.provide('locale', {
       register: () => {},
       bind: () => () => 'Focus chat',
     })
     ctx.provide('sessions', { binding: () => undefined })
+    ctx.provide('settingsScope', {
+      bind: () => ({
+        getSnapshot: () => ({ status: 'ready' as const, value: undefined, base: undefined, user: undefined, revision: undefined, writable: false, mode: 'memory' as const }),
+        subscribe: () => () => {},
+        mutate: async () => {},
+        set: async () => {},
+        unset: async () => {},
+      }),
+    })
     ctx.provide('uiConversation', {})
     ctx.provide('connection', {
       isLoopback: true,

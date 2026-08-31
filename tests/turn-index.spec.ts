@@ -272,6 +272,10 @@ describe('focus rpc host handler', () => {
         effectDisposers.push(disposer)
         return disposer
       },
+      // The settings namespace registration is a no-op here (no settings
+      // service in this unit harness); the RPC channel is what this test
+      // asserts.
+      inject: (): unknown => ({ settings: { register: () => {} } }),
     } as never
     const { apply } = await import('../src/index.ts')
     ;(apply as (ctx: never) => void)(ctx)

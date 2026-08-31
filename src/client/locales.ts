@@ -221,6 +221,14 @@ export const zh = {
   'tool.agents': '{total} 个子代理',
   'tool.agents.running': '{text} · {running} 个运行中',
   'tool.agents.none': '无子代理',
+  'settings.diff.title': 'Diff 风格',
+  'settings.diff.desc': '文件变更卡片的差异渲染方式。',
+  'settings.diff.default': 'dsh 默认',
+  'settings.diff.codexBar': 'Codex 变更条',
+  'settings.md.title': 'Markdown 行内代码',
+  'settings.md.desc': '单行内代码的渲染风格。',
+  'settings.md.default': 'dsh 默认',
+  'settings.md.highlight': '高亮模式',
 } satisfies Record<string, string>
 
 /** The focus namespace key union. */
@@ -447,4 +455,12 @@ export const en = {
   'tool.agents': '{total} subagents',
   'tool.agents.running': '{text} · {running} running',
   'tool.agents.none': 'No subagents',
+  'settings.diff.title': 'Diff style',
+  'settings.diff.desc': 'How file-change cards render their diff.',
+  'settings.diff.default': 'dsh default',
+  'settings.diff.codexBar': 'Codex changes bar',
+  'settings.md.title': 'Markdown inline code',
+  'settings.md.desc': 'How single-line inline code renders.',
+  'settings.md.default': 'dsh default',
+  'settings.md.highlight': 'Highlight mode',
 } satisfies Record<FocusKey, string>

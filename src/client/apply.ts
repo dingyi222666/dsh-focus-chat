@@ -3,7 +3,7 @@
 
 /** Required services: the view slot, the locale registry, sessions, the connection facts, the Conversation image resolver, and the Remote namespaces. */
 export const inject = [
-  'slots', 'locale', 'sessions', 'uiConversation', 'connection',
+  'slots', 'locale', 'sessions', 'uiConversation', 'connection', 'settingsScope',
   'remote', 'remote.session', 'remote.messageFeedback',
 ]
 import type { Context } from '@deepseek-ai/cordis'
@@ -20,6 +20,11 @@ import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives
 import { FOCUS_RPC_CHANNEL } from '../protocol.ts'
 import type { TurnEventsResponse, TurnIndexResponse } from '../protocol.ts'
 import { FocusView } from './view/FocusView.tsx'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
+import { FOCUS_SETTINGS_NS, type FocusSettings } from '../settings.ts'
+import { FocusSettingsPolicy } from './focus-settings.ts'
+import { DiffStyleRow, type DiffStyleRowInjected } from './settings/DiffStyleRow.tsx'
+import { MdStyleRow, type MdStyleRowInjected } from './settings/MdStyleRow.tsx'
 import type { FocusHooksInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
 import { MessageFeedbackController } from './model/feedback-controller.ts'
 import { en, zh, type FocusKey } from './locales.ts'
@@ -40,6 +45,13 @@ export function apply(ctx: Context): void {
   // translate as a thunk, so it follows the active locale without
   // re-registration; components read the standard `t` seat instead.
   const t = ctx.locale.bind(NS)
+
+  // Durable view preferences (diff style, markdown inline-code style): the
+  // settingsScope bind hands the plugin's namespace scope; the policy keeps
+  // the live snapshot stores the view and the Settings rows share.
+  const focusSettings = new FocusSettingsPolicy(
+    ctx.settingsScope.bind<FocusSettings>({ namespace: FOCUS_SETTINGS_NS }),
+  )
 
   // Scroll ledger shared across view remounts: tab switches keep the reader's
   // place (the chat view's persistence shape), never persisted to disk.
@@ -80,6 +92,30 @@ export function apply(ctx: Context): void {
     if (!result.ok) throw new Error(result.error.message === '' ? result.error.code : result.error.message)
     return result.value as T
   }
+
+  // The two General-section preference rows (the TranscriptViewRow pattern):
+  // each row binds the policy's live store as its `use*` hook and persists
+  // through the same policy.
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'focus-diff-style',
+    order: 20,
+    locale: NS,
+    inject: (): DiffStyleRowInjected => ({
+      hooks: { diffStyle: focusSettings.diffStyle },
+      setDiffStyle: style => { focusSettings.setDiffStyle(style) },
+    }),
+  }, DiffStyleRow))
+  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+    name: 'settings.general.item',
+    id: 'focus-md-style',
+    order: 21,
+    locale: NS,
+    inject: (): MdStyleRowInjected => ({
+      hooks: { mdStyle: focusSettings.mdStyle },
+      setMdStyle: style => { focusSettings.setMdStyle(style) },
+    }),
+  }, MdStyleRow))
 
   ctx.slots.inject('conversation.view', () => {
     const dispose = ctx.slots.register({
@@ -157,6 +193,8 @@ export function apply(ctx: Context): void {
         hooks: {
           hostHome,
           feedback,
+          diffStyle: focusSettings.diffStyle,
+          mdStyle: focusSettings.mdStyle,
         },
       }
     },

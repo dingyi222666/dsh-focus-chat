@@ -3,6 +3,7 @@ import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
+import type { DiffStyle } from '../../../settings.ts'
 import { formatElapsed } from '../helpers/format.ts'
 import type { ImageLoader } from '../chrome/MessageImage.tsx'
 import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
@@ -47,7 +48,7 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
  * stays the focus view's reading; the turn-process node's counts ride the
  * model.
  */
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -58,6 +59,8 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFi
   /** Per-message feedback verbs (the assistant-actions strip's business face). */
   feedback: FocusFeedbackActions
   isLoopback: boolean
+  /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
+  diffStyle: DiffStyle
 }) {
   const [expanded, setExpanded] = useState(false)
   const duration = formatElapsed(item.durationMs, t)
@@ -84,6 +87,7 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFi
               loadImage={loadImage}
               feedback={feedback}
               isLoopback={isLoopback}
+              diffStyle={diffStyle}
             />
           ))}
         </div>

@@ -216,6 +216,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
 export function FocusView({
   useSession, useChat, sessionId, useSessions, loadImage, openFile, forkAt, fileMentions,
   turnIndex, turnEvents, isLoopback, scroll, useHostHome, useFeedback,
+  useDiffStyle, useMdStyle,
   ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
@@ -238,6 +239,11 @@ export function FocusView({
   // Host account home: a leftover POSIX home path in a tool summary or read
   // card displays as `~` (the ui-tool chat rule).
   const home = useHostHome(home => home)
+  // The view preferences (bound as selector hooks by the slot renderer):
+  // the diff renderer for file-mutation cards and the markdown inline-code
+  // rendering, both defaulting to the official surfaces.
+  const diffStyle = useDiffStyle(style => style)
+  const mdStyle = useMdStyle(style => style)
   const pendingSteering = useMemo(
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
@@ -775,6 +781,7 @@ export function FocusView({
             loadImage={loadImage}
             feedback={feedback}
             isLoopback={isLoopback}
+            diffStyle={diffStyle}
           />
         ) : (
           <FlowRow
@@ -787,15 +794,16 @@ export function FocusView({
             loadImage={loadImage}
             feedback={feedback}
             isLoopback={isLoopback}
+            diffStyle={diffStyle}
           />
         )}
       </div>
     )),
-    [flow, chat, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, requestTurnSlice],
+    [flow, chat, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle, requestTurnSlice],
   )
 
   return (
-    <div className={css.root}>
+    <div className={css.root} data-focus-md-style={mdStyle}>
       <div ref={navigatorMetricsRef} className={css.scroll} data-focus-scroll="">
         {/* The official turn navigator floats over the transcript's right
             gutter (pure CSS positioning, no measuring). */}

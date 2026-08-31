@@ -4,6 +4,7 @@ import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-clie
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusFlowItem } from '../../model/types.ts'
+import type { DiffStyle } from '../../../settings.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
 import { messageImageLabels } from '../helpers/image-labels.ts'
 import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
@@ -21,7 +22,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback }: {
+export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
   item: FocusFlowItem
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -33,6 +34,8 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
   /** Per-message feedback verbs (the assistant-actions strip's business face). */
   feedback: FocusFeedbackActions
   isLoopback: boolean
+  /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
+  diffStyle: DiffStyle
 }) {
   switch (item.kind) {
     case 'message':
@@ -128,9 +131,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
         && group.context.length === 0
         && 'callId' in group.items[0]
         && group.items[0].state !== 'running') {
-        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} />
+        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} diffStyle={diffStyle} />
       }
-      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} />
+      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} diffStyle={diffStyle} />
     }
     case 'turn-fold':
       return (
@@ -144,6 +147,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
           loadImage={loadImage}
           feedback={feedback}
           isLoopback={isLoopback}
+          diffStyle={diffStyle}
         />
       )
     case 'turn-tail':

@@ -1,6 +1,7 @@
 import { memo, useRef, useState } from 'react'
 import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
+import type { DiffStyle } from '../../../settings.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { toAssistantBlock, type TurnSlice } from '../../model/turn-slice.ts'
 import type { TurnOpeningMessage, TurnSummary } from '../../../protocol.ts'
@@ -57,7 +58,7 @@ function closingItem(nodeKey: string, summary: TurnSummary): FocusFlowItem | nul
  * fetch surfaces inline with a retry.
  */
 export const RemoteTurnRow = memo(function RemoteTurnRow({
-  item, slice, onExpand, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback,
+  item, slice, onExpand, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
 }: {
   item: Extract<FocusFlowItem, { kind: 'remote-turn' }>
   /** The cached projection for this turn; absent until first expansion. */
@@ -72,6 +73,8 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   loadImage: ImageLoader
   feedback: FocusFeedbackActions
   isLoopback: boolean
+  /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
+  diffStyle: DiffStyle
 }) {
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -107,7 +110,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   }
 
   const rowProps = {
-    t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback,
+    t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
   } as const
 
   return (

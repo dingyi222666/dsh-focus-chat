@@ -132,6 +132,8 @@ function renderView(nodes: ChatConversationViewNode[], opts: RenderOptions = {})
     scroll: opts.scroll ?? { save: () => {}, read: () => null },
     useHostHome: (selector: (home: string | undefined) => string | undefined) => selector(undefined),
     useFeedback: (_selector: unknown) => undefined,
+    useDiffStyle: (selector: (style: 'default' | 'codex-bar') => 'default' | 'codex-bar') => selector('default'),
+    useMdStyle: (selector: (style: 'default' | 'highlight') => 'default' | 'highlight') => selector('default'),
     ensureFeedback: () => Promise.resolve({ ok: true as const }),
     rateFeedback: () => Promise.resolve({ ok: true as const }),
     toggleFeedback: () => Promise.resolve({ ok: true as const }),

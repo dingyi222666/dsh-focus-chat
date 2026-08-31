@@ -1,0 +1,141 @@
+/* The Codex-style changes-bar diff surface: the same card geometry as the
+   official DiffBlock (code-block fill, radius, copy button, footer), but the
+   body reads as a unified column with a per-line change bar — solid green
+   for additions, striped red for deletions — and the line's tinted band
+   extending to the widest line. */
+
+.block {
+  position: relative;
+  margin: 16px 0;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-markdown-code-block);
+  border-radius: 12px;
+}
+
+/* The copy control floats in the top-right corner over the body, exactly
+   like DiffBlock's. */
+.copyButton {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 1;
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font: var(--dsw-font-xs-13);
+}
+
+.body {
+  padding: 12px 14px;
+  font: var(--dsw-font-markdown-code-block);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* A file header: the path in the primary tone, reserved right space so the
+   copy button never sits on its tail (DiffBlock parity). */
+.path {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+  padding-right: 56px;
+  white-space: pre;
+}
+
+/* One body line: the change bar column (2px) + sign + content, all on one
+   row; the tinted band spans the line's full width so a short changed line
+   still reads as a band against the card. */
+.ctx,
+.del,
+.add {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 22px;
+  white-space: pre;
+}
+
+/* The change bar itself: a 2px column pinned to the line's left edge.
+   Deletions stripe (the PiUI deletion bar), additions fill solid. */
+.bar {
+  flex: none;
+  align-self: stretch;
+  width: 2px;
+  min-height: 18px;
+  margin-top: 2px;
+}
+
+.del .bar {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--dsw-alias-state-error-primary) 0 4px,
+    transparent 4px 8px
+  );
+  opacity: 0.8;
+}
+
+.add .bar {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+/* The tinted band: a soft wash behind the line's text, extending the full
+   body width (the band is the row's background, the card fill shows only on
+   context rows). */
+.ctx {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.del {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.add {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);
+  color: var(--dsw-alias-state-success-primary);
+}
+
+/* The +/- sign column, aligned for scanning. */
+.sign {
+  flex: none;
+  width: 1ch;
+  text-align: center;
+  user-select: none;
+}
+
+/* The line content; the changed middle carries the strong delta mark. */
+.lineText {
+  min-width: 0;
+}
+
+/* The word-level delta: the changed middle of a paired line, brighter than
+   the row's base tone. */
+.delta {
+  font-weight: 600;
+}
+
+/* The fold control (DiffBlock parity): a full-width quiet button. */
+.expand {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.expand:hover {
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* The change summary, dim under the body (DiffBlock parity). */
+.footer {
+  padding: 0 14px 12px;
+  font: var(--dsw-font-markdown-code-block);
+  color: var(--dsw-alias-label-tertiary);
+}

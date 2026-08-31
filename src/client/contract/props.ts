@@ -10,6 +10,7 @@ import type { MessageFeedbackActionResult, MessageFeedbackView } from '../model/
 import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TurnEventsResponse, TurnIndexResponse } from '../../protocol.ts'
+import type { DiffStyle, MdStyle } from '../../settings.ts'
 
 /** One reflow-resistant scroll position (the chat view's saved shape). */
 export interface FocusScrollPosition {
@@ -74,6 +75,12 @@ export interface FocusHooksInjected {
     hostHome: HostObservable<string | undefined>
     /** The owning Session's feedback view, shared by every message control. */
     feedback: HostObservable<MessageFeedbackView>
+    /** The focus view's diff renderer preference (official DiffBlock vs the
+     *  Codex-style changes bar), bound as useDiffStyle. */
+    diffStyle: HostObservable<DiffStyle>
+    /** The focus view's markdown inline-code preference (official box vs the
+     *  highlight rendering), bound as useMdStyle. */
+    mdStyle: HostObservable<MdStyle>
   }
   /** Load the Session's feedback once, on first interaction. */
   ensureFeedback: () => Promise<MessageFeedbackActionResult>
