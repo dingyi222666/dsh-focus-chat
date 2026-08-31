@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
-/** Focus-view settings: the preference policy, the General-section rows, the
- *  Codex-style changes-bar diff renderer, and the markdown highlight mode. */
+/** Focus-view settings: the preference policy, the Focus chat settings
+ *  section, the Codex-style changes-bar diff renderer, and the markdown
+ *  highlight mode. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { FocusSettingsPolicy } from '../src/client/focus-settings.ts'
-import { DiffStyleRow } from '../src/client/settings/DiffStyleRow.tsx'
-import { MdStyleRow } from '../src/client/settings/MdStyleRow.tsx'
+import { FocusSettingsSection } from '../src/client/settings/FocusSettingsSection.tsx'
 import { ChangesBarDiff } from '../src/client/view/rows/ChangesBarDiff.tsx'
 import { DEFAULT_FOCUS_SETTINGS, resolveFocusSettings } from '../src/settings.ts'
 import { zh } from '../src/client/locales.ts'
@@ -86,45 +86,71 @@ describe('FocusSettingsPolicy', () => {
   })
 })
 
-describe('settings rows', () => {
-  it('renders the diff-style row with the current choice and switches it', () => {
-    const diffStyle = createSnapshotStore<'default' | 'codex-bar'>('default')
-    const setDiffStyle = vi.fn()
-    render(
-      <DiffStyleRow
-        useSessions={(() => undefined) as never}
-        useSessionPendingInteraction={(() => undefined) as never}
-        useWorkspaces={(() => undefined) as never}
-        useDiffStyle={selector => selector(diffStyle.getSnapshot())}
-        setDiffStyle={setDiffStyle}
-        t={t}
-      />,
-    )
-    expect(screen.getByText('Diff 风格')).toBeTruthy()
-    expect(screen.getByText('dsh 默认')).toBeTruthy()
-    fireEvent.click(screen.getByText('dsh 默认'))
-    fireEvent.click(screen.getByText('Codex 变更条'))
-    expect(setDiffStyle).toHaveBeenCalledWith('codex-bar')
+describe('FocusSettingsSection', () => {
+  const sectionProps = (overrides: {
+    diffStyle?: 'default' | 'codex-bar'
+    mdStyle?: 'default' | 'highlight'
+  } = {}) => ({
+    close: vi.fn(),
+    useSessions: (() => undefined) as never,
+    useSessionPendingInteraction: (() => undefined) as never,
+    useWorkspaces: (() => undefined) as never,
+    useDiffStyle: ((selector: (s: 'default' | 'codex-bar') => unknown) => selector(overrides.diffStyle ?? 'default')) as never,
+    useMdStyle: ((selector: (s: 'default' | 'highlight') => unknown) => selector(overrides.mdStyle ?? 'default')) as never,
+    setDiffStyle: vi.fn(),
+    setMdStyle: vi.fn(),
+    t,
   })
 
-  it('renders the markdown-style row with the current choice and switches it', () => {
-    const mdStyle = createSnapshotStore<'default' | 'highlight'>('default')
-    const setMdStyle = vi.fn()
-    render(
-      <MdStyleRow
-        useSessions={(() => undefined) as never}
-        useSessionPendingInteraction={(() => undefined) as never}
-        useWorkspaces={(() => undefined) as never}
-        useMdStyle={selector => selector(mdStyle.getSnapshot())}
-        setMdStyle={setMdStyle}
-        t={t}
-      />,
-    )
+  it('renders the section title and the two preference rows', () => {
+    render(<FocusSettingsSection {...sectionProps()} />)
+    expect(screen.getByText('聚焦对话')).toBeTruthy()
+    expect(screen.getByText('Diff 风格')).toBeTruthy()
     expect(screen.getByText('Markdown 行内代码')).toBeTruthy()
-    expect(screen.getByText('dsh 默认')).toBeTruthy()
-    fireEvent.click(screen.getByText('dsh 默认'))
-    fireEvent.click(screen.getByText('高亮模式'))
-    expect(setMdStyle).toHaveBeenCalledWith('highlight')
+  })
+
+  it('switches the diff style through the section', () => {
+    const props = sectionProps()
+    render(<FocusSettingsSection {...props} />)
+    // Scope to the diff row: walk up from the title to the row container
+    // (the first ancestor that directly owns a selector button). Both rows
+    // read "dsh 默认", so the row must be located by its title first.
+    const rowOf = (title: string): HTMLElement => {
+      let el: HTMLElement | null = screen.getByText(title)
+      while (el !== null && el.querySelector('button[aria-haspopup]') === null) {
+        el = el.parentElement
+      }
+      if (el === null) throw new Error(`row of "${title}" not found`)
+      return el
+    }
+    // Open the diff row's menu, then pick the option (the menu portals to the
+    // body, so the option is found globally).
+    fireEvent.click(within(rowOf('Diff 风格')).getByRole('button', { name: /dsh 默认/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /Codex 变更条/ }))
+    expect(props.setDiffStyle).toHaveBeenCalledWith('codex-bar')
+  })
+
+  it('switches the markdown style through the section', () => {
+    const props = sectionProps()
+    render(<FocusSettingsSection {...props} />)
+    const rowOf = (title: string): HTMLElement => {
+      let el: HTMLElement | null = screen.getByText(title)
+      while (el !== null && el.querySelector('button[aria-haspopup]') === null) {
+        el = el.parentElement
+      }
+      if (el === null) throw new Error(`row of "${title}" not found`)
+      return el
+    }
+    fireEvent.click(within(rowOf('Markdown 行内代码')).getByRole('button', { name: /dsh 默认/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: /高亮模式/ }))
+    expect(props.setMdStyle).toHaveBeenCalledWith('highlight')
+  })
+
+  it('shows the selected values from the live stores', () => {
+    render(<FocusSettingsSection {...sectionProps({ diffStyle: 'codex-bar', mdStyle: 'highlight' })} />)
+    // Both selectors show their current choice; the other options still exist.
+    expect(screen.getAllByText('Codex 变更条').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('高亮模式').length).toBeGreaterThan(0)
   })
 })
 
@@ -139,19 +165,22 @@ describe('ChangesBarDiff', () => {
     files: (count: number) => `${count} 个文件`,
   }
 
-  it('renders the path header with its own stat, aligned rows, and change bars', () => {
+  it('renders the path header with its own stat, split panels, and change bars', () => {
     render(<ChangesBarDiff diffs={[
       { path: 'src/a.ts', oldText: 'a\nb', newText: 'a\nb\nc' },
     ]} labels={labels} maxLines={8} />)
     // The path header carries this file's +1 -0 reading on its right.
     const header = screen.getByText('src/a.ts').closest('[data-changes-bar-path]')
     expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-0')
-    // The two context rows 'a' and 'b' and the added 'c'.
-    expect(screen.getByText('a')).toBeTruthy()
-    expect(screen.getByText('b')).toBeTruthy()
+    // Context lines appear in BOTH panels; the added line only on the right.
+    expect(screen.getAllByText('a').length).toBe(2)
+    expect(screen.getAllByText('b').length).toBe(2)
     expect(screen.getByText('c')).toBeTruthy()
-    expect(screen.queryAllByText('+').length).toBe(1)
-    expect(screen.queryAllByText('-').length).toBe(0)
+    // The added line's cell is the success-tinted add cell; the matching
+    // left cell is the empty stripe.
+    const addCell = screen.getByText('c').closest('[data-cell]')
+    expect(addCell?.getAttribute('data-cell')).toBe('add')
+    expect(document.querySelectorAll('[data-cell="empty"]').length).toBe(1)
     // No card footer anymore.
     expect(document.body.textContent).not.toContain('└')
   })
@@ -161,18 +190,16 @@ describe('ChangesBarDiff', () => {
       { path: 'b.ts', oldText: 'keep\nkeep old line', newText: 'keep\nkeep new line' },
     ]} labels={labels} maxLines={8} />)
     // The changed middle of the paired line carries the delta mark; the
-    // shared prefix and suffix stay plain. The line text is split into
-    // head/delta/tail spans, so match each row by its whole textContent.
-    const lineOf = (text: string): Element | null => {
-      const rows = document.querySelectorAll('[data-changes-bar-line]')
-      for (const row of rows) {
-        // The +/- sign rides the row; the line text is the rest.
-        if (row.textContent === `-${text}` || row.textContent === `+${text}`) return row
+    // shared prefix and suffix stay plain. The old line sits in the left
+    // panel, the new line in the right panel.
+    const panelOf = (side: string, text: string): Element | null => {
+      for (const panel of document.querySelectorAll(`[data-changes-bar-panel="${side}"]`)) {
+        if (panel.textContent?.includes(text)) return panel
       }
       return null
     }
-    expect(lineOf('keep old line')?.querySelector('[class*="delta"]')?.textContent).toBe('old')
-    expect(lineOf('keep new line')?.querySelector('[class*="delta"]')?.textContent).toBe('new')
+    expect(panelOf('left', 'keep old line')?.querySelector('[class*="delta"]')?.textContent).toBe('old')
+    expect(panelOf('right', 'keep new line')?.querySelector('[class*="delta"]')?.textContent).toBe('new')
     // The header's stat counts one deletion and one insertion.
     const header = screen.getByText('b.ts').closest('[data-changes-bar-path]')
     expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-1')

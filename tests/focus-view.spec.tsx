@@ -2488,7 +2488,7 @@ describe('plugin apply', () => {
       name: 'root',
       children: {
         'conversation.view': { kind: 'list', scope: 'session' },
-        'settings.general.item': { kind: 'list', scope: 'root' },
+        'settings.section': { kind: 'list', scope: 'root' },
       },
     }, (_p: { renderSlot?: unknown }) => null)
     ctx.provide('locale', {

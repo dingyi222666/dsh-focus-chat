@@ -23,8 +23,7 @@ import { FocusView } from './view/FocusView.tsx'
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import { FOCUS_SETTINGS_NS, type FocusSettings } from '../settings.ts'
 import { FocusSettingsPolicy } from './focus-settings.ts'
-import { DiffStyleRow, type DiffStyleRowInjected } from './settings/DiffStyleRow.tsx'
-import { MdStyleRow, type MdStyleRowInjected } from './settings/MdStyleRow.tsx'
+import { FocusSettingsSection, type FocusSettingsSectionInjected } from './settings/FocusSettingsSection.tsx'
 import type { FocusHooksInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
 import { MessageFeedbackController } from './model/feedback-controller.ts'
 import { en, zh, type FocusKey } from './locales.ts'
@@ -93,29 +92,24 @@ export function apply(ctx: Context): void {
     return result.value as T
   }
 
-  // The two General-section preference rows (the TranscriptViewRow pattern):
-  // each row binds the policy's live store as its `use*` hook and persists
-  // through the same policy.
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'focus-diff-style',
-    order: 20,
+  // The Focus chat settings section (the NotificationsSection pattern): one
+  // `settings.section` entry owning both preference rows, bound to the
+  // policy's live stores through the hooks compartment.
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'focus-chat',
+    order: 40,
+    label: () => t('settings.nav'),
     locale: NS,
-    inject: (): DiffStyleRowInjected => ({
-      hooks: { diffStyle: focusSettings.diffStyle },
+    inject: (): FocusSettingsSectionInjected => ({
+      hooks: {
+        diffStyle: focusSettings.diffStyle,
+        mdStyle: focusSettings.mdStyle,
+      },
       setDiffStyle: style => { focusSettings.setDiffStyle(style) },
-    }),
-  }, DiffStyleRow))
-  ctx.slots.inject('settings.general.item', () => ctx.slots.register({
-    name: 'settings.general.item',
-    id: 'focus-md-style',
-    order: 21,
-    locale: NS,
-    inject: (): MdStyleRowInjected => ({
-      hooks: { mdStyle: focusSettings.mdStyle },
       setMdStyle: style => { focusSettings.setMdStyle(style) },
     }),
-  }, MdStyleRow))
+  }, FocusSettingsSection))
 
   ctx.slots.inject('conversation.view', () => {
     const dispose = ctx.slots.register({

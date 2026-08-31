@@ -1,9 +1,11 @@
-/* The Codex-style changes-bar diff surface: the same card geometry as the
-   official DiffBlock (code-block fill, radius, copy button), but the body
-   reads as a unified column with a per-line change bar — solid green for
-   additions, striped red for deletions — and the line's tinted band
-   extending to the widest line. Each file header carries that file's own
-   +A -R reading on the path's right; there is no card footer. */
+/* The Codex-style changes-bar diff surface, in the reference dsh-diff-viewer
+   geometry: the code-block card family (12px radius, markdown code-block
+   surface + font), a side-by-side pair of panels per change — left panel the
+   old side, right panel the new side, a hairline between them — with a 4px
+   change bar (solid success for additions, striped error for deletions)
+   left of each panel's line numbers, and a tinted band behind each changed
+   cell. Each file header carries that file's own +A -R on the path's right;
+   there is no card footer. */
 
 .block {
   position: relative;
@@ -43,7 +45,7 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding-right: 56px;
+  padding: 0 56px 4px 0;
   white-space: pre;
 }
 
@@ -72,65 +74,102 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* One body line: the change bar column (2px) + sign + content, all on one
-   row; the tinted band spans the line's full width so a short changed line
-   still reads as a band against the card. */
-.ctx,
-.del,
-.add {
+/* One change pair: the old panel and the new panel side by side, with a
+   hairline between them. */
+.pairRow {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
   min-height: 22px;
+  line-height: 22px;
+}
+
+.panel {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   white-space: pre;
 }
 
-/* The change bar itself: a 2px column pinned to the line's left edge.
-   Deletions stripe (the PiUI deletion bar), additions fill solid. */
+.panel + .panel {
+  border-left: 1px solid var(--dsw-alias-border-l1);
+}
+
+/* The panel gutter: the change bar then the line number, never scrolling. */
+.gutter {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+/* The change bar: 4px, solid success for additions, a striped error pattern
+   for deletions; context rows carry a blank spacer so the numbers align. */
 .bar {
   flex: none;
-  align-self: stretch;
-  width: 2px;
-  min-height: 18px;
-  margin-top: 2px;
+  width: 4px;
 }
 
-.del .bar {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--dsw-alias-state-error-primary) 0 4px,
-    transparent 4px 8px
-  );
-  opacity: 0.8;
-}
-
-.add .bar {
+.bar[data-bar='add'] {
   background: var(--dsw-alias-state-success-primary);
 }
 
-/* The tinted band: a soft wash behind the line's text, extending the full
-   body width (the band is the row's background, the card fill shows only on
-   context rows). */
-.ctx {
+.bar[data-bar='del'] {
+  background-image: linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--dsw-alias-state-error-primary) 45%, transparent) 50%,
+    var(--dsw-alias-state-error-primary) 50%
+  );
+  background-size: 2px 2px;
+  background-repeat: repeat;
+}
+
+/* The line number cell: right-aligned, dim, non-selectable. */
+.lineNo {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-width: 34px;
+  padding: 0 10px 0 12px;
+  text-align: right;
+  user-select: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* The content cell: the row fills the panel, so the add/delete background
+   travels with the text under horizontal scroll. */
+.content {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 12px;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+/* Row background tints: changed cells carry a low-opacity success/error wash
+   (the word mark below sits one step stronger). */
+.content[data-cell='add'] {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent);
+}
+
+.content[data-cell='del'] {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 12%, transparent);
+}
+
+.content[data-cell='ctx'] {
   color: var(--dsw-alias-label-secondary);
 }
 
-.del {
-  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
-  color: var(--dsw-alias-state-error-primary);
-}
-
-.add {
-  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);
-  color: var(--dsw-alias-state-success-primary);
-}
-
-/* The +/- sign column, aligned for scanning. */
-.sign {
-  flex: none;
-  width: 1ch;
-  text-align: center;
-  user-select: none;
+/* The empty side of an add/delete-only pair: a diagonal stripe wash. */
+.content[data-cell='empty'] {
+  background-color: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 18%, transparent);
+  background-size: 8px 8px;
+  background-origin: border-box;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent calc(3px * 1.414),
+    color-mix(in srgb, var(--dsw-alias-border-l2) 48%, transparent) calc(3px * 1.414),
+    color-mix(in srgb, var(--dsw-alias-border-l2) 48%, transparent) calc(4px * 1.414)
+  );
 }
 
 /* The line content; the changed middle carries the strong delta mark. */
@@ -138,10 +177,15 @@
   min-width: 0;
 }
 
-/* The word-level delta: the changed middle of a paired line, brighter than
-   the row's base tone. */
+/* The word-level delta: the changed middle of a paired line, one step
+   stronger than the row's base wash. */
 .delta {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 28%, transparent);
   font-weight: 600;
+}
+
+.content[data-cell='del'] .delta {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 28%, transparent);
 }
 
 /* The fold control (DiffBlock parity): a full-width quiet button. */

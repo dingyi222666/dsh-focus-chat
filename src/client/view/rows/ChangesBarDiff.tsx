@@ -1,18 +1,19 @@
 /**
- * The Codex-style changes-bar diff viewer (the PiUI look the reference
- * dsh-diff-viewer plugin implements): a unified single column with a left
- * change bar per line — solid green for additions, striped red for
- * deletions — and the line's tinted background band extending to the widest
- * line. Paired delete/insert rows highlight their changed words, so the eye
- * lands on the delta instead of the whole line. Each file's header carries
- * that file's own `+A -R` reading on the path's right (the row-level stat,
- * matching the tool row's tally), instead of a card footer.
+ * The Codex-style changes-bar diff viewer, in the PiUI look the reference
+ * dsh-diff-viewer plugin implements: a side-by-side (split) pair of panels
+ * per change — the left panel carries the old side (striped red change bar
+ * + old line number), the right panel the new side (solid green change bar
+ * + new line number), with a hairline between them. Context rows show the
+ * same line in both panels; the empty side of a pure add/delete pair wears a
+ * diagonal stripe wash. Changed pairs mark their intra-line delta (shared
+ * prefix/suffix stay plain, the middle carries the word mark) on both sides.
+ * Each file's header carries that file's own `+A -R` reading on the path's
+ * right (the row-level stat, matching the tool row's tally), instead of a
+ * card footer.
  *
  * The hunks are whole-file prior/new texts (the same DiffHunk the official
  * DiffBlock draws as an all-deletes-then-all-adds block), so this viewer
- * first aligns the two sides line by line and then paints each row: context
- * rows get no bar, deleted rows a striped red bar, added rows a solid green
- * bar.
+ * first aligns the two sides line by line and then paints one pair per row.
  */
 
 import { useMemo, useState } from 'react'
@@ -20,11 +21,21 @@ import type { DiffBlockLabels, DiffHunk } from '@deepseek-ai/dsh-client-ui-primi
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './ChangesBarDiff.module.css'
 
-/** One aligned body row: a context line, a deletion, or an insertion. */
-type Row =
-  | { kind: 'ctx'; old: string; new: string }
-  | { kind: 'del'; old: string; new?: string }
-  | { kind: 'add'; old?: string; new: string }
+/** One side's cell type: the pair's left (old) or right (new) role. */
+type CellType = 'ctx' | 'del' | 'add' | 'empty'
+
+/** One panel cell: the side's role, text, and its own 1-based line number. */
+interface Cell {
+  type: CellType
+  text: string
+  lineNo: number | undefined
+}
+
+/** One rendered row: the old side (left) and the new side (right) in pair. */
+interface Pair {
+  left: Cell
+  right: Cell
+}
 
 /** Split a side's text into content lines (the DiffBlock terminator rule). */
 function contentLines(text: string): string[] {
@@ -34,41 +45,52 @@ function contentLines(text: string): string[] {
 }
 
 /**
- * Align old and new lines into context / deletion / insertion rows. Equal
- * runs collapse to context; a changed region splits into a deletion and an
- * insertion row that share each other as their partner, so the word-level
- * delta of each side is computed against the line it replaced. Pure
- * additions and deletions carry no partner (the whole line is the delta).
+ * Align old and new lines into one pair per row. Equal lines become a
+ * context pair; a changed region pairs its old line (left) with the new line
+ * (right); a pure deletion pairs the removed line against an empty right
+ * cell and a pure addition an empty left cell against the added line. Line
+ * numbers are each side's own 1-based positions.
  */
-function alignLines(oldText: string | null, newText: string): Row[] {
+function alignPairs(oldText: string | null, newText: string): Pair[] {
   const oldLines = oldText === null ? [] : contentLines(oldText)
   const newLines = contentLines(newText)
-  const rows: Row[] = []
+  const pairs: Pair[] = []
   let i = 0
   let j = 0
   while (i < oldLines.length || j < newLines.length) {
     if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
-      rows.push({ kind: 'ctx', old: oldLines[i], new: newLines[j] })
+      pairs.push({
+        left: { type: 'ctx', text: oldLines[i], lineNo: i + 1 },
+        right: { type: 'ctx', text: newLines[j], lineNo: j + 1 },
+      })
       i++
       j++
     } else if (i < oldLines.length && j < newLines.length) {
       // A replacement: the old line and the new line pair up.
-      rows.push({ kind: 'del', old: oldLines[i], new: newLines[j] })
-      rows.push({ kind: 'add', old: oldLines[i], new: newLines[j] })
+      pairs.push({
+        left: { type: 'del', text: oldLines[i], lineNo: i + 1 },
+        right: { type: 'add', text: newLines[j], lineNo: j + 1 },
+      })
       i++
       j++
     } else if (i < oldLines.length) {
-      rows.push({ kind: 'del', old: oldLines[i] })
+      pairs.push({
+        left: { type: 'del', text: oldLines[i], lineNo: i + 1 },
+        right: { type: 'empty', text: '', lineNo: undefined },
+      })
       i++
     } else {
-      rows.push({ kind: 'add', new: newLines[j] })
+      pairs.push({
+        left: { type: 'empty', text: '', lineNo: undefined },
+        right: { type: 'add', text: newLines[j], lineNo: j + 1 },
+      })
       j++
     }
   }
-  return rows
+  return pairs
 }
 
-/** The changed words of one line, for the word-level highlight: the longest
+/** The changed words of one side, for the word-level highlight: the longest
  *  common prefix and suffix stay plain, the middle (if any) is the delta. */
 function splitDelta(text: string, partner: string | undefined): { head: string; delta: string; tail: string } {
   if (partner === undefined) return { head: '', delta: text, tail: '' }
@@ -86,10 +108,10 @@ function splitDelta(text: string, partner: string | undefined): { head: string; 
   }
 }
 
-/** One flattened body row: a file header (with its own +/- reading) or a line. */
+/** One flattened body row: a file header (with its own +/- reading) or a pair. */
 type FlatRow =
   | { kind: 'path'; text: string; added: number; removed: number }
-  | { kind: 'ctx' | 'del' | 'add'; text: string; oldText?: string; newText?: string }
+  | { kind: 'pair'; pair: Pair }
 
 /**
  * Render a file mutation as the Codex-style changes-bar diff surface.
@@ -107,29 +129,25 @@ export function ChangesBarDiff({ diffs, labels, maxLines = 16, className }: {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  // Per-file aligned rows, plus each file's own +/- totals (context rows are
+  // Per-file aligned pairs, plus each file's own +/- totals (context rows are
   // not changes, so the header's reading agrees with the bars the body
   // draws).
   const files = useMemo(() => diffs.map(diff => {
-    const rows = alignLines(diff.oldText, diff.newText)
+    const pairs = alignPairs(diff.oldText, diff.newText)
     let added = 0
     let removed = 0
-    for (const row of rows) {
-      if (row.kind === 'add') added += 1
-      else if (row.kind === 'del') removed += 1
+    for (const pair of pairs) {
+      if (pair.left.type === 'del') removed += 1
+      if (pair.right.type === 'add') added += 1
     }
-    return { path: diff.path, rows, added, removed }
+    return { path: diff.path, pairs, added, removed }
   }), [diffs])
 
   const flatRows = useMemo(() => {
     const rows: FlatRow[] = []
     for (const file of files) {
       rows.push({ kind: 'path', text: file.path, added: file.added, removed: file.removed })
-      for (const row of file.rows) {
-        if (row.kind === 'ctx') rows.push({ kind: 'ctx', text: row.old })
-        else if (row.kind === 'del') rows.push({ kind: 'del', text: row.old, oldText: row.old, newText: row.new })
-        else rows.push({ kind: 'add', text: row.new, oldText: row.old, newText: row.new })
-      }
+      for (const pair of file.pairs) rows.push({ kind: 'pair', pair })
     }
     return rows
   }, [files])
@@ -144,12 +162,13 @@ export function ChangesBarDiff({ diffs, labels, maxLines = 16, className }: {
   const onCopy = (): void => {
     if (copied) return
     void writeClipboard(flatRows.map(row => {
-      switch (row.kind) {
-        case 'path': return row.text
-        case 'del': return `- ${row.text}`
-        case 'add': return `+ ${row.text}`
-        default: return row.text
-      }
+      if (row.kind === 'path') return row.text
+      const { left, right } = row.pair
+      const parts: string[] = []
+      if (left.type === 'ctx') parts.push(left.text)
+      else if (left.type === 'del') parts.push(`- ${left.text}`)
+      if (right.type === 'add') parts.push(`+ ${right.text}`)
+      return parts.join('\n')
     }).join('\n')).then(ok => {
       if (!ok) return
       setCopied(true)
@@ -183,7 +202,7 @@ export function ChangesBarDiff({ diffs, labels, maxLines = 16, className }: {
   )
 }
 
-/** One body line: a file header (path + its +/- reading) or a change line. */
+/** One body row: a file header (path + its +/- reading) or a change pair. */
 function RowLine({ row }: { row: FlatRow }) {
   if (row.kind === 'path') {
     return (
@@ -198,38 +217,44 @@ function RowLine({ row }: { row: FlatRow }) {
       </div>
     )
   }
-  if (row.kind === 'del') {
-    const { head, delta, tail } = splitDelta(row.text, row.newText)
-    return (
-      <div className={css.del} data-changes-bar-line>
-        <span className={css.bar} aria-hidden />
-        <span className={css.sign}>-</span>
-        <span className={css.lineText}>
-          {head}
-          {delta !== '' && <span className={css.delta}>{delta}</span>}
-          {tail}
-        </span>
-      </div>
-    )
-  }
-  if (row.kind === 'add') {
-    const { head, delta, tail } = splitDelta(row.text, row.oldText)
-    return (
-      <div className={css.add} data-changes-bar-line>
-        <span className={css.bar} aria-hidden />
-        <span className={css.sign}>+</span>
-        <span className={css.lineText}>
-          {head}
-          {delta !== '' && <span className={css.delta}>{delta}</span>}
-          {tail}
-        </span>
-      </div>
-    )
-  }
+  const { left, right } = row.pair
+  // A changed pair computes each side's word delta against its partner (the
+  // shared prefix/suffix stay plain on both panels).
+  const leftDelta = left.type === 'del' ? splitDelta(left.text, right.type === 'add' ? right.text : undefined) : undefined
+  const rightDelta = right.type === 'add' ? splitDelta(right.text, left.type === 'del' ? left.text : undefined) : undefined
   return (
-    <div className={css.ctx} data-changes-bar-line>
-      <span className={css.bar} aria-hidden />
-      <span className={css.lineText}>{row.text}</span>
+    <div className={css.pairRow} data-changes-bar-line>
+      <Panel cell={left} delta={leftDelta} side="left" />
+      <Panel cell={right} delta={rightDelta} side="right" />
+    </div>
+  )
+}
+
+/** One panel of a pair: change bar + line number + content (with word mark). */
+function Panel({ cell, delta, side }: {
+  cell: Cell
+  delta: { head: string; delta: string; tail: string } | undefined
+  side: 'left' | 'right'
+}) {
+  return (
+    <div className={css.panel} data-changes-bar-panel={side}>
+      <div className={css.gutter}>
+        <span className={css.bar} data-bar={cell.type || undefined} aria-hidden />
+        <span className={css.lineNo} data-changes-bar-line-no={cell.lineNo ?? undefined}>{cell.lineNo ?? ''}</span>
+      </div>
+      <div className={css.content} data-cell={cell.type || undefined}>
+        {cell.type === 'empty' ? (
+          <span aria-hidden />
+        ) : delta === undefined ? (
+          <span className={css.lineText}>{cell.text}</span>
+        ) : (
+          <span className={css.lineText}>
+            {delta.head}
+            {delta.delta !== '' && <span className={css.delta}>{delta.delta}</span>}
+            {delta.tail}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
