@@ -295,4 +295,10 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **文档**: README 截图区新增设置页截图,与前后对比截图并排展示',
     ],
   },
+  '0.2.12': {
+    features: [],
+    fixes: [
+      '- **文档**: README 设置页截图移至前后对比截图下方的独立行,布局更清晰',
+    ],
+  },
 }
