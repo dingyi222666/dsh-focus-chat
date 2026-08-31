@@ -290,6 +290,8 @@ export function buildFocusFlow(
     endTime: number | null
     /** The user stopped the turn mid-run (an interrupted step or call). */
     stopped: boolean
+    /** The turn's lifecycle state: only a closed turn folds. */
+    status: 'open' | 'closed' | 'unknown'
   }>()
   for (const key of order) {
     const node = getNode(key)
@@ -314,18 +316,43 @@ export function buildFocusFlow(
       const endReason = (turn.end as { data?: { reason?: { kind?: string } } } | undefined)?.data?.reason
       const turnStopped = endReason !== undefined
         && (endReason.kind === 'interrupted' || endReason.kind === 'aborted')
+      const startTime = turn.start?.time ?? null
+      const endTime = turn.end?.time ?? null
       turnPlans.set(turn.turn, {
-        durationMs: turn.start !== undefined && turn.end !== undefined
-          ? Math.max(0, turn.end.time - turn.start.time)
+        // The wall duration is the fold's fallback end. A CLOSED turn whose
+        // end event is missing (a long conversation's data cut, a reload
+        // orphan) falls back to the latest row's time below, so its stretches
+        // still fold with the real work time. An OPEN turn never folds —
+        // `status` is the gate, not `durationMs` (which is only the fallback
+        // end source).
+        durationMs: startTime !== null && endTime !== null
+          ? Math.max(0, endTime - startTime)
           : null,
         closingKey: node.kind === 'assistant-step' && assistantHasText(node.data) ? key : null,
-        startTime: turn.start?.time ?? null,
-        endTime: turn.end?.time ?? null,
+        startTime,
+        endTime,
         stopped: stepInterrupted(node) || turnStopped,
+        status: turn.status,
       })
     } else {
       if (node.kind === 'assistant-step' && assistantHasText(node.data)) plan.closingKey = key
       if (stepInterrupted(node)) plan.stopped = true
+      // A CLOSED turn whose end event is missing (the long-conversation
+      // case: `durationMs` is null — no real end) adopts the LATEST row's
+      // time as its end, so the final stretch closes with the real work time
+      // instead of unfolding for want of an end. The max keeps a later row (a
+      // tool settling after an earlier assistant reply) from being shadowed
+      // by the first row that seeded the fallback. A turn with a real end, or
+      // an OPEN (running) turn, is never touched — the end time is
+      // authoritative there, and an open turn must stay unfolded.
+      if (plan.status === 'closed' && plan.durationMs === null) {
+        const rowTime = nodeTime(node)
+        if (rowTime !== null
+          && (plan.startTime === null || rowTime >= plan.startTime)
+          && (plan.endTime === null || rowTime > plan.endTime)) {
+          plan.endTime = rowTime
+        }
+      }
     }
   }
 
@@ -484,7 +511,10 @@ export function buildFocusFlow(
       // differing turn locations within the same stream, and batching by turn
       // would split a single notice run back into a pile of rows.
       const plan = turnId === undefined ? undefined : turnPlans.get(turnId)
-      if (plan === undefined || plan.durationMs === null) {
+      // An open or plan-less turn batches consecutive injections into one
+      // collapsed line (they fold individually once the turn closes); a
+      // closed turn folds them individually below.
+      if (plan === undefined || plan.status !== 'closed') {
         if (pendingContext.length === 0) pendingContextTurn = turnId
         // TS narrows the kind but not the object's role property (property
         // narrowing applies to accesses, not to the object argument); the
@@ -497,14 +527,19 @@ export function buildFocusFlow(
     // A mid-way interjection closes the current fold segment — the worked
     // duration reads the stretch between the two interjections (segment end
     // = this steering's time) — and starts the next one; the user's own
-    // voice itself stays visible.
+    // voice itself stays visible. The interjection's own time is a reliable
+    // segment end even when the turn has no end event yet (a long turn the
+    // user interrupted keeps running): the stretch that ran before the
+    // interjection is complete work, so it folds rather than staying
+    // unfolded beside the running tail.
     if (item.kind === 'message' && item.role === 'steering') {
-      const plan = turnId === undefined ? undefined : turnPlans.get(turnId)
-      if (plan !== undefined && plan.durationMs !== null) {
+      if (pendingFoldStart !== null || pendingFold.length > 0) {
         flushFold(item.time)
         pendingFoldStart = item.time
       } else {
-        flushFold(null)
+        // No segment is open (nothing buffered): the interjection is the
+        // stretch's own start — the rows after it fold from this time.
+        pendingFoldStart = item.time
       }
       flow.push(item)
       return
@@ -517,7 +552,12 @@ export function buildFocusFlow(
       return
     }
     const plan = turnPlans.get(turnId)
-    if (plan === undefined || plan.durationMs === null) {
+    // A closed turn folds its work (a start time origins the stretch; a
+    // missing end falls back to the latest row's time, so a long closed turn
+    // still reads its real worked duration). An open or unknown turn — still
+    // running — renders its rows unfolded: folding would hide work that is
+    // still in flight.
+    if (plan === undefined || plan.status !== 'closed' || plan.startTime === null) {
       flushFold(null)
       flow.push(item)
       return
@@ -775,4 +815,33 @@ function stepInterrupted(node: ChatConversationViewNode): boolean {
     return 'kind' in root && root.error !== undefined && STOPPED_TOOL_CODES.has(root.error.code)
   }
   return false
+}
+
+/** One chat node's wall-clock time, for the end-event-less turn fallback:
+ *  messages and commands carry their own `time`; a settled assistant reads
+ *  its final node's time; a tool call its result's time. Unknown kinds (the
+ *  turn-process control) return null — they have no work time of their own.
+ *  @param node - the chat node.
+ *  @returns the node's time, or null when the kind carries none. */
+function nodeTime(node: ChatConversationViewNode): number | null {
+  switch (node.kind) {
+    case 'user':
+    case 'steering':
+    case 'context':
+    case 'command': {
+      const data = node.data as { time?: unknown }
+      return typeof data.time === 'number' ? data.time : null
+    }
+    case 'assistant-step': {
+      const assistant = node.data as AssistantChatData
+      return assistant.finalNode?.time ?? null
+    }
+    case 'tool-call': {
+      const root = (node.data as ToolChatData).root
+      const result = root as { time?: unknown }
+      return typeof result.time === 'number' ? result.time : null
+    }
+    default:
+      return null
+  }
 }

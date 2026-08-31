@@ -1365,6 +1365,82 @@ it('renders the empty hint for an empty conversation', () => {
     expect(document.querySelector('[data-state="error"]')).toBeNull()
   })
 
+  it('folds a closed turn with a missing end event (long conversation) per stretch', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: undefined,
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 2000,
+        blocks: [{ kind: 'reasoning', text: 'r1' }],
+        finalNode: {
+          kind: 'assistant', seq: 10, time: 2000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 1500, completedTime: 2000 },
+        },
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+      // The user interjects mid-turn; the turn's end event never arrived.
+      at('s1', 'steering', {
+        kind: 'steering', seq: 12, time: 4000,
+        content: [{ type: 'text', text: 'wait' }], source: null,
+      }),
+      at('t2', 'tool-call', { root: settledCall('c2', 'bash', '{}') }),
+      at('a2', 'assistant-step', {
+        status: 'settled', turn: 1, step: 2, time: 8000,
+        blocks: [{ kind: 'text', text: 'all done' }],
+        finalNode: {
+          kind: 'assistant', seq: 20, time: 8000, turn: 1, step: 2, blocks: [],
+          timing: { stepStartTime: 6000, firstTokenTime: 7000, completedTime: 8000 },
+        },
+      }),
+    ])
+    // A closed turn with no end event still folds each interjection-delimited
+    // stretch with its real work time (the last row's time closes the tail).
+    expect(screen.getByText('工作了 3 秒')).toBeTruthy()
+    expect(screen.getByText('工作了 4 秒')).toBeTruthy()
+    expect(screen.getByText('all done')).toBeTruthy()
+    expect(screen.queryByText(/运行了 1 个命令/)).toBeNull()
+    expect(screen.queryByText(/运行了 2 个命令/)).toBeNull()
+  })
+
+  it('keeps an open turn with a missing end event unfolded', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: undefined,
+      status: 'open',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    renderView([
+      at('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 2000,
+        blocks: [{ kind: 'reasoning', text: 'r1' }],
+        finalNode: {
+          kind: 'assistant', seq: 10, time: 2000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: 1500, completedTime: 2000 },
+        },
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
+    ])
+    // The turn is still open (running): no fold, the rows stay visible even
+    // though the end event has not arrived.
+    expect(screen.getByText('思考')).toBeTruthy()
+    expect(screen.getByText('Bash')).toBeTruthy()
+    expect(screen.queryByText(/工作了/)).toBeNull()
+  })
+
   it('folds a running turn\'s context injections into one collapsed line', () => {
     const turn = {
       turn: 1,
