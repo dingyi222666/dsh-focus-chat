@@ -53,6 +53,21 @@ export function diffLabels(t: FocusTranslate): DiffBlockLabels {
   }
 }
 
+/** Context-collapse chrome for the changes-bar diff (unchanged-run separators). */
+export function changesBarExpandLabels(t: FocusTranslate): {
+  unchangedLines: (count: number) => string
+  expandUp: string
+  expandDown: string
+  expandBoth: string
+} {
+  return {
+    unchangedLines: count => t('diff.unchanged', { count }),
+    expandUp: t('diff.expandUp'),
+    expandDown: t('diff.expandDown'),
+    expandBoth: t('diff.expandBoth'),
+  }
+}
+
 /** Read-card labels bound to the focus locale. */
 export function readLabels(t: FocusTranslate): ReadBlockLabels {
   return {

@@ -4,8 +4,8 @@
  * and the test suite can import it without a Host dependency; the schemastery
  * wire schema lives in `schema.ts` (Host half only).
  *
- * Both preferences keep the dsh default as their first option: the focus
- * view renders the official primitives unless the user opts into the
+ * Both preferences keep the default rendering as their first option: the
+ * focus view renders the official primitives unless the user opts into the
  * plugin's alternate style, so upstream dsh changes keep flowing through.
  */
 

@@ -9,7 +9,7 @@ import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
 import {
   CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES,
-  diffLabels, readLabels, searchLabels, terminalLabels, webLabels,
+  changesBarExpandLabels, diffLabels, readLabels, searchLabels, terminalLabels, webLabels,
 } from '../helpers/terminal.ts'
 import a11yCss from '../accessibility.module.css'
 import css from './ToolCallRow.module.css'
@@ -33,7 +33,7 @@ function CardBody({ card, t, diffStyle }: { card: FocusCard; t: FocusTranslate; 
       )
     case 'diff':
       return diffStyle === 'codex-bar'
-        ? <ChangesBarDiff diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
+        ? <ChangesBarDiff diffs={card.diffs} labels={diffLabels(t)} expandLabels={changesBarExpandLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
         : <DiffBlock diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
     case 'read':
       return <ReadBlock label={card.label} lines={card.lines} totalLines={card.totalLines} lang={card.lang} labels={readLabels(t)} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />

@@ -152,8 +152,8 @@
    radius + padding) reads as a bordered chip; the highlight rendering strips
    the box and paints the code text in the dsh primary color instead. Scoped
    under the view root's data attribute (higher specificity than the
-   primitives' `.markdown :not(pre) > code`), so dsh defaults stay untouched
-   unless the preference opts in. */
+   primitives' `.markdown :not(pre) > code`), so the default rendering stays
+   untouched unless the preference opts in. */
 .root[data-focus-md-style='highlight'] :not(pre) > code {
   background-color: transparent;
   border-radius: 0;

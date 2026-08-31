@@ -114,7 +114,7 @@ describe('FocusSettingsSection', () => {
     render(<FocusSettingsSection {...props} />)
     // Scope to the diff row: walk up from the title to the row container
     // (the first ancestor that directly owns a selector button). Both rows
-    // read "dsh 默认", so the row must be located by its title first.
+    // read "默认", so the row must be located by its title first.
     const rowOf = (title: string): HTMLElement => {
       let el: HTMLElement | null = screen.getByText(title)
       while (el !== null && el.querySelector('button[aria-haspopup]') === null) {
@@ -125,7 +125,7 @@ describe('FocusSettingsSection', () => {
     }
     // Open the diff row's menu, then pick the option (the menu portals to the
     // body, so the option is found globally).
-    fireEvent.click(within(rowOf('Diff 风格')).getByRole('button', { name: /dsh 默认/ }))
+    fireEvent.click(within(rowOf('Diff 风格')).getByRole('button', { name: /默认/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /Codex 变更条/ }))
     expect(props.setDiffStyle).toHaveBeenCalledWith('codex-bar')
   })
@@ -141,7 +141,7 @@ describe('FocusSettingsSection', () => {
       if (el === null) throw new Error(`row of "${title}" not found`)
       return el
     }
-    fireEvent.click(within(rowOf('Markdown 行内代码')).getByRole('button', { name: /dsh 默认/ }))
+    fireEvent.click(within(rowOf('Markdown 行内代码')).getByRole('button', { name: /默认/ }))
     fireEvent.click(screen.getByRole('menuitem', { name: /高亮模式/ }))
     expect(props.setMdStyle).toHaveBeenCalledWith('highlight')
   })
@@ -164,23 +164,29 @@ describe('ChangesBarDiff', () => {
     expand: (hidden: number) => `展开 ${hidden} 行`,
     files: (count: number) => `${count} 个文件`,
   }
+  const expandLabels = {
+    unchangedLines: (count: number) => `${count} 行未变更`,
+    expandUp: '向上展开',
+    expandDown: '向下展开',
+    expandBoth: '展开隐藏行',
+  }
 
   it('renders the path header with its own stat, split panels, and change bars', () => {
     render(<ChangesBarDiff diffs={[
       { path: 'src/a.ts', oldText: 'a\nb', newText: 'a\nb\nc' },
-    ]} labels={labels} maxLines={8} />)
-    // The path header carries this file's +1 -0 reading on its right.
+    ]} labels={labels} expandLabels={expandLabels} maxLines={8} />)
+    // The path header carries this file's +3 -2 reading (whole-side line
+    // counts, the same totals the reference draws).
     const header = screen.getByText('src/a.ts').closest('[data-changes-bar-path]')
-    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-0')
+    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+3-2')
     // Context lines appear in BOTH panels; the added line only on the right.
     expect(screen.getAllByText('a').length).toBe(2)
     expect(screen.getAllByText('b').length).toBe(2)
     expect(screen.getByText('c')).toBeTruthy()
-    // The added line's cell is the success-tinted add cell; the matching
-    // left cell is the empty stripe.
-    const addCell = screen.getByText('c').closest('[data-cell]')
-    expect(addCell?.getAttribute('data-cell')).toBe('add')
-    expect(document.querySelectorAll('[data-cell="empty"]').length).toBe(1)
+    // The left panel's change bar stripes deletions, the right panel's bar
+    // fills additions solid.
+    expect(document.querySelector('[class*="barDelete"]')).toBeTruthy()
+    expect(document.querySelector('[class*="barAdd"]')).toBeTruthy()
     // No card footer anymore.
     expect(document.body.textContent).not.toContain('└')
   })
@@ -188,32 +194,34 @@ describe('ChangesBarDiff', () => {
   it('marks deletions and pairs the delta words', () => {
     render(<ChangesBarDiff diffs={[
       { path: 'b.ts', oldText: 'keep\nkeep old line', newText: 'keep\nkeep new line' },
-    ]} labels={labels} maxLines={8} />)
-    // The changed middle of the paired line carries the delta mark; the
-    // shared prefix and suffix stay plain. The old line sits in the left
-    // panel, the new line in the right panel.
-    const panelOf = (side: string, text: string): Element | null => {
-      for (const panel of document.querySelectorAll(`[data-changes-bar-panel="${side}"]`)) {
-        if (panel.textContent?.includes(text)) return panel
-      }
-      return null
-    }
-    expect(panelOf('left', 'keep old line')?.querySelector('[class*="delta"]')?.textContent).toBe('old')
-    expect(panelOf('right', 'keep new line')?.querySelector('[class*="delta"]')?.textContent).toBe('new')
-    // The header's stat counts one deletion and one insertion.
+    ]} labels={labels} expandLabels={expandLabels} maxLines={8} />)
+    // The old line sits in the left panel with its deletion word mark; the
+    // new line in the right panel with its addition word mark.
+    const delMark = [...document.querySelectorAll('[class*="wordDelete"]')]
+      .find(el => el.textContent === 'old')
+    const addMark = [...document.querySelectorAll('[class*="wordAdd"]')]
+      .find(el => el.textContent === 'new')
+    expect(delMark).toBeTruthy()
+    expect(addMark).toBeTruthy()
+    // The header's stat counts the whole-side totals (+2 -2).
     const header = screen.getByText('b.ts').closest('[data-changes-bar-path]')
-    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+1-1')
+    expect(header?.querySelector('[data-changes-bar-stat]')?.textContent).toBe('+2-2')
   })
 
-  it('folds the middle beyond the cap and expands it', () => {
-    const lines = Array.from({ length: 20 }, (_, i) => `line ${i}`)
+  it('collapses long context runs into expandable separators', () => {
+    const before = Array.from({ length: 20 }, (_, i) => `line ${i}`).join('\n')
+    const after = Array.from({ length: 20 }, (_, i) => i === 10 ? `line ${i} CHANGED` : `line ${i}`).join('\n')
     render(<ChangesBarDiff diffs={[
-      { path: 'c.ts', oldText: null, newText: lines.join('\n') },
-    ]} labels={labels} maxLines={8} />)
-    // 20 added lines + the path header = 21 body rows; the cap keeps 8 and
-    // the fold button names the hidden 13.
-    expect(screen.getByText('展开 13 行')).toBeTruthy()
-    fireEvent.click(screen.getByText('展开 13 行'))
-    expect(screen.getByText('line 19')).toBeTruthy()
+      { path: 'ctx.ts', oldText: before, newText: after },
+    ]} labels={labels} expandLabels={expandLabels} maxLines={8} />)
+    // Long unchanged runs fold into separators naming the hidden lines.
+    expect(screen.getByText('7 行未变更')).toBeTruthy()
+    expect(screen.getByText('6 行未变更')).toBeTruthy()
+    // The change bar for the modified line is present.
+    expect(document.querySelector('[class*="barDelete"]')).toBeTruthy()
+    expect(document.querySelector('[class*="barAdd"]')).toBeTruthy()
+    // Expanding a separator reveals the hidden context (both panels).
+    fireEvent.click(screen.getByText('7 行未变更'))
+    expect(screen.getAllByText('line 0').length).toBeGreaterThan(0)
   })
 })
