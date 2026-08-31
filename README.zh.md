@@ -8,9 +8,11 @@
 
 ## 截图
 
-| 关闭——普通聊天视图 | 开启——聚焦对话视图 | 设置 |
-| --- | --- | --- |
-| ![关闭：普通聊天视图](screenshots/before.png) | ![开启：聚焦对话视图](screenshots/after.png) | ![聚焦对话设置](screenshots/settings.png) |
+| 关闭——普通聊天视图 | 开启——聚焦对话视图 |
+| --- | --- |
+| ![关闭：普通聊天视图](screenshots/before.png) | ![开启：聚焦对话视图](screenshots/after.png) |
+| 设置 |
+| ![聚焦对话设置](screenshots/settings.png) |
 
 不再一步步盯着过程，一个助手回合会收成一条摘要行：
 
