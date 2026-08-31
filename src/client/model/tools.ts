@@ -383,17 +383,32 @@ function contentLineCount(text: string): number {
   return body.split('\n').length
 }
 
-/** Git-style line-change tally over a settled mutation call's diff meta:
- *  added lines across the hunks' new text, removed across the old text —
- *  the same counts the official diffTotals reads (the official diff card's
- *  footer rule), so the row and the card never disagree. Null when the call
- *  is not a diff-bearing file mutation.
+/**
+ * Git-style line-change tally over a settled mutation call's diff meta:
+ * added lines across the hunks' new text, removed across the old text —
+ * the same counts the official diffTotals reads (the official diff card's
+ * footer rule), so the row and the card never disagree. Null when the call
+ * is not a diff-bearing file mutation.
+ *
+ * A write call whose meta never persisted diff hunks falls back to the
+ * intended content diff, exactly like the diff card — the badge then never
+ * disagrees with the card.
+ * @param block - the settled call block (for the intended-diff fallback).
  * @param meta - the persisted result meta (the host's diff hunks).
  * @returns the tally, or null when there is nothing to count.
  */
-function diffChangeStat(meta: unknown): { added: number; removed: number } | null {
+function diffChangeStat(block: ToolCallBlock, meta: unknown): { added: number; removed: number } | null {
   const diffs = narrowDiffs((meta as Record<string, unknown> | null)?.diffs)
-  if (diffs === null) return null
+  if (diffs === null) {
+    // The card renders an errored write call without a diff; the badge must
+    // not contradict it.
+    if (!('kind' in block) || block.isError) return null
+    const intended = intendedDiff(block)
+    if (intended === null || intended.tool !== 'write') return null
+    const added = contentLineCount(intended.diff.newText)
+    const removed = contentLineCount(intended.diff.oldText ?? '')
+    return added === 0 && removed === 0 ? null : { added, removed }
+  }
   let added = 0
   let removed = 0
   for (const hunk of diffs) {
@@ -765,7 +780,7 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     body: deriveBody(variant, argsRaw),
     card,
     subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home, cache)),
-    changeStat: done ? diffChangeStat(block.meta) : null,
+    changeStat: done ? diffChangeStat(block, block.meta) : null,
   }
 }
 

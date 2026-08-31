@@ -301,4 +301,10 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **文档**: README 设置页截图移至前后对比截图下方的独立行,布局更清晰',
     ],
   },
+  '0.2.13': {
+    features: [],
+    fixes: [
+      '- **写入统计**: 修复 write 调用不显示 +A -R 变更统计的问题——此前统计只读宿主落盘的 diff 块,而 write 的宿主元数据常常不落盘 diff,导致行徽标缺失;现在与 diff 卡片一致,无落盘 diff 时回退按参数里的目标内容统计(旧行数按 null 读),write 行与折叠组总计都能正确显示 +A -R',
+    ],
+  },
 }

@@ -684,6 +684,18 @@ it('renders the empty hint for an empty conversation', () => {
     expect(badges).toEqual(expect.arrayContaining(['+3-2', '+3-0']))
   })
 
+  it('falls back to the intended content diff for a write call without persisted hunks', () => {
+    // A write call whose host never persisted diff meta still carries its
+    // content in the args: the badge tallies the intended diff, exactly the
+    // fallback the diff card uses, so the badge never contradicts the card.
+    const content = 'line1\nline2\nline3\n'
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'write', JSON.stringify({ file_path: '/ws/new.ts', content })) }),
+    ])
+    const badges = [...document.querySelectorAll('[data-change-stat]')].map(el => el.textContent)
+    expect(badges).toEqual(['+3-0'])
+  })
+
   it('renders a skill row with the Skill title and the skill name summary', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'skill', '{"name":"web-browse"}') }),
