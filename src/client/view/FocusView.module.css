@@ -19,6 +19,16 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* Sides = composer clearance + 16px, the chat view's rule: the transcript
+     stays exactly 32px narrower than the input card on narrow viewports,
+     and the turn navigator's rail positions against this padding box — its
+     negative `right` returns it to the content column's right edge. Without
+     this padding the rail's negative offset would push it past the scrollport
+     into the scrollbar/outside the view. */
+  padding: 16px calc(var(--dsh-composer-side-clearance) + 16px);
+  /* Inline-size query container: wide markdown tables size their breakout
+     against this box's content width (100cqw in the md-table-wide rule) —
+     the chat view's container-type. */
   container-type: inline-size;
 }
 
