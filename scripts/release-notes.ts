@@ -307,4 +307,11 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **写入统计**: 修复 write 调用不显示 +A -R 变更统计的问题——此前统计只读宿主落盘的 diff 块,而 write 的宿主元数据常常不落盘 diff,导致行徽标缺失;现在与 diff 卡片一致,无落盘 diff 时回退按参数里的目标内容统计(旧行数按 null 读),write 行与折叠组总计都能正确显示 +A -R',
     ],
   },
+  '0.2.14': {
+    features: [
+      '- **网页工具独立行**: web_fetch / web_search 不再借道读取行的"Read"展示——按官方 WebRow 拆成独立行:web_fetch 读作「网页获取 / Fetch」(浏览图标),web_search 读作「网页搜索 / Search」(地球图标)',
+      '- **网页读数**: 摘要行把网页活动从正则搜索中拆出,单独读作「搜索了网页 N 次」与「获取了 N 个页面」,网页搜索失败单独计入失败读数',
+    ],
+    fixes: [],
+  },
 }

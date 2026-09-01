@@ -21,18 +21,21 @@ export interface GroupTitleSegment {
 }
 
 export function groupTitleParts(group: FocusToolGroup, t: FocusTranslate): GroupTitleSegment[] {
-  const { commands, edits, searches, files, dirs } = group.metrics
+  const { commands, edits, searches, webSearches, fetches, files, dirs } = group.metrics
   const { subagents, todos, goals, workflows } = group.metrics
   const { skills, questions, plans, jobs } = group.metrics
-  const { commandsFailed, searchesFailed } = group.metrics
+  const { commandsFailed, searchesFailed, webSearchesFailed } = group.metrics
   const parts: GroupTitleSegment[] = []
   if (group.thoughtMs !== null) {
     parts.push({ text: t('tool.thought', { n: formatSeconds(group.thoughtMs) }) })
   }
   // The "what happened" metric line: edits, searches, the file exploration,
-  // then the command runs.
+  // then the command runs. Web activity reads its own segments — the chat's
+  // WebRow readings ("searched web N times" / "fetched N pages").
   metricPart(parts, edits, 0, 'edits', t)
   metricPart(parts, searches, searchesFailed, 'searches', t)
+  metricPart(parts, webSearches, webSearchesFailed, 'webSearches', t)
+  agentPart(parts, fetches, 'fetches', t)
   if (files > 0 && dirs > 0) {
     parts.push({ text: t('tool.explored.both', { files, dirs }) })
   } else if (files > 0) {
@@ -91,15 +94,15 @@ export function caseSegments(segments: GroupTitleSegment[]): GroupTitleSegment[]
 }
 
 /** The metric families whose summary segment carries failure tallies:
- *  command execution and other tools. File operations (the edit family,
- *  reads) never annotate failures — the edit count reads the outcome, so a
- *  failed attempt then a successful retry shows "edited 1 file", never a
- *  red "all failed". */
-const FAILURE_FAMILIES: ReadonlySet<MetricFamily> = new Set<MetricFamily>(['commands', 'searches'])
+ *  command execution, pattern/web searches. File operations (the edit
+ *  family, reads) never annotate failures — the edit count reads the
+ *  outcome, so a failed attempt then a successful retry shows "edited 1
+ *  file", never a red "all failed". */
+const FAILURE_FAMILIES: ReadonlySet<MetricFamily> = new Set<MetricFamily>(['commands', 'searches', 'webSearches'])
 
 /** The failure-carrying families (the subset metricPart's failure branches
  *  reach, after the FAILURE_FAMILIES gate). */
-type FailureMetricFamily = 'commands' | 'searches'
+type FailureMetricFamily = 'commands' | 'searches' | 'webSearches'
 
 /** One metric family's summary segment with PR67 failure semantics for the
  *  failure-carrying families: the count reads successful calls, a mixed
@@ -135,15 +138,16 @@ export function metricPart(
 }
 
 /** A metric family the summary line aggregates (locale key stem). */
-export type MetricFamily = 'commands' | 'edits' | 'searches'
+export type MetricFamily = 'commands' | 'edits' | 'searches' | 'webSearches'
 
 /** One agentic family's count segment (delegation / todo / goal / workflow /
- *  skill / question / plan / background job): plain count, no failure tally
- *  (the chat's family literals; the todo and goal literals drop the count). */
+ *  skill / question / plan / background job / web fetch): plain count, no
+ *  failure tally (the chat's family literals; the todo and goal literals
+ *  drop the count). */
 export function agentPart(
   parts: GroupTitleSegment[],
   n: number,
-  family: 'subagents' | 'todos' | 'goals' | 'workflows' | 'skills' | 'questions' | 'plans' | 'jobs',
+  family: 'subagents' | 'todos' | 'goals' | 'workflows' | 'skills' | 'questions' | 'plans' | 'jobs' | 'fetches',
   t: FocusTranslate,
 ): void {
   if (n === 0) return

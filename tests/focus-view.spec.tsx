@@ -421,7 +421,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'read', '{}') }),
       chatNode('t4', 'tool-call', { root: settledCall('c4', 'glob', '{}') }),
     ])
-    expect(screen.getByText('搜索了 1 个正则，读取了 1 个文件，列出了 1 个目录，运行了 1 个命令')).toBeTruthy()
+    expect(screen.getByText('搜索了网页 1 次，读取了 1 个文件，列出了 1 个目录，运行了 1 个命令')).toBeTruthy()
   })
 
   it('appends a failure tally to a mixed family in the summary line', () => {
@@ -606,6 +606,21 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('{', { exact: false })).toBeTruthy()
   })
 
+  it('reads web search and fetch as their own web rows, not the read row', () => {
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'web_fetch', '{"url":"https://example.com"}') }),
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{}') }),
+    ])
+    // The web rows read the chat WebRow's own titles (网页获取 / 网页搜索),
+    // not the read variant's 读取 — and the group line counts each web
+    // family separately ("搜索了网页 N 次" / "获取了 N 个页面").
+    expect(screen.getByText('搜索了网页 1 次，获取了 1 个页面')).toBeTruthy()
+    fireEvent.click(fullText('搜索了网页 1 次，获取了 1 个页面'))
+    expect(screen.getByText('网页获取')).toBeTruthy()
+    expect(screen.getByText('网页搜索')).toBeTruthy()
+    expect(screen.queryByText('读取')).toBeNull()
+  })
+
   it('picks the leading icon by tool family and keeps state dots for failures', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
@@ -622,12 +637,12 @@ it('renders the empty hint for an empty conversation', () => {
         content: [{ type: 'text', text: 'boom' }],
       }) }),
     ])
-    fireEvent.click(fullText('编辑了 2 个文件，搜索了 1 个正则，读取了 1 个文件，运行了 1 个命令（1 次失败），更新了待办，载入了 1 个技能，调用了 2 个工具'))
+    fireEvent.click(fullText('编辑了 2 个文件，搜索了网页 1 次，读取了 1 个文件，运行了 1 个命令（1 次失败），更新了待办，载入了 1 个技能，调用了 2 个工具'))
     // Chat row titles per variant; the unknown tool keeps the static title.
     const rowOf = (title: string, index = 0) => screen.getAllByText(title)[index]?.closest('[data-disclosure-row]')
     expect(rowOf('Bash', 0)?.querySelector('[data-tool-icon="bash"]')).toBeTruthy()
     expect(rowOf('读取')?.querySelector('[data-tool-icon="read"]')).toBeTruthy()
-    expect(rowOf('搜索')?.querySelector('[data-tool-icon="search"]')).toBeTruthy()
+    expect(rowOf('网页搜索')?.querySelector('[data-tool-icon="web_search"]')).toBeTruthy()
     expect(rowOf('写入')?.querySelector('[data-tool-icon="write"]')).toBeTruthy()
     expect(rowOf('编辑')?.querySelector('[data-tool-icon="edit"]')).toBeTruthy()
     expect(rowOf('代码')?.querySelector('[data-tool-icon="code"]')).toBeTruthy()
@@ -839,7 +854,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"query":"x"}') }),
     ])
     // Expand the group first: the rows carry the chat outranking summaries.
-    fireEvent.click(screen.getByText('搜索了 1 个正则，运行了 1 个命令'))
+    fireEvent.click(screen.getByText('搜索了网页 1 次，运行了 1 个命令'))
     expect(screen.getByText('Build the app')).toBeTruthy()
     expect(screen.getByText('x')).toBeTruthy()
     expect(screen.queryByText('pnpm build')).toBeNull()
@@ -850,7 +865,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'read', '{"path":"/Users/dingyi/projects/dsh/ui-focus/notes.md"}') }),
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'web_search', '{"queries":["focus flow","nav rail"],"pattern":"x"}') }),
     ], { cwd: '/ws', home: '/Users/dingyi' })
-    fireEvent.click(fullText('搜索了 1 个正则，读取了 1 个文件'))
+    fireEvent.click(fullText('搜索了网页 1 次，读取了 1 个文件'))
     // A workspace-rooted summary relativizes to the cwd; a leftover home
     // path abbreviates as ~ (the ui-tool chat rule).
     expect(screen.getByText('~/projects/dsh/ui-focus/notes.md')).toBeTruthy()
@@ -2221,12 +2236,12 @@ it('renders the empty hint for an empty conversation', () => {
         meta: { sources: [{ url: 'https://dsh.dev', title: 'DSH' }], truncated: false },
       }) }),
     ])
-    fireEvent.click(screen.getByText('编辑了 1 个文件，搜索了 1 个正则'))
+    fireEvent.click(screen.getByText('编辑了 1 个文件，搜索了网页 1 次'))
     fireEvent.click(screen.getByText('编辑'))
     // The hunk path renders in the diff card (the collapsed row's file-link
     // summary keeps its own copy in the kept-content DOM).
     expect(screen.getAllByText('a.ts').length).toBeGreaterThan(0)
-    fireEvent.click(screen.getByText('搜索'))
+    fireEvent.click(screen.getByText('网页搜索'))
     expect(screen.getByText('DSH')).toBeTruthy()
   })
 

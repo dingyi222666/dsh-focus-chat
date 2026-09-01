@@ -18,7 +18,8 @@ export const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
   replace: 'edits',
   patch: 'edits',
   apply_patch: 'edits',
-  web_search: 'searches',
+  web_search: 'webSearches',
+  web_fetch: 'fetches',
   grep: 'searches',
   search: 'searches',
   read: 'files',
@@ -178,6 +179,11 @@ const TOOL_TITLES: Readonly<Record<string, string>> = {
   interrupt_agent: 'tool.title.interruptAgent',
   list_agents: 'tool.title.listAgents',
   pwsh: 'tool.title.pwsh',
+  // The web row's tool-owned titles: web_fetch reads "Fetch" (网页获取), not
+  // the read variant's "Read", and web_search reads "Search" (网页搜索) — the
+  // official WebRow's own title keys.
+  web_fetch: 'tool.title.webFetch',
+  web_search: 'tool.title.webSearch',
 }
 
 /** Path keys only — never `url` (web_fetch lands on the read variant). */
@@ -801,10 +807,10 @@ export function toolGroup(
   const rows = blocks.map(block => toolRowModel(block, cwd, home, cache))
   const running = rows.some(row => row.state === 'running')
   const metrics: FocusGroupMetrics = {
-    commands: 0, edits: 0, searches: 0, files: 0, dirs: 0,
+    commands: 0, edits: 0, searches: 0, webSearches: 0, fetches: 0, files: 0, dirs: 0,
     subagents: 0, todos: 0, goals: 0, workflows: 0,
     skills: 0, questions: 0, plans: 0, jobs: 0,
-    commandsFailed: 0, searchesFailed: 0,
+    commandsFailed: 0, searchesFailed: 0, webSearchesFailed: 0,
   }
   // The edit family counts the distinct files ACTUALLY edited — a file with
   // at least one successful call — so the summary line reads "edited N
@@ -827,12 +833,13 @@ export function toolGroup(
       metrics[key] += 1
     }
     // Failure tallies only for the families whose summary line carries them
-    // — command execution and other tools. File operations never annotate
-    // failures (the edit count is the outcome); a failing exit status
-    // settles a terminal card's row to the error state.
-    if (row.state === 'error' && (key === 'commands' || key === 'searches')) {
+    // — command execution, pattern/web searches. File operations never
+    // annotate failures (the edit count is the outcome); a failing exit
+    // status settles a terminal card's row to the error state.
+    if (row.state === 'error' && (key === 'commands' || key === 'searches' || key === 'webSearches')) {
       if (key === 'commands') metrics.commandsFailed += 1
-      else metrics.searchesFailed += 1
+      else if (key === 'searches') metrics.searchesFailed += 1
+      else metrics.webSearchesFailed += 1
     }
   }
   metrics.edits = editFiles.size

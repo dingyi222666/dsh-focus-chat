@@ -83,18 +83,24 @@ export type FocusGroupItem = FocusContextItem | FocusGroupThink | FocusToolRow
 
 /** Step-summary metric families the group line aggregates, in display order. */
 export type FocusMetricKey =
-  | 'commands' | 'edits' | 'searches' | 'files' | 'dirs'
+  | 'commands' | 'edits' | 'searches' | 'webSearches' | 'fetches' | 'files' | 'dirs'
   | 'subagents' | 'todos' | 'goals' | 'workflows'
   | 'skills' | 'questions' | 'plans' | 'jobs'
 
 /** Tool name → metric family; unknown tools carry no metric. Writes fold
- *  into the edit family (the summary line reads one "edited" segment); the
- *  agentic families (delegation, todo, goal, workflow, skill, question,
- *  plan) replace the generic "called N tools" remainder for their own tools. */
+ *  into the edit family (the summary line reads one "edited" segment); web
+ *  search and fetch read their own web segments ("searched web N times" /
+ *  "fetched N pages", the chat's WebRow readings); the agentic families
+ *  (delegation, todo, goal, workflow, skill, question, plan) replace the
+ *  generic "called N tools" remainder for their own tools. */
 export interface FocusGroupMetrics {
   commands: number
   edits: number
   searches: number
+  /** Web-search calls (web_search): "searched web N times". */
+  webSearches: number
+  /** Web-fetch calls (web_fetch): "fetched N pages". */
+  fetches: number
   files: number
   dirs: number
   /** Delegation calls (subagent / subagent_fork): "forked N subagents". */
@@ -117,10 +123,12 @@ export interface FocusGroupMetrics {
    *  no longer rides the line verbatim. */
   jobs: number
   /** Failed calls in the failure-aware families (error-state rows): command
-   *  execution and other tools. File operations never carry a failure tally —
-   *  the edit family's count is the outcome (distinct files actually edited). */
+   *  execution, other tools, and web searches. File operations never carry a
+   *  failure tally — the edit family's count is the outcome (distinct files
+   *  actually edited). */
   commandsFailed: number
   searchesFailed: number
+  webSearchesFailed: number
 }
 
 /** One focus-mode group: the consecutive root calls folded into a summary line. */

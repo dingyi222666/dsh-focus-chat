@@ -1,6 +1,6 @@
 /** Tool-family leading icons (the chat GenericToolCard table). */
 import type { ReactNode } from 'react'
-import { IconApiOutline14, IconBrowseOutline16, IconChecklistOutline14, IconCodeOutline16, IconEditOutline16, IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16, IconSparkle16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconApiOutline14, IconBrowseOutline16, IconChecklistOutline14, IconCodeOutline16, IconEditOutline16, IconGlobeOutline14, IconQuestionOutline14, IconSearchOutline16, IconSkillOutline16, IconSparkle16, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusToolRow } from '../../model/types.ts'
 
 /** Tool-family leading icons, mirroring the chat GenericToolCard table (glyphs at 14). */
@@ -41,10 +41,19 @@ export const TOOL_VARIANTS: Readonly<Record<string, keyof typeof VARIANT_ICONS>>
   ask_user_question: 'question',
 }
 
+/** Tool name → leading-icon override (the chat WebRow's own glyphs: web_fetch
+ *  keeps the browse glyph, web_search switches to the globe). */
+const TOOL_ICONS: Readonly<Record<string, ReactNode>> = {
+  web_fetch: <IconBrowseOutline16 size={14} />,
+  web_search: <IconGlobeOutline14 size={14} />,
+}
+
 /** One call's leading glyph: the family icon, or the state dot for failures. */
 export function leadingFor(row: FocusToolRow): ReactNode {
   if (row.state === 'error') return <StateDot state="error" />
   if (row.state === 'stopped') return <StateDot state="warning" />
+  const override = TOOL_ICONS[row.name]
+  if (override !== undefined) return <span data-tool-icon={row.name}>{override}</span>
   const variant = TOOL_VARIANTS[row.name] ?? 'others'
   return <span data-tool-icon={variant}>{VARIANT_ICONS[variant]}</span>
 }
