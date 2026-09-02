@@ -253,8 +253,12 @@ function fileMutationPath(block: ToolCallBlock): string | undefined {
   return undefined
 }
 
-/** Expanded-body input text: the run_code program, or pretty args; null with no args. */
+/** Expanded-body input text: the run_code program, or pretty args; null with
+ *  no args. Card-owned variants (read / search / write / edit) never expose
+ *  the args body — the official row views pass no bodyRaw for them, so a
+ *  running or refused call expands to the result only (the alpha.5 rule). */
 function deriveBody(variant: FocusToolVariant, raw: string): string | null {
+  if (variant === 'read' || variant === 'search' || variant === 'write' || variant === 'edit') return null
   if (raw === '') return null
   const parsed = parseArgs(raw)
   if (parsed === undefined) return raw
