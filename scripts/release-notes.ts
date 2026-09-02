@@ -314,4 +314,17 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
     ],
     fixes: [],
   },
+  '0.3.0': {
+    features: [
+      '- **上游 alpha.5**: 全量依赖升级到 dsh 0.1.2-alpha.5,并逐项吸收官方 chat 自 alpha.2 以来的 UI 变化',
+      '- **图片卡片**: read_image 结果不再把附件对象 JSON 化打印——按官方卡片渲染为「路径标签 + 图片画廊 + 结果信封说明行」,并读取图片专用的「读取图片 / Read image」行标题',
+      '- **轮次导航轨**: 复刻 alpha.5 的固定间距可滚动轨——刻度不再压缩,超长时在框内滚动并带渐变淡出,当前轮自动保持可见,未加载轮的刻度更短并支持「加载并跳转」',
+    ],
+    fixes: [
+      '- **设计令牌**: 浮层/菜单面从「1px 描边 + 阴影」迁移到无边框 + elevation 阴影(可重绑描边色),全直角发丝线统一 0.5px,整圆控件加 corner-shape: round,与 alpha.5 观感一致',
+      '- **思考行**: 折叠态固定高度并 contain,流式尾部改为 CSS 弹性右对齐(不再用 JS scrollLeft),与官方 ReasoningRow 一致',
+      '- **操作行揭示**: 有后续用户/插话行的用户行,其操作行(图标+时钟)改为悬停/聚焦时揭示——纯 CSS :has() 流式规则,最新一行始终可见',
+      '- **参数输入抑制**: read / search / write / edit 行的展开体不再显示 pretty-args 的 IN 段(运行中或被拒的调用只展开到结果),与官方行视图一致',
+    ],
+  },
 }
