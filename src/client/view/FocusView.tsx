@@ -3,7 +3,7 @@ import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client
 import type { MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-chat merge (useChat on the session standard kit).
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
-import type { TurnNavigationItem, ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
@@ -15,7 +15,7 @@ import { PendingSteeringBubble } from './rows/UserBubble.tsx'
 import { RemoteTurnRow } from './rows/RemoteTurnRow.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
-import { TurnNavigator } from './chrome/TurnNavigator.tsx'
+import { TurnNavigator, type FocusTurnRailItem } from './chrome/TurnNavigator.tsx'
 import type { FocusFeedbackActions } from './chrome/MessageFeedbackActions.tsx'
 import css from './FocusView.module.css'
 
@@ -367,8 +367,20 @@ export function FocusView({
   }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion])
   // The official turn-navigation rail's items, accumulated in the Chat
   // snapshot: the array identity moves only when a Turn enters, leaves, or
-  // changes its preview.
+  // changes its preview. The rail chrome is the alpha.5 fixed-pitch ladder;
+  // every loaded-window item carries its row anchor (unloaded outline marks
+  // need the host turnOutline projection the focus view's own index does not
+  // expose — remote folds stay behind the fold pager instead).
   const turnNavigationItems = chat.navigation.items()
+  const railItems = useMemo<readonly FocusTurnRailItem[]>(
+    () => turnNavigationItems.map(item => ({
+      turn: item.turn,
+      prompt: item.prompt,
+      response: item.response,
+      anchor: { kind: 'loaded' as const, key: item.anchorKey },
+    })),
+    [turnNavigationItems],
+  )
   // The live-row debounce: a running call paints nothing until it has run
   // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
   // that settles into the summary a moment later (the flicker fix). The
@@ -741,12 +753,12 @@ export function FocusView({
 
   /** Jump the focus scrollport to one turn's anchor row (the official rail's
    *  navigation); the reader is no longer pinned to the bottom. */
-  const navigateToTurn = useCallback((item: TurnNavigationItem): void => {
+  const navigateToTurn = useCallback((item: FocusTurnRailItem): void => {
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the rail only renders with the list mounted. */
-    if (local === null) return
+    if (local === null || item.anchor.kind !== 'loaded') return
     const el = scrollerOf(local)
-    const row = anchorElement(local, item.anchorKey)
+    const row = anchorElement(local, item.anchor.key)
     if (row === null) return
     el.scrollTop += flowTop(row, el) - NAV_JUMP_OFFSET
     observedTopRef.current = el.scrollTop
@@ -807,7 +819,7 @@ export function FocusView({
       <div ref={navigatorMetricsRef} className={css.scroll} data-focus-scroll="">
         {/* The official turn navigator floats over the transcript's right
             gutter (pure CSS positioning, no measuring). */}
-        <TurnNavigator items={turnNavigationItems} activeTurn={activeTurn} onNavigate={navigateToTurn} t={t} />
+        <TurnNavigator items={railItems} activeTurn={activeTurn} busyTurn={null} onNavigate={navigateToTurn} t={t} />
         <div ref={columnRef} className={css.column} data-focus-flow="">
         {openState === 'loading' && <div className={css.hint}>{t('loadingHistory')}</div>}
         {openState === 'error' && openError !== null && (
