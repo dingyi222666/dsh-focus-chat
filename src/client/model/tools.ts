@@ -1,6 +1,7 @@
 /** Tool classification and row/group derivation (React-free). */
 import { abbreviateHomePath, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { DiffHunk, ReadBlockLine } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { AttachmentId as AttachmentIdType, ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { FocusCard, FocusGroupMetrics, FocusGroupThink, FocusMetricKey, FocusToolGroup, FocusToolRow, FocusToolState, FocusToolVariant } from './types.ts'
 import { flattenText, relativizeToCwd } from './text.ts'
@@ -184,6 +185,10 @@ const TOOL_TITLES: Readonly<Record<string, string>> = {
   // official WebRow's own title keys.
   web_fetch: 'tool.title.webFetch',
   web_search: 'tool.title.webSearch',
+  // read_image is a single-file read: same browse icon and openable path
+  // summary, but its own title (the chat's readImage key) — never the read
+  // row's plain "Read".
+  read_image: 'tool.title.readImage',
 }
 
 /** Path keys only — never `url` (web_fetch lands on the read variant). */
@@ -692,7 +697,104 @@ function settledCardOf(block: ToolResultNode, cwd?: string, home?: string): Focu
       }
     }
   }
-  return diffCard(block) ?? readCard(block, cwd, home) ?? searchCard(block) ?? webCard(block)
+  return diffCard(block) ?? readCard(block, cwd, home) ?? imageCardOf(block, cwd, home) ?? searchCard(block) ?? webCard(block)
+}
+
+/** The media types a durable image block may claim; anything else declines.
+ *  Hand-written mirror of `ImageMediaType` from dsh-attachment — the wire
+ *  boundary needs a runtime check and this module must not import values
+ *  from the attachment implementation (the chat image-card rule). */
+const IMAGE_MEDIA_TYPES: ReadonlySet<string> = new Set([
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+])
+
+/** Runtime membership check; the cast is safe because the set holds exactly the four members. */
+function isImageMediaType(value: string): value is ImageMediaType {
+  return IMAGE_MEDIA_TYPES.has(value)
+}
+
+/** Whether a wire value is a usable positive integer (the image-card rule). */
+function positiveInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
+/** The envelope `formatImageReadOutput` writes, matched by shape. */
+const IMAGE_ENVELOPE = /^<path>[^\n]*<\/path>\n<type>image<\/type>\n<content>\n[\s\S]*\n<\/content>$/u
+
+/** One settled `read_image` result's image card: the display label plus the
+ *  durable references the gallery renders (the chat image-card model). The
+ *  bytes are not here — the loader resolves each opaque attachment id to a
+ *  session-authorized URL at render time.
+ * @param block - the settled result node.
+ * @param cwd - session workspace root for the label's relative display.
+ * @param home - host account home; a leftover POSIX home path displays as `~`.
+ * @returns the image-card material, or null for the generic path. */
+function imageCardOf(block: ToolResultNode, cwd?: string, home?: string): FocusCard | null {
+  if (block.isError) return null
+  const call = parsedCall(block)
+  if (call?.name !== 'read_image') return null
+  const { file_path: filePath } = call.args
+  if (typeof filePath !== 'string' || filePath.trim() === '') return null
+  // The label path: root calls persist it in presentationMeta; a nested call
+  // (dispatched from inside run_code) persists none, so its own file_path
+  // argument fills the label. A root call with missing or malformed meta
+  // declines — the generic card shows the flattened content.
+  const meta = typeof block.meta === 'object' && block.meta !== null && !Array.isArray(block.meta)
+    ? block.meta as Record<string, unknown>
+    : null
+  const metaPath = typeof meta?.path === 'string' && meta.path !== '' ? meta.path : null
+  const path = metaPath ?? (block.parentCallId !== undefined ? filePath : null)
+  if (path === null) return null
+  // The card renders only text and image blocks; a block of any other type
+  // must not be silently hidden, so the whole card declines to the generic
+  // form (the chat fullyRendered rule).
+  const refs: ImageAttachmentRef[] = []
+  const texts: string[] = []
+  let sawEnvelope = false
+  for (const part of block.content) {
+    if (typeof part !== 'object' || part === null) return null
+    const { type } = part as { type?: unknown }
+    if (type === 'text') {
+      const text = (part as { text?: unknown }).text
+      if (typeof text !== 'string') return null
+      if (IMAGE_ENVELOPE.test(text)) sawEnvelope = true
+      texts.push(text)
+      continue
+    }
+    if (type !== 'image') return null
+    const attachment = (part as { attachment?: unknown }).attachment
+    if (typeof attachment !== 'object' || attachment === null || Array.isArray(attachment)) return null
+    const {
+      attachmentId, mediaType, bytes, width, height, name, originalDimensions,
+    } = attachment as Record<string, unknown>
+    if (typeof attachmentId !== 'string' || attachmentId === '') return null
+    if (typeof mediaType !== 'string' || !isImageMediaType(mediaType)) return null
+    if (!positiveInteger(bytes) || !positiveInteger(width) || !positiveInteger(height)) return null
+    if (name !== undefined && typeof name !== 'string') return null
+    let inputDimensions: ImageAttachmentRef['originalDimensions'] | undefined
+    if (originalDimensions !== undefined) {
+      if (typeof originalDimensions !== 'object' || originalDimensions === null || Array.isArray(originalDimensions)) return null
+      const { width: inputWidth, height: inputHeight } = originalDimensions as Record<string, unknown>
+      if (!positiveInteger(inputWidth) || !positiveInteger(inputHeight)) return null
+      inputDimensions = { width: inputWidth, height: inputHeight }
+    }
+    refs.push({
+      attachmentId: attachmentId as AttachmentIdType,
+      mediaType,
+      bytes,
+      width,
+      height,
+      ...name === undefined ? {} : { name },
+      ...inputDimensions === undefined ? {} : { originalDimensions: inputDimensions },
+    })
+  }
+  if (!sawEnvelope || refs.length === 0 || texts.length === 0) return null
+  return {
+    kind: 'image',
+    label: abbreviateHomePath(relativizeToCwd(path, cwd), home),
+    images: refs.map(ref => ({ attachment: ref })),
+    text: texts.join('\n'),
+  }
 }
 
 /** The durable error codes a user stop lands on a running tool call: the

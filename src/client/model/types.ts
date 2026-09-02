@@ -1,5 +1,6 @@
 /** Pure type face of the focus flow model (React-free). */
 import type { DiffHunk, ReadBlockLine, SearchBlockProps, WebBlockProps } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 // Type-only: pulls ui-deliverables' ConversationTurnDataMap augmentation
 // (the 'deliverables' turn data the turn-tail row reads).
@@ -25,6 +26,7 @@ export type FocusCard =
   | { kind: 'terminal'; command: string; cwd: string | undefined; output: string | undefined; exitCode: number | undefined; signal: string | undefined; running: boolean; description: string | undefined }
   | { kind: 'diff'; diffs: DiffHunk[] }
   | { kind: 'read'; label: string; lines: ReadBlockLine[]; totalLines: number; lang: string | undefined }
+  | { kind: 'image'; label: string; images: readonly { attachment: ImageAttachmentRef }[]; text: string }
   | { kind: 'search'; props: FocusSearchBlockProps; recovery: string | undefined }
   | { kind: 'web'; props: FocusWebBlockProps }
 

@@ -131,9 +131,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
         && group.context.length === 0
         && 'callId' in group.items[0]
         && group.items[0].state !== 'running') {
-        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} diffStyle={diffStyle} />
+        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} diffStyle={diffStyle} loadImage={loadImage} />
       }
-      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} diffStyle={diffStyle} />
+      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} diffStyle={diffStyle} loadImage={loadImage} />
     }
     case 'turn-fold':
       return (

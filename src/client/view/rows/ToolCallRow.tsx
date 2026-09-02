@@ -7,6 +7,8 @@ import type { DiffStyle } from '../../../settings.ts'
 import { planSummary } from '../../model/todo.ts'
 import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
+import { messageImageLabels } from '../helpers/image-labels.ts'
+import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
 import {
   CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES,
   changesBarExpandLabels, diffLabels, readLabels, searchLabels, terminalLabels, webLabels,
@@ -15,7 +17,13 @@ import a11yCss from '../accessibility.module.css'
 import css from './ToolCallRow.module.css'
 
 /** One call's card material through the shared card primitives (the same family the chat rows draw). */
-function CardBody({ card, t, diffStyle }: { card: FocusCard; t: FocusTranslate; diffStyle: DiffStyle }) {
+function CardBody({ card, t, diffStyle, loadImage }: {
+  card: FocusCard
+  t: FocusTranslate
+  diffStyle: DiffStyle
+  /** Session-authorized durable image URL loader (the image card's gallery). */
+  loadImage?: ImageLoader
+}) {
   switch (card.kind) {
     case 'terminal':
       return (
@@ -37,6 +45,20 @@ function CardBody({ card, t, diffStyle }: { card: FocusCard; t: FocusTranslate; 
         : <DiffBlock diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
     case 'read':
       return <ReadBlock label={card.label} lines={card.lines} totalLines={card.totalLines} lang={card.lang} labels={readLabels(t)} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
+    case 'image':
+      // The chat's image card: the read path label, the durable-image gallery
+      // (the same MessageImage/ImageGallery the message rows draw), then the
+      // result's own envelope text — the line under the gallery that stays
+      // when the attachment arm renders nothing.
+      return (
+        <div className={css.imageBody}>
+          <div className={css.imageLabel}>{card.label}</div>
+          {loadImage !== undefined && (
+            <ImageGallery images={card.images} load={loadImage} align="start" labels={messageImageLabels(t)} />
+          )}
+          <div className={css.imageMeta}>{card.text}</div>
+        </div>
+      )
     case 'search':
       return (
         <>
@@ -132,12 +154,14 @@ function agentsSummary(row: FocusToolRow, t: FocusTranslate): string {
 }
 
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
-export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffStyle = 'default' }: {
+export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffStyle = 'default', loadImage }: {
   row: FocusToolRow
   t: FocusTranslate
   openFile: (path: string) => void
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle?: DiffStyle
+  /** Session-authorized durable image URL loader (the read_image image card). */
+  loadImage?: ImageLoader
 }) {
   const [expanded, setExpanded] = useState(false)
   const card = row.card
@@ -223,7 +247,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffSty
       >
         <div className={css.callBodyWrap}>
           {card !== null ? (
-            <CardBody card={card} t={t} diffStyle={diffStyle} />
+            <CardBody card={card} t={t} diffStyle={diffStyle} loadImage={loadImage} />
           ) : (
             <>
               {row.variant === 'code' && row.body !== null && (

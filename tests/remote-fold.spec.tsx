@@ -87,6 +87,8 @@ function chatOf(nodes: ChatConversationViewNode[], opts: { running?: boolean; ha
       order: nodes.map(n => n.key),
       nodes: {
         get: (key: string) => nodesByKey.get(key),
+        source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
+        processSource: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
         values: () => nodes,
       },
       locations: { getTurn: () => [], getStep: () => [] },

@@ -86,6 +86,8 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
       order: nodes.map(n => n.key),
       nodes: {
         get: (key: string) => nodesByKey.get(key),
+        source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
+        processSource: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
         values: () => nodes,
       },
       locations: { getTurn: () => [], getStep: () => [] },
@@ -300,7 +302,12 @@ it('renders the empty hint for an empty conversation', () => {
       },
       chat: {
         order,
-        nodes: { get: (k: string) => nodesByKey.get(k), values: () => [runningNode] },
+        nodes: {
+          get: (k: string) => nodesByKey.get(k),
+          source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
+          processSource: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
+          values: () => [runningNode],
+        },
         locations: { getTurn: () => [], getStep: () => [] },
       navigation: { items: () => [] },
         timeline: { turnOrder: [], turns: new Map() },
@@ -338,7 +345,12 @@ it('renders the empty hint for an empty conversation', () => {
         },
         chat: {
           order,
-          nodes: { get: (k: string) => nodesByKey.get(k), values: () => [settledNode] },
+          nodes: {
+            get: (k: string) => nodesByKey.get(k),
+            source: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
+            processSource: () => ({ getSnapshot: () => undefined, subscribe: () => () => {} }),
+            values: () => [settledNode],
+          },
           locations: { getTurn: () => [], getStep: () => [] },
       navigation: { items: () => [] },
           timeline: { turnOrder: [], turns: new Map() },
@@ -493,8 +505,9 @@ it('renders the empty hint for an empty conversation', () => {
     renderView([
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'read_image', '{"path":"/ws/a.png"}') }),
     ])
-    // An image read counts as a file read; a lone call renders its row.
-    expect(screen.getByText('读取')).toBeTruthy()
+    // An image read counts as a file read; a lone call renders its row with
+    // the chat's own title (读取图片), not the plain read row's 读取.
+    expect(screen.getByText('读取图片')).toBeTruthy()
     renderView([
       chatNode('t4', 'tool-call', { root: settledCall('c4', 'str_replace_editor', '{"command":"str_replace","path":"/ws/a.ts"}') }),
     ])
@@ -619,6 +632,36 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('网页获取')).toBeTruthy()
     expect(screen.getByText('网页搜索')).toBeTruthy()
     expect(screen.queryByText('读取')).toBeNull()
+  })
+
+  it('renders a read_image image card: path label, gallery, envelope meta', async () => {
+    const envelope = '<path>shots/card.png</path>\n<type>image</type>\n<content>\nimage/png image, 1496x260 px, 24588 bytes\n</content>'
+    const attachment = {
+      attachmentId: 'img-1', mediaType: 'image/png',
+      bytes: 24588, width: 1496, height: 260, name: 'card.png',
+    } as never
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'read_image', '{"file_path":"shots/card.png"}', {
+        meta: { path: 'shots/card.png' },
+        content: [
+          { type: 'text', text: envelope },
+          { type: 'image', attachment },
+        ] as never,
+      }) }),
+    ], {
+      loadImage: () => Promise.resolve('data:image/png;base64,AA=='),
+      cwd: '/ws',
+    })
+    // The row's own title (读取图片), the collapsed summary names the path.
+    expect(screen.getByText('读取图片')).toBeTruthy()
+    // Expanding reveals the image card: the label, the loaded gallery image,
+    // and the envelope's meta line under it — never a JSON-stringified
+    // attachment object.
+    fireEvent.click(screen.getByText('读取图片'))
+    expect(screen.getAllByText('shots/card.png').length).toBeGreaterThan(0)
+    await act(async () => {})
+    expect(document.querySelector('[data-diff]')).toBeNull()
+    expect(document.body.textContent).not.toContain('attachmentId')
   })
 
   it('picks the leading icon by tool family and keeps state dots for failures', () => {
