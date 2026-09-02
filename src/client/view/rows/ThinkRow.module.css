@@ -49,7 +49,15 @@
   background: var(--dsw-alias-label-caption);
 }
 
+/* Collapsed thinking is one contained line: a fixed footprint so streaming
+   text cannot shift siblings (the alpha.5 ReasoningRow containment). */
+.thinkWrap:not([data-expanded]) {
+  contain: size layout;
+  height: calc(24px + var(--dsh-content-font-delta, 0px));
+}
+
 .thinkSummary {
+  display: flex;
   min-width: 0;
   overflow: hidden;
   flex: 1 1 auto;
@@ -58,13 +66,28 @@
      body, with the secondary line-height delta (the official ReasoningRow). */
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* While streaming the tail is end-followed by scroll, so the ellipsis would
-   mask the newest text — clip instead (the chat reasoning row's rhythm). */
+.thinkSummaryText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* While streaming the tail aligns to the box's END by flex (the alpha.5
+   ReasoningRow rule — no JS scrollLeft), showing the newest text; the
+   ellipsis drops so nothing masks the tail. */
 .thinkSummary[data-follow-end] {
+  justify-content: flex-end;
+}
+
+.thinkSummary[data-follow-end] .thinkSummaryText {
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: 100%;
+  overflow: visible;
+  text-align: start;
   text-overflow: clip;
 }
 

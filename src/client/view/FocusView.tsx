@@ -779,6 +779,15 @@ export function FocusView({
         className={css.flowItem}
         data-focus-anchor-key={flowKey(item)}
         data-focus-turn={flowTurnOf(item, chat) ?? undefined}
+        // The alpha.5 actions-reveal rule: a user/steering row that has any
+        // later user/steering row in the flow hides its actions row until
+        // hover/focus (the chat flow-kind seat marker). Remote folds and
+        // other kinds carry no marker, so they never hide.
+        data-chat-flow-kind={
+          item.kind === 'message' && (item.role === 'user' || item.role === 'steering')
+            ? item.role
+            : undefined
+        }
       >
         {item.kind === 'remote-turn' ? (
           <RemoteTurnRow

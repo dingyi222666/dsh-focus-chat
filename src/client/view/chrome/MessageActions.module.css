@@ -45,6 +45,29 @@
   }
 }
 
+/* The alpha.5 recency gate, CSS-only off the flow-kind seat: every user or
+   steering flow row that has ANY later user/steering row hides its whole
+   actions row until hover/focus-within; the latest one stays visible. The
+   marker lives on the focus view's flow-item wrapper (data-chat-flow-kind);
+   transient pending bubbles carry none and stay visible. */
+@media (hover: hover) {
+  :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
+    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  ) .messageActions {
+    opacity: 0;
+    transition: opacity 80ms ease;
+  }
+
+  :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
+    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  ):hover .messageActions,
+  :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
+    ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
+  ):focus-within .messageActions {
+    opacity: 1;
+  }
+}
+
 .messageAction {
   display: inline-flex;
   align-items: center;

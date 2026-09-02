@@ -72,7 +72,7 @@
   padding-left: 14px;
   /* The summary line's second-level content keeps one continuous indent
      line; only the worked-fold expansion is line-free. */
-  border-left: 1px solid var(--dsw-alias-border-l2);
+  border-left: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 /* One running turn's context batch: the collapsed line and its rows. */

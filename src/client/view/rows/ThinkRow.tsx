@@ -1,14 +1,15 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useState } from 'react'
 import { DisclosureRow, IconThinkOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
-import { firstLine, latestLine, useThrottledVisualUpdate } from '../helpers/format.ts'
+import { firstLine, latestLine } from '../helpers/format.ts'
 import a11yCss from '../accessibility.module.css'
 import css from './ThinkRow.module.css'
 
 /**
  * One Think disclosure, mirroring the chat reasoning row: one line by
- * default, previewing the streaming tail while running (end-following
- * scroll), the first line once settled; the body expands on click.
+ * default, previewing the streaming tail while running (end-following CSS
+ * alignment — the alpha.5 ReasoningRow's nested summary text), the first
+ * line once settled; the body expands on click.
  */
 export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
   text: string
@@ -19,18 +20,9 @@ export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
   t: FocusTranslate
 }) {
   const [expanded, setExpanded] = useState(false)
-  const summaryRef = useRef<HTMLSpanElement>(null)
   const summary = running ? latestLine(text) : firstLine(text)
-  const scheduleSummaryScroll = useThrottledVisualUpdate(() => {
-    const element = summaryRef.current
-    if (element === null) return
-    element.scrollLeft = running ? element.scrollWidth - element.clientWidth : 0
-  })
-  useEffect(() => {
-    scheduleSummaryScroll()
-  }, [running, scheduleSummaryScroll, summary])
   return (
-    <div className={css.thinkWrap} data-state={running ? 'running' : 'ok'}>
+    <div className={css.thinkWrap} data-state={running ? 'running' : 'ok'} data-expanded={expanded || undefined}>
       {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.thinkRow}
@@ -44,7 +36,9 @@ export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
         collapsedContent={(
           <>
             <span className={css.thinkSeparator} aria-hidden />
-            <span ref={summaryRef} className={css.thinkSummary} data-follow-end={running || undefined}>{summary}</span>
+            <span className={css.thinkSummary} data-follow-end={running || undefined}>
+              <span className={css.thinkSummaryText}>{summary}</span>
+            </span>
           </>
         )}
       >
