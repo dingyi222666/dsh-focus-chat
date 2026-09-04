@@ -327,4 +327,15 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **参数输入抑制**: read / search / write / edit 行的展开体不再显示 pretty-args 的 IN 段(运行中或被拒的调用只展开到结果),与官方行视图一致',
     ],
   },
+  '0.4.0': {
+    features: [
+      '- **上游 0.1.3-alpha.1**: 全量依赖升级到 dsh 0.1.3-alpha.1,吸收官方会话格式 v2 与 chat 新形态',
+      '- **会话格式 v2**: 远端折叠的回合切片与宿主回合索引迁移到内嵌助手流——durable 日志不再有 assistant/chunk 事件,首 token 计时改从 assistant/message 与 assistant/attempt 的内嵌 stream 展开(保留思考时长、TTFT 与解码吞吐读数)',
+      '- **用户文件附件**: 用户消息里的 file 内容块不再落入「额外块」JSON——按官方 file-card 形态渲染为附件卡(文件名 + 扩展名 + 字节数),图片与文件同排,混合消息的图片按官方 compact 规则收为小方块',
+    ],
+    fixes: [
+      '- **MessageText 移除**: 用户气泡改用本地纯文本 run,不再引用上游已删除的 MessageText 原语(pre-wrap 语义保留在气泡自身)',
+      '- **隐藏回合活动**: 未提交消息的失败/中止尝试(assistant/attempt)现在计入回合活动边界——不再把其后的 steering 误读进 opening lane',
+    ],
+  },
 }

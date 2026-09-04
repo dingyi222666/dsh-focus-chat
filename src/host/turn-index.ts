@@ -20,9 +20,11 @@ export interface TurnIndex {
 /** The event kinds that mark the model's first activity inside a turn. The
  *  turn's opening user messages are the user-source ones logged before the
  *  earliest of these — `step/start` is NOT a boundary: the agent loop logs the
- *  step before it admits the prompt, so the prompt rides behind it. */
+ *  step before it admits the prompt, so the prompt rides behind it. A failed
+ *  or aborted attempt commits `assistant/attempt` (no surface message) but
+ *  still counts as activity. */
 const ACTIVITY_TYPES: ReadonlySet<string> = new Set([
-  'assistant/chunk',
+  'assistant/attempt',
   'assistant/message',
   'tool/call',
   'tool/result',

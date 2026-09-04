@@ -31,7 +31,13 @@ function assistantMessage(
   seq: number,
   time: number,
   blocks: ContentBlock[],
-  options: { messageId?: string; usage?: Record<string, unknown>; interrupted?: boolean } = {},
+  options: {
+    messageId?: string
+    usage?: Record<string, unknown>
+    interrupted?: boolean
+    /** The v2 settlement's embedded timed stream; empty by default. */
+    stream?: readonly Record<string, unknown>[]
+  } = {},
 ): SessionEvent {
   return ev(seq, time, 'assistant/message', {
     turn, step,
@@ -39,13 +45,26 @@ function assistantMessage(
       id: options.messageId ?? `a${seq}`, role: 'assistant', content: blocks,
       source: { kind: 'model', provider: 'prov', model: 'model-x' },
     },
+    stream: options.stream ?? [],
     ...(options.usage === undefined ? {} : { usage: options.usage }),
     ...(options.interrupted === true ? { interrupted: true } : {}),
   })
 }
 
-function chunk(turn: number, step: number, seq: number, time: number, delta: Record<string, unknown>): SessionEvent {
-  return ev(seq, time, 'assistant/chunk', { turn, step, chunk: delta })
+/** One v2 failed/aborted attempt: an embedded stream that commits no message. */
+function assistantAttempt(
+  turn: number,
+  step: number,
+  seq: number,
+  time: number,
+  stream: readonly Record<string, unknown>[],
+): SessionEvent {
+  return ev(seq, time, 'assistant/attempt', { turn, step, stream })
+}
+
+/** One compact text-run stream record starting at `time0` (v2 record shape). */
+function textRun(time0: number, texts: readonly string[], dt: readonly number[] = []): Record<string, unknown> {
+  return { type: 'text-chunks', time0, index: 0, dt, texts }
 }
 
 function toolCall(turn: number, step: number, seq: number, time: number, callId: string, name = 'bash', args = '{}'): SessionEvent {
@@ -165,14 +184,14 @@ describe('projectTurnSlice', () => {
   })
 
   it('reads the prompt as the opening lane even though the agent loop logs it behind step/start', () => {
-    // The real agent-loop order: step/start → prompt → context → chunks.
+    // The real agent-loop order: step/start → prompt → context → attempts.
     const slice = projectTurnSlice([
       turnStart(1, 1, 1000),
       stepStart(1, 1, 2, 1100),
       userMessage(3, 1200, 'the ask'),
       userMessage(4, 1250, 'loaded instructions', { kind: 'plugin', plugin: 'watcher' }),
-      chunk(1, 1, 5, 1300, { type: 'text-delta', text: 'hi' }),
-      assistantMessage(1, 1, 6, 1400, [text('reply')]),
+      assistantAttempt(1, 1, 5, 1300, [textRun(1300, ['hi'])]),
+      assistantMessage(1, 1, 6, 1400, [text('reply')], { stream: [textRun(1300, ['reply'])] }),
       turnEnd(1, 7, 1500),
     ])
     // The prompt is the opening lane (never work), the context rides the work,
@@ -329,13 +348,15 @@ describe('projectTurnSlice', () => {
     })
   })
 
-  it('derives first-step TTFT and decode throughput from the chunk timing', () => {
+  it('derives first-step TTFT and decode throughput from the embedded stream timing', () => {
     const slice = projectTurnSlice([
       turnStart(1, 1, 1000),
       stepStart(1, 1, 2, 2000),
-      chunk(1, 1, 3, 2400, { type: 'text-delta', text: 'a' }),
-      assistantMessage(1, 1, 4, 3400, [text('answer')], { usage: { inputTokens: 1, outputTokens: 100, cacheReadTokens: 1, cacheWriteTokens: 1, totalTokens: 103 } }),
-      turnEnd(1, 5, 4000),
+      assistantMessage(1, 1, 3, 3400, [text('answer')], {
+        stream: [textRun(2400, ['a', 'nswer'], [1000])],
+        usage: { inputTokens: 1, outputTokens: 100, cacheReadTokens: 1, cacheWriteTokens: 1, totalTokens: 103 },
+      }),
+      turnEnd(1, 4, 4000),
     ])
     expect(slice.tail?.kind === 'turn-tail').toBe(true)
     if (slice.tail?.kind !== 'turn-tail') return

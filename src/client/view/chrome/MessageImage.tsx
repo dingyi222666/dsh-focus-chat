@@ -103,15 +103,19 @@ export function MessageImage({ attachment, load, variant, labels }: {
 }
 
 /** Wrapping image group shared by user and assistant history: a lone image
- * renders large, several render as 64px square tiles (DeepSeek Chat rule). */
-export function ImageGallery({ images, load, align, labels }: {
+ * renders large, several render as 64px square tiles (DeepSeek Chat rule).
+ * `compact` forces the tile variant — the chat renders each image of a
+ * message that also carries file attachments as a tile (the attachments-row
+ * rule), regardless of the image count. */
+export function ImageGallery({ images, load, align, labels, compact = false }: {
   images: readonly { attachment: ImageAttachmentRef }[]
   load: ImageLoader
   align: 'start' | 'end'
   labels: MessageImageLabels
+  compact?: boolean
 }) {
   if (images.length === 0) return null
-  const variant = images.length === 1 ? 'single' : 'tile'
+  const variant = compact || images.length > 1 ? 'tile' : 'single'
   return (
     <div className={css.gallery} data-align={align}>
       {images.map((image, index) => (

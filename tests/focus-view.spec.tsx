@@ -1061,6 +1061,44 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
+  it('renders user file attachments as file cards in the bubble lane', async () => {
+    renderView([
+      chatNode('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [
+          { type: 'text', text: 'see the spec' },
+          { type: 'file', attachment: { attachmentId: 'f1', name: 'design.pdf', bytes: 4096 } } as never,
+        ],
+        source: null,
+      }),
+    ], { loadImage: () => Promise.resolve('data:image/png;base64,AA==') })
+    await act(async () => {})
+    // The caption renders in its bubble; the file rides the attachments lane
+    // as a card carrying its name and a "PDF 4KB" meta line (the chat card).
+    expect(within(document.querySelector('[data-focus-anchor-key="u1"]') as HTMLElement).getByText('see the spec')).toBeTruthy()
+    expect(within(document.querySelector('[data-message-attachments]') as HTMLElement).getByText('design.pdf')).toBeTruthy()
+    expect(within(document.querySelector('[data-message-attachments]') as HTMLElement).getByText('PDF 4.0KB')).toBeTruthy()
+  })
+
+  it('forces the compact image tile when a message mixes an image with a file', async () => {
+    renderView([
+      chatNode('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [
+          { type: 'image', attachment: { attachmentId: 'img1', name: 'shot.png' } } as never,
+          { type: 'file', attachment: { attachmentId: 'f1', name: 'notes.txt', bytes: 23 } } as never,
+        ],
+        source: null,
+      }),
+    ], { loadImage: () => Promise.resolve('data:image/png;base64,AA==') })
+    await act(async () => {})
+    // One image beside one file renders as the 64px tile (the chat compact
+    // rule: any message that also carries files tiles its images).
+    const image = screen.getByAltText('shot.png').closest('[data-variant]') as HTMLElement
+    expect(image.getAttribute('data-variant')).toBe('tile')
+    expect(screen.getByText('notes.txt')).toBeTruthy()
+  })
+
   it('merges directly-consecutive runs into one summary line, keeping the folded think inside', () => {
     renderView([
       assistantNode('a1', 'settled', 'first think\nmore one', 3000),

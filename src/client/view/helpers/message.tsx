@@ -1,11 +1,15 @@
 /** User message text projection (the chat bubble join and reference chips). */
 import type { ReactNode } from 'react'
-import { MessageText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import css from '../rows/UserBubble.module.css'
 
 export function messageText(content: readonly { type?: string; text?: string }[]): string {
   return content.flatMap(block => block.type === 'text' ? [block.text ?? ''] : []).join('')
+}
+
+/** One literal plain-run segment (the chat bubble's pre-wrap text face). */
+function plainRun(text: string, key: number): ReactNode {
+  return <span key={key} className={css.plainRun}>{text}</span>
 }
 
 /**
@@ -22,7 +26,7 @@ export function projectUserText(text: string): ReactNode {
   while ((m = re.exec(text)) !== null) {
     const tokenStart = m.index + (m[1]?.length ?? 0)
     const label = m[2] ?? ''
-    if (tokenStart > cursor) parts.push(<MessageText key={cursor} text={text.slice(cursor, tokenStart)} />)
+    if (tokenStart > cursor) parts.push(plainRun(text.slice(cursor, tokenStart), cursor))
     parts.push(
       <span key={tokenStart} className={css.refChip} data-ref-chip={label.startsWith('@') ? 'subagent' : 'skill'}>
         {label}
@@ -30,7 +34,7 @@ export function projectUserText(text: string): ReactNode {
     )
     cursor = tokenStart + label.length
   }
-  if (parts.length === 0) return <MessageText text={text} />
-  if (cursor < text.length) parts.push(<MessageText key={cursor} text={text.slice(cursor)} />)
+  if (parts.length === 0) return plainRun(text, 0)
+  if (cursor < text.length) parts.push(plainRun(text.slice(cursor), cursor))
   return <>{parts}</>
 }

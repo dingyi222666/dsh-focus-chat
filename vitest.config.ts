@@ -3,11 +3,11 @@ import { defineConfig } from 'vitest/config'
 import ts from 'typescript'
 
 // The plugin's runtime dependencies come from the npm registry at the
-// 0.1.2-alpha.2 line (see package.json). The /client entries those packages
+// 0.1.3-alpha.1 line (see package.json). The /client entries those packages
 // ship are window.__ModuleLoader__ browser closures, and the dsh test
 // runtime is built against the source tree, so the TEST graph resolves the
 // @deepseek-ai client surface from the dsh mainline source checkout
-// (test-dingyi222666, kept on the 0.1.2-alpha.2 release) instead — the same
+// (test-dingyi222666, kept on the 0.1.3-alpha.1 release) instead — the same
 // contract the in-repo tests use. Everything else resolves from the
 // installed npm packages.
 const MAINLINE = '/Users/dingyi/projects/dsh/test-dingyi222666'

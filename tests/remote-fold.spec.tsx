@@ -175,6 +175,7 @@ function turnSliceEvents(turn: number): SessionEvent[] {
       type: 'assistant/message', seq: base + 5, time: base * 10 + 400, data: {
         turn, step: 1,
         message: { id: `a${turn}`, role: 'assistant', content: [text(`final reply ${turn}`)], source: { kind: 'model', provider: 'p', model: 'm' } },
+        stream: [],
       },
     },
     { type: 'turn/end', seq: base + 6, time: base * 10 + 500, data: { turn, reason: { kind: 'completed' } } },

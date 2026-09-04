@@ -28,6 +28,73 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* The attachment lane: images and file cards flow together above the bubble
+   (the chat userStack rule — the 525px cap sits on the stack). */
+.attachmentRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+  gap: 8px;
+}
+
+/* One generic-file card of the attachment lane (the chat file-card chrome). */
+.fileCard {
+  display: inline-flex;
+  flex: 0 0 240px;
+  align-items: center;
+  gap: 10px;
+  width: 240px;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l2, rgba(0, 0, 0, 0.12));
+  border-radius: 16px;
+  background: var(--dsw-specific-input-major, transparent);
+  box-sizing: border-box;
+}
+
+.fileIcon {
+  flex: none;
+  width: 24px;
+  height: 28px;
+}
+
+.fileContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fileName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.fileMeta {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dsw-alias-label-tertiary, rgba(0, 0, 0, 0.45));
+  font-size: 12px;
+  line-height: 15px;
+}
+
+/* One literal plain-run segment inside the bubble: pre-wrap text that keeps
+   the consumer's own font metrics (the removed MessageText primitive's
+   contract, now the bubble's own). */
+.plainRun {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: inherit;
+  line-height: inherit;
+}
+
 /* Reference chip projection inside a user bubble (`/name` `@name` tokens). */
 .refChip {
   display: inline-block;

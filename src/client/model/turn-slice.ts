@@ -9,12 +9,14 @@
  * (including turn-less notices, counted as background jobs) absorb into the
  * adjacent run, steering interjections stay visible rows between runs, and
  * the closing reply's reasoning moves out of the reply row. Settled history
- * never consumes chunk rows — `assistant/message` carries the final blocks;
- * chunks feed the step timing (thinking time, TTFT, decode throughput) only.
+ * never consumes chunk rows — `assistant/message` carries the final blocks
+ * and its embedded stream feeds the step timing (thinking time, TTFT, decode
+ * throughput) only.
  * @module dsh-focus-chat/client/model/turn-slice
  */
 
 import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm/types'
+import { expandAssistantStream, type AssistantStreamRecord } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 // Pulls the dsh-commands SessionEventMap augmentation (the command/run and
 // command/done event kinds this projection renders as command rows) into the
@@ -107,6 +109,23 @@ function isTokenDelta(chunk: StreamChunk): boolean {
       return chunk.argumentsDelta !== '' || chunk.name !== undefined
     default:
       return false
+  }
+}
+
+/**
+ * Feed one durable assistant event's embedded stream into a step's first-token
+ * timing (the chat's v2 rule: the first visible delta across the whole step,
+ * retried attempts included — the first expanded member that is a token delta
+ * wins, and later events never overwrite it). Stream member order is
+ * chronological, so the first hit IS the step's first token.
+ */
+function applyStreamTiming(step: StepTiming | undefined, stream: readonly AssistantStreamRecord[]): void {
+  if (step === undefined || step.firstTokenTime !== null) return
+  for (const member of expandAssistantStream(stream)) {
+    if (isTokenDelta(member.chunk)) {
+      step.firstTokenTime = member.time
+      break
+    }
   }
 }
 
@@ -342,12 +361,12 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
       }
       case 'step/end':
         continue
-      case 'assistant/chunk': {
+      case 'assistant/attempt': {
+        // One model attempt that committed no surface message (stream error,
+        // aborted finish, or cancel with no visible prefix): it marks the
+        // step active and feeds first-token timing, but paints no row.
         sawActivity = true
-        if (isTokenDelta(event.data.chunk)) {
-          const step = timing.get(event.data.step)
-          if (step !== undefined && step.firstTokenTime === null) step.firstTokenTime = event.time
-        }
+        applyStreamTiming(timing.get(event.data.step), event.data.stream)
         continue
       }
       case 'user/message': {
@@ -400,6 +419,9 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
         sawActivity = true
         const blocks = event.data.message.content.map(toAssistantBlock)
         const step = timing.get(event.data.step)
+        // The embedded stream carries the step's first-token timing (the
+        // v2 settlement's exact timed model stream).
+        applyStreamTiming(step, event.data.stream)
         const usage = asRecord(event.data.usage)
         if (step !== undefined) {
           step.completedTime = event.time
