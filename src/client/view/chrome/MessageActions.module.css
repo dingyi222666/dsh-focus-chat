@@ -6,13 +6,10 @@
 }
 
 /* Clock paddings (the chat MessageIconActions rule): the start clock pads
-   right, the end clock pads left, both 12px. */
+   right 12px; the end clock sits after the stat pills and needs no pad of
+   its own — the row's 8px flex gap spaces it. */
 .messageActions[data-clock='start'] .messageClock {
   padding-right: 12px;
-}
-
-.messageActions[data-clock='end'] .messageClock {
-  padding-left: 12px;
 }
 
 /* The turn-tail footer's optical offset (the chat turn-tail rule). */
@@ -27,7 +24,6 @@
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Message containers opt in with data-time-hover-root: the time label fades

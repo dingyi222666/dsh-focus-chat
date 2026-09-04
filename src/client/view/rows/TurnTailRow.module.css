@@ -10,7 +10,7 @@
   position: relative;
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   column-gap: 8px;
   row-gap: 6px;
   margin-top: 16px;
@@ -25,37 +25,63 @@
 }
 
 .producedLane {
+  --produced-file-gap: 8px;
+
   grid-column: 2;
   grid-row: 1;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--produced-file-gap);
   min-width: 0;
   overflow: hidden;
 }
 
-/* One produced file. A link by behavior (it opens the file), a chip by shape:
-   full paths are long, while the measured lane stays on one row. */
+/* One produced file: the chat lane's clickable-link language (link-blue at
+   rest with no underline, dotted underline on hover). Full paths are long,
+   while the measured lane stays on one row; the leading category glyph rides
+   the link color. */
 .producedFile {
-  flex: 0 0 auto;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
-  padding: 0 8px;
+  padding: 0;
   border: none;
-  border-radius: 6px;
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
+  border-radius: 4px;
+  background: none;
+  color: var(--dsw-alias-link);
   font: inherit;
+  font-weight: 500;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.producedFile:hover {
-  color: var(--dsw-alias-label-primary);
-  text-decoration: underline;
+/* Flex centering tracks box centers, but the 22px text box carries its
+   glyphs below center (the baseline sits low in the leading); the nudge
+   drops the glyph onto the text's visual center. */
+.producedFileIcon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  position: relative;
+  top: 1.2px;
+}
+
+.producedFileName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.producedFile:hover,
+.producedFile:focus-visible {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }
 
 .producedFile:focus-visible,
@@ -76,6 +102,9 @@
   grid-column: 2;
   grid-row: 2;
   justify-self: start;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   margin: 0;
   padding: 0 2px;
   border: none;

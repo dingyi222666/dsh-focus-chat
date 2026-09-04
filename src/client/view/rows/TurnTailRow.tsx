@@ -1,4 +1,5 @@
-import { memo, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { LinkIcon, classifyLinkPath } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { basename } from '../helpers/format.ts'
@@ -57,45 +58,51 @@ export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, f
 
   const shown = paths.slice(0, shownCount)
   const hidden = paths.length - shownCount
+  // The visible chip and its hidden measurement probe share one structure:
+  // the leading category glyph plus the file name (the chat lane's link
+  // language, so the probe measures the same width the chip occupies).
+  const renderChip = (path: string, extra: {
+    key: string
+    ref?: (node: HTMLButtonElement | null) => void
+    onOpen?: () => void
+  }): ReactNode => (
+    <button
+      key={extra.key}
+      ref={extra.ref}
+      type="button"
+      tabIndex={extra.onOpen === undefined ? -1 : undefined}
+      className={css.producedFile}
+      // The full path is the disambiguator when two turns produce files
+      // that share a basename; the chip itself stays short.
+      title={path}
+      aria-hidden={extra.onOpen === undefined ? true : undefined}
+      aria-label={extra.onOpen === undefined ? undefined : t('produced.open', { name: path })}
+      onClick={extra.onOpen}
+    >
+      <LinkIcon kind={classifyLinkPath(path)} className={css.producedFileIcon} />
+      <span className={css.producedFileName}>{basename(path)}</span>
+    </button>
+  )
   return (
     <div className={css.turnTail} data-turn-tail={item.turn} data-time-hover-root>
       {paths.length > 0 && (
         <div className={css.producedRow} ref={rowRef} data-produced-row>
           <span className={css.producedLabel}>{t('produced.label')}</span>
           <div className={css.producedLane}>
-            {shown.map(path => (
-              <button
-                key={path}
-                type="button"
-                className={css.producedFile}
-                // The full path is the disambiguator when two turns produce files
-                // that share a basename; the chip itself stays short.
-                title={path}
-                aria-label={t('produced.open', { name: path })}
-                onClick={() => { openFile(path) }}
-              >
-                {basename(path)}
-              </button>
-            ))}
+            {shown.map(path => renderChip(path, { key: path, onOpen: () => { openFile(path) } }))}
             {hidden > 0 && <span className={css.producedMore}>{moreLabel(t, hidden)}</span>}
           </div>
           {hidden > 0 && isLoopback && (
             <button type="button" className={css.producedShowFolder} onClick={() => { openFile('.') }}>
+              <LinkIcon kind="folder" className={css.producedFileIcon} />
               {t('produced.showInFolder')}
             </button>
           )}
           <div className={css.producedMeasure} aria-hidden="true">
-            {paths.slice(0, limit).map((path, index) => (
-              <button
-                key={path}
-                ref={(node) => { chipProbes.current[index] = node }}
-                type="button"
-                tabIndex={-1}
-                className={css.producedFile}
-              >
-                {basename(path)}
-              </button>
-            ))}
+            {paths.slice(0, limit).map((path, index) => renderChip(path, {
+              key: path,
+              ref: (node) => { chipProbes.current[index] = node },
+            }))}
             <span ref={moreProbe} className={css.producedMore} />
           </div>
         </div>
