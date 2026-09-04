@@ -3,7 +3,8 @@
  * and the matching GitHub release (the ChatLuna-style body). Run after
  * bumping and committing the version in package.json:
  *
- *   yarn release
+ *   yarn release            # full release
+ *   yarn release --prerelease   # mark the GitHub release as prerelease
  *
  * Fails loudly when the version is already tagged/released, when gh is not
  * authenticated, or when the GitHub release call fails.
@@ -87,13 +88,15 @@ if (push.status !== 0) {
 }
 console.log(`release: ${tag} pushed @ ${head.slice(0, 9)}`)
 
+const prerelease = process.argv.includes('--prerelease')
 const args = [
   'release', 'create', tag,
   '--repo', REPO,
   '--title', tag,
   '--notes-file', notesFile,
 ]
-console.log(`release: creating ${tag} (${commits.length} commits)`)
+if (prerelease) args.push('--prerelease')
+console.log(`release: creating ${tag} (${commits.length} commits, ${prerelease ? 'prerelease' : 'full'})`)
 const result = spawnSync('gh', args, { cwd: ROOT, encoding: 'utf8' })
 if (result.status !== 0) {
   console.error(`release: gh failed:\n${result.stderr}`)
