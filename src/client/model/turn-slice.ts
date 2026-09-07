@@ -15,8 +15,11 @@
  * @module dsh-focus-chat/client/model/turn-slice
  */
 
-import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm/types'
-import { expandAssistantStream, type AssistantStreamRecord } from '@deepseek-ai/dsh-llm/assistant-stream'
+import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
+import {
+  assistantStreamFirstTokenTime,
+  type AssistantStreamRecord,
+} from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 // Pulls the dsh-commands SessionEventMap augmentation (the command/run and
 // command/done event kinds this projection renders as command rows) into the
@@ -99,34 +102,19 @@ function isReplacementSurface(event: SessionEvent): boolean {
   return replace !== null && replace.op === 'replace'
 }
 
-/** Whether a stream chunk carries visible model output (the chat timing rule). */
-function isTokenDelta(chunk: StreamChunk): boolean {
-  switch (chunk.type) {
-    case 'text-delta':
-    case 'reasoning-delta':
-      return chunk.text !== ''
-    case 'tool-call-delta':
-      return chunk.argumentsDelta !== '' || chunk.name !== undefined
-    default:
-      return false
-  }
-}
-
 /**
  * Feed one durable assistant event's embedded stream into a step's first-token
  * timing (the chat's v2 rule: the first visible delta across the whole step,
  * retried attempts included — the first expanded member that is a token delta
  * wins, and later events never overwrite it). Stream member order is
- * chronological, so the first hit IS the step's first token.
+ * chronological, so the first hit IS the step's first token. Reads the compact
+ * records directly (the alpha.2 record-level reader), never materializing the
+ * expanded member list.
  */
 function applyStreamTiming(step: StepTiming | undefined, stream: readonly AssistantStreamRecord[]): void {
   if (step === undefined || step.firstTokenTime !== null) return
-  for (const member of expandAssistantStream(stream)) {
-    if (isTokenDelta(member.chunk)) {
-      step.firstTokenTime = member.time
-      break
-    }
-  }
+  const firstTokenTime = assistantStreamFirstTokenTime(stream)
+  if (firstTokenTime !== undefined) step.firstTokenTime = firstTokenTime
 }
 
 /* ── Classifications reimplemented from the chat projection (type-only reference) ── */

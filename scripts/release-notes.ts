@@ -338,4 +338,12 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **隐藏回合活动**: 未提交消息的失败/中止尝试(assistant/attempt)现在计入回合活动边界——不再把其后的 steering 误读进 opening lane',
     ],
   },
+  '0.5.0': {
+    features: [
+      '- **上游 0.1.3-alpha.2**: 全量依赖升级到 dsh 0.1.3-alpha.2,并逐项核对官方 chat 自 alpha.1 以来的变更——会话节点语义层的变化(assistant/attempt 自聊天呈现完全剥离、重复 resume 提示词不再物化、结算只读 message.content、占位 system-prompt 节点标记 visibility: hidden)随官方节点流自动传导,窗口行零改动吸收;官方行级外壳 alpha.1 → alpha.2 无变化,无需抄 UI',
+      '- **记录级流读取**: 远端回合切片的首 token 计时改读 dsh-llm 新增的记录级 assistant-stream 读取器(assistantStreamFirstTokenTime 等),直接消费紧凑流记录、不再本地展开成员列表;durable 重放本无首 token 时间,读数保留为聚焦视图的增强',
+      '- **滚动跟随**: 跟随官方 ChatView 的 readerMovedScroll 修复——读者向上翻阅后新内容不再把视口强制拉回底部,聚焦视图的跟随账本本就按同一 >0.5px 阈值判定读者移动,行为一致',
+    ],
+    fixes: [],
+  },
 }
