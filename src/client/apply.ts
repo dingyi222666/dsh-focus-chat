@@ -126,11 +126,9 @@ export function apply(ctx: Context): void {
       hooks: {
         diffStyle: focusSettings.diffStyle,
         mdStyle: focusSettings.mdStyle,
-        transcriptView: focusSettings.transcriptView,
       },
       setDiffStyle: style => { focusSettings.setDiffStyle(style) },
       setMdStyle: style => { focusSettings.setMdStyle(style) },
-      setTranscriptView: mode => { focusSettings.setTranscriptView(mode) },
     }),
   }, FocusSettingsSection))
 
@@ -243,7 +241,6 @@ export function apply(ctx: Context): void {
           feedback,
           diffStyle: focusSettings.diffStyle,
           mdStyle: focusSettings.mdStyle,
-          transcriptView: focusSettings.transcriptView,
           presentedOpen: presentedOpen.state,
           presentedHost: presentedOpen.host,
         },

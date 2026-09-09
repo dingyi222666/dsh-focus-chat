@@ -286,10 +286,6 @@ export const zh = {
   'settings.md.desc': '单行内代码的渲染风格。',
   'settings.md.default': '默认',
   'settings.md.highlight': '高亮模式',
-  'settings.transcript.title': '对话显示',
-  'settings.transcript.desc': '控制已完成轮次的过程内容',
-  'settings.transcript.compact': '紧凑',
-  'settings.transcript.normal': '标准',
 } satisfies Record<string, string>
 
 /** The focus namespace key union. */
@@ -581,8 +577,4 @@ export const en = {
   'settings.md.desc': 'How single-line inline code renders.',
   'settings.md.default': 'Default',
   'settings.md.highlight': 'Highlight mode',
-  'settings.transcript.title': 'Conversation display',
-  'settings.transcript.desc': 'Controls process content in completed turns',
-  'settings.transcript.compact': 'Compact',
-  'settings.transcript.normal': 'Normal',
 } satisfies Record<FocusKey, string>

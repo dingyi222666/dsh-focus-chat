@@ -26,7 +26,7 @@ describe('resolveFocusSettings', () => {
   })
 
   it('accepts valid choices and drops malformed ones', () => {
-    expect(resolveFocusSettings({ diffStyle: 'codex-bar', mdStyle: 'highlight' })).toEqual({ diffStyle: 'codex-bar', mdStyle: 'highlight', transcriptView: 'compact' })
+    expect(resolveFocusSettings({ diffStyle: 'codex-bar', mdStyle: 'highlight' })).toEqual({ diffStyle: 'codex-bar', mdStyle: 'highlight' })
     expect(resolveFocusSettings({ diffStyle: 'nope', mdStyle: 42 })).toEqual(DEFAULT_FOCUS_SETTINGS)
   })
 })

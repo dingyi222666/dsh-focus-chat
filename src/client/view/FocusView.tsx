@@ -214,7 +214,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
 export function FocusView({
   useSession, useChat, useProjection, sessionId, useSessions, loadImage, openFile, loadOlder, loadThrough, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
-  useDiffStyle, useMdStyle, useTranscriptView, usePresentedOpen, usePresentedHost,
+  useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
   ensureFeedback, rateFeedback, toggleFeedback, currentFeedback,
   reloadPresentedHost, openPresented, t,
 }: FocusViewProps) {
@@ -245,7 +245,6 @@ export function FocusView({
   // rendering, both defaulting to the official surfaces.
   const diffStyle = useDiffStyle(style => style)
   const mdStyle = useMdStyle(style => style)
-  const transcriptView = useTranscriptView(mode => mode)
   // The presented-delivery face the tail rows read: durable open status, the
   // Host desktop metadata, and the two verbs, bound to this Session.
   const presented = useMemo<FocusPresentedActions>(() => ({
@@ -397,7 +396,7 @@ export function FocusView({
     const windowFlow = buildFocusFlow(
       chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current,
       hideFrom.size > 0 ? hideFrom : undefined,
-      transcriptView === 'compact',
+      true,
       stepTiming,
       chat.timeline.turnOrder.at(-1),
     )
@@ -420,7 +419,7 @@ export function FocusView({
     return [...remote, ...windowFlow]
     // sliceVersion: a slice landing re-composes the remote rows with the
     // cached projection; the window flow's identities survive unchanged.
-  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion, transcriptView, stepTiming])
+  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion, stepTiming])
   // The official turn-navigation rail's items, accumulated in the Chat
   // snapshot: the array identity moves only when a Turn enters, leaves, or
   // changes its preview. The rail chrome is the alpha.5 fixed-pitch ladder;

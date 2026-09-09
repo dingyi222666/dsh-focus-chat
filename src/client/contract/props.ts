@@ -12,7 +12,7 @@ import type {
 import type { MessageFeedbackItem, MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TurnEventsResponse, TurnIndexResponse } from '../../protocol.ts'
-import type { DiffStyle, MdStyle, TranscriptViewMode } from '../../settings.ts'
+import type { DiffStyle, MdStyle } from '../../settings.ts'
 import type { PresentedAction, PresentedHost, PresentedOpenPhase } from '../model/presented-open.ts'
 
 /** The presented-file delivery face the rows read: the Session's durable
@@ -108,8 +108,6 @@ export interface FocusHooksInjected {
     /** The focus view's markdown inline-code preference (official box vs the
      *  highlight rendering), bound as useMdStyle. */
     mdStyle: HostObservable<MdStyle>
-    /** The completed-turn transcript layout, bound as useTranscriptView. */
-    transcriptView: HostObservable<TranscriptViewMode>
     /** Per-file presented open status (the delivery cards), bound as usePresentedOpen. */
     presentedOpen: HostObservable<Record<string, PresentedOpenPhase | undefined>>
     /** Host desktop metadata for the delivery cards, bound as usePresentedHost. */
