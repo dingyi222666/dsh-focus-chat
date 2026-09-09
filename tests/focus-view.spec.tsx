@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /** FocusView behavior: condensed flow rows, Think auto-expand/fold, running status, folded tool groups with full card expansion. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import { bindSnapshotSelector, makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -9,6 +9,7 @@ import type {
   ChatConversationViewNode, ChatSnapshot, RunningToolCall, ToolResultNode, TurnNavigationItem,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { TurnIndexResponse } from '../src/protocol.ts'
 import type { SessionListState, SessionSnapshot } from '@deepseek-ai/dsh-api-session-controller/client'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { FocusView } from '../src/client/view/FocusView.tsx'
@@ -126,6 +127,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
   diffStyle?: 'default' | 'codex-bar'
   mdStyle?: 'default' | 'highlight'
+  turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
 } = {}): {
   result: ReturnType<typeof render>
   source: ReturnType<typeof createSnapshotStore<ViewSlice>>
@@ -139,6 +141,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     useSessions: bindSnapshotSelector(sessionsStore(opts.cwd)),
     useWorkspaces: (() => undefined) as never,
     useProjection: (() => undefined) as never,
+    turnIndex: opts.turnIndex,
     loadImage,
     openFile: opts.openFile ?? (() => Promise.resolve()),
     forkAt: opts.forkAt ?? (() => {}),
@@ -812,6 +815,40 @@ it('renders the empty hint for an empty conversation', () => {
     // immediately.
     expect(screen.getByText('Bash')).toBeTruthy()
     expect(screen.getByText('fast')).toBeTruthy()
+  })
+
+  it('recovers the thinking metric from the Host step timing when the node has none', async () => {
+    const turn = {
+      turn: 1, start: { time: 1000 }, end: { time: 4000 }, status: 'closed', steps: [],
+      data: { get: () => undefined },
+    }
+    const stepLocation = { kind: 'step', turn, step: { step: 1, time: 1000 } } as never
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }, stepLocation, 10),
+      chatNode('a2', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 3000,
+        blocks: [{ kind: 'reasoning', text: 'think' }],
+        finalNode: {
+          kind: 'assistant', seq: 11, time: 3000, turn: 1, step: 1, blocks: [],
+          // A reloaded node carries no live-chunk first token.
+          timing: { stepStartTime: 1000, firstTokenTime: null, completedTime: 3000 },
+        },
+      }, stepLocation, 11),
+    ], {
+      turnIndex: () => Promise.resolve({
+        turns: [{
+          turn: 1, startSeq: 1, endSeq: 20, startTime: 1000, endTime: 4000, stopped: false,
+          closingSeq: null, closingMessageId: null, closingTime: null, closingContent: null, opening: [],
+          steps: [{ step: 1, stepStartTime: 1000, firstTokenTime: 2300 }],
+        }],
+        cursor: 20,
+      }),
+    })
+    // The completed turn folds; expanding it draws the group, whose folded
+    // think duration comes from the Host index (1.3s) and leads the line.
+    await waitFor(() => expect(screen.getByText('工作了 3 秒')).toBeTruthy())
+    fireEvent.click(screen.getByText('工作了 3 秒'))
+    expect(screen.getByText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy()
   })
 
   it('keeps the running call as a live row and folds it into the summary once settled', () => {

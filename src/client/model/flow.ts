@@ -14,6 +14,10 @@ import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, F
  */
 interface CachedFlowItem {
   readonly signature: unknown
+  /** The step-timing map the item was derived with (its identity gates the
+   *  thinking-metric fallback; the map is rebuilt only when the Host index
+   *  reloads). */
+  readonly stepTiming: ReadonlyMap<string, TurnStepTiming> | undefined
   readonly item: FocusFlowItem | null
 }
 
@@ -98,12 +102,14 @@ function flowItemCached(
   data: FocusNodeData,
   stepTiming?: ReadonlyMap<string, TurnStepTiming>,
 ): FocusFlowItem | null {
-  if (cache === undefined) return flowItemOf(key, node, data)
+  if (cache === undefined) return flowItemOf(key, node, data, stepTiming)
   const previous = cache.items.get(key)
   const signature = nodeSignature(node)
-  if (previous !== undefined && previous.signature === signature) return previous.item
-  const item = flowItemOf(key, node, data)
-  cache.items.set(key, { signature, item })
+  if (previous !== undefined && previous.signature === signature && previous.stepTiming === stepTiming) {
+    return previous.item
+  }
+  const item = flowItemOf(key, node, data, stepTiming)
+  cache.items.set(key, { signature, stepTiming, item })
   return item
 }
 
