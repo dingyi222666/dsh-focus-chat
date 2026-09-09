@@ -210,7 +210,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
  */
 
 export function FocusView({
-  useSession, useChat, sessionId, useSessions, loadImage, openFile, openView, forkAt, fileMentions,
+  useSession, useChat, sessionId, useSessions, loadImage, openFile, loadOlder, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
   useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
   ensureFeedback, rateFeedback, toggleFeedback, currentFeedback,
@@ -229,6 +229,7 @@ export function FocusView({
   const chat = useChat(s => s)
   const running = useSession(s => s.running)
   const hasMore = useSession(s => s.hasMore)
+  const loadingOlder = useSession(s => s.loadingOlder)
   const inbox = useSession(s => s.queue)
   const pendingSubmissions = useSession(s => s.pendingSubmissions)
   const openState = useSession(s => s.openState)
@@ -892,6 +893,20 @@ export function FocusView({
           <div className={css.older}>
             <button type="button" className={css.olderButton} onClick={loadOlderTurnsAnchored}>
               {t('loadOlderTurns')}
+            </button>
+          </div>
+        )}
+        {/* The Host turn index is absent (an older host half) or empty: page the
+            raw window instead, so older history stays reachable. */}
+        {hasMore && preHeadTurns.length === 0 && (
+          <div className={css.older}>
+            <button
+              type="button"
+              className={css.olderButton}
+              disabled={loadingOlder}
+              onClick={loadOlder}
+            >
+              {loadingOlder ? t('loading') : t('loadOlder')}
             </button>
           </div>
         )}

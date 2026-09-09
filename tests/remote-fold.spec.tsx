@@ -68,7 +68,7 @@ function sessionsStore(cwd: string | undefined) {
 }
 
 type ViewSlice = {
-  session: Pick<SessionSnapshot, 'running' | 'hasMore' | 'loadingOlder' | 'queue' | 'openState' | 'openError'>
+  session: Pick<SessionSnapshot, 'running' | 'hasMore' | 'loadingOlder' | 'queue' | 'pendingSubmissions' | 'openState' | 'openError'>
   chat: ChatSnapshot
 }
 

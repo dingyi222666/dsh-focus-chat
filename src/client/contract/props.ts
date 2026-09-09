@@ -62,6 +62,9 @@ export interface FocusViewInjected {
    *  back to the desktop opener); refusals reject so the view can surface its
    *  dialog. `line` lands the preview on that 1-based line. */
   openFile: (path: string, options?: { line?: number }) => Promise<void>
+  /** Page one window of older raw history (the fallback when the Host turn
+   *  index is unavailable). */
+  loadOlder: () => void
   /** Fork the session at one message seq (turn-tail branch semantics). */
   forkAt: (seq: number) => void
   /** Prose file-mention vocabulary for a closing assistant (optional service). */

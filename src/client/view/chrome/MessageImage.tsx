@@ -7,7 +7,11 @@ import { ImageLightbox, type ImageLightboxLabels } from './ImageLightbox.tsx'
 import css from './MessageImage.module.css'
 
 /** Loads a session-authorized durable image URL. */
-export type ImageLoader = (attachment: ImageAttachmentRef) => Promise<string>
+export type ImageLoader = ((attachment: ImageAttachmentRef) => Promise<string>) & {
+  /** Synchronous cache probe: a resolved URL paints before the async load
+   *  settles, so a remounted cached image never flashes its loading state. */
+  peek?: (attachment: ImageAttachmentRef) => string | undefined
+}
 
 /** Message-image strings the owner resolves from its own locale namespace. */
 export interface MessageImageLabels {
@@ -59,7 +63,7 @@ export function MessageImage({ attachment, load, variant, labels }: {
   variant: 'single' | 'tile'
   labels: MessageImageLabels
 }) {
-  const [src, setSrc] = useState<string | null>(null)
+  const [src, setSrc] = useState<string | null>(() => load.peek?.(attachment) ?? null)
   const [error, setError] = useState(false)
   const [open, setOpen] = useState(false)
   // Retry re-arms the one load effect below, so every attempt — first load or
@@ -75,7 +79,8 @@ export function MessageImage({ attachment, load, variant, labels }: {
   useEffect(() => {
     let live = true
     setError(false)
-    setSrc(null)
+    // A cached URL shows immediately; the async read still runs and replaces it.
+    setSrc(load.peek?.(attachment) ?? null)
     void load(attachment).then((url) => { if (live) setSrc(url) }).catch(() => { if (live) setError(true) })
     return () => { live = false }
   }, [attachment, load, attempt])

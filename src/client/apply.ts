@@ -147,7 +147,10 @@ export function apply(ctx: Context): void {
       return {
         // Session-authorized historical image resolution (the chat view's
         // image gallery loader, served by the Conversation assembly).
-        loadImage: (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
+        loadImage: Object.assign(
+          (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
+          { peek: (attachment: ImageAttachmentRef) => ctx.uiConversation.peekImageUrl(sessionId, attachment) },
+        ),
         // File opener (the 0.1.5-alpha.2 chat rule): the file opens in the
         // right Sidebar as a session-scoped dsh-resource address — the content
         // stays in the product beside the conversation that produced it — and
@@ -172,6 +175,9 @@ export function apply(ctx: Context): void {
           })
           if (!result.ok) throw new Error(`path open failed: ${result.error.message}`)
         },
+        // Raw history paging: the fallback when the Host turn index is absent
+        // (the chat view's own loadOlder).
+        loadOlder: () => { ctx.sessions.binding(sessionId)?.session.loadOlder() },
         // Fork the session at one message seq (the chat view's branch semantics).
         forkAt: (seq) => {
           ctx.sessions.fork({ sessionId, atSeq: seq, increaseTitle: true })
