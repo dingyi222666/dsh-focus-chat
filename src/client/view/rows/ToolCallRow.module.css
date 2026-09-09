@@ -116,11 +116,12 @@
 
 /* The +/- colors are the diff reading itself: additions success-green,
    removals error-red, always — never a neutral resting state. */
-/* The official diffStat is one caption-colored tally; the +/- signs carry
-   the meaning, not color. */
-.changeAdd,
+.changeAdd {
+  color: var(--dsw-alias-state-success-primary);
+}
+
 .changeRemove {
-  color: var(--dsw-alias-label-caption);
+  color: var(--dsw-alias-state-error-primary);
 }
 
 /* File-tool path: same geometry as the summary, with a persistent link

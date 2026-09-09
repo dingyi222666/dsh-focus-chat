@@ -39,7 +39,7 @@
 /* A recorded rating stays legible without hover, so the signal survives a
    pointer leaving the row. */
 .action[data-active] {
-  color: var(--dsw-alias-label-tertiary);
+  color: var(--dsw-alias-label-primary);
 }
 
 
