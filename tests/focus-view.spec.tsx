@@ -67,7 +67,7 @@ function sessionsStore(cwd: string | undefined) {
 
 /** The composed view slice: session lifecycle next to the chat snapshot. */
 type ViewSlice = {
-  session: Pick<SessionSnapshot, 'running' | 'hasMore' | 'loadingOlder' | 'queue' | 'openState' | 'openError'>
+  session: Pick<SessionSnapshot, 'running' | 'hasMore' | 'loadingOlder' | 'queue' | 'pendingSubmissions' | 'openState' | 'openError'>
   chat: ChatSnapshot
 }
 
@@ -79,6 +79,7 @@ function chatOf(nodes: ReturnType<typeof chatNode>[], opts: { running?: boolean;
       hasMore: opts.hasMore ?? false,
       loadingOlder: opts.loadingOlder ?? false,
       queue: opts.queue ?? [],
+      pendingSubmissions: [],
       openState: opts.openState ?? 'cold',
       openError: opts.openError ?? null,
     },
@@ -301,6 +302,7 @@ it('renders the empty hint for an empty conversation', () => {
         hasMore: false,
         loadingOlder: false,
         queue: [],
+        pendingSubmissions: [],
         openState: 'cold',
         openError: null,
       },
@@ -344,6 +346,7 @@ it('renders the empty hint for an empty conversation', () => {
           hasMore: false,
           loadingOlder: false,
           queue: [],
+          pendingSubmissions: [],
           openState: 'cold',
           openError: null,
         },

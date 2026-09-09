@@ -80,6 +80,7 @@ function chatOf(nodes: ChatConversationViewNode[], opts: { running?: boolean; ha
       hasMore: opts.hasMore ?? true,
       loadingOlder: false,
       queue: [],
+      pendingSubmissions: [],
       openState: opts.openState ?? 'open',
       openError: null,
     },

@@ -12,7 +12,7 @@ import type { TurnSummary } from '../../protocol.ts'
 import { markdownLabels } from './helpers/terminal.ts'
 import { markdownPathImages } from './helpers/path-images.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
-import { PendingSteeringBubble } from './rows/UserBubble.tsx'
+import { PendingSteeringBubble, PendingSubmissionBubble } from './rows/UserBubble.tsx'
 import { RemoteTurnRow } from './rows/RemoteTurnRow.tsx'
 import { ToolCallRow } from './rows/ToolCallRow.tsx'
 import { RunningStatus } from './chrome/RunningStatus.tsx'
@@ -230,6 +230,7 @@ export function FocusView({
   const running = useSession(s => s.running)
   const hasMore = useSession(s => s.hasMore)
   const inbox = useSession(s => s.queue)
+  const pendingSubmissions = useSession(s => s.pendingSubmissions)
   const openState = useSession(s => s.openState)
   const openError = useSession(s => s.openError)
   const cwd = useSessions(s => s.byId[sessionId]?.cwd)
@@ -255,6 +256,28 @@ export function FocusView({
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
   )
+  // Submission echoes still awaiting their durable counterpart (the official
+  // visibleSubmissions rule): a requestId already painted by a durable
+  // user/steering node or present in the queue is hidden in the same render,
+  // so the echo-to-durable swap never duplicates or gaps.
+  const visibleSubmissions = useMemo(() => {
+    if (pendingSubmissions.length === 0) return pendingSubmissions
+    const observed = new Set<string>()
+    for (const key of chat.order) {
+      const node = chat.nodes.get(key)
+      if (node === undefined || (node.kind !== 'user' && node.kind !== 'steering')) continue
+      const source = (node.data as { source?: unknown }).source as
+        | { kind?: unknown; rpcId?: unknown }
+        | undefined
+      if (source?.kind === 'user' && typeof source.rpcId === 'string') observed.add(source.rpcId)
+    }
+    for (const item of inbox) {
+      if (item.rpcId !== undefined) observed.add(item.rpcId)
+    }
+    return pendingSubmissions.filter(submission => (
+      submission.placement !== 'queued' && !observed.has(submission.requestId)
+    ))
+  }, [pendingSubmissions, chat, inbox])
   // Cross-build derivation cache: unchanged nodes keep their flow item and
   // tool-row identities, so memoized rows bail out during streaming.
   const flowCacheRef = useRef(createFlowBuildCache())
@@ -889,6 +912,9 @@ export function FocusView({
         {running && <RunningStatus startTime={runningTurnStart} t={t} />}
         {pendingSteering.map(item => (
           <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
+        ))}
+        {visibleSubmissions.map(submission => (
+          <PendingSubmissionBubble key={submission.requestId} submission={submission} t={t} />
         ))}
         </div>
         {/* The to-bottom control is a sibling of the column inside the

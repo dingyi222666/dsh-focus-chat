@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react'
 import { fileExtension, fileSizeText, FileTypeIcon, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -132,6 +133,37 @@ export const PendingSteeringBubble = memo(function PendingSteeringBubble({ conte
         clock="start"
         t={t}
       />
+    </div>
+  )
+})
+
+
+/**
+ * One local prompt-submission echo: the message the human just sent, shown
+ * before serialization and durable admission complete (the official
+ * PendingSubmissionBubble shape). Image previews ride the submitter's own
+ * object URLs, so only text and durable file attachments render here.
+ */
+export const PendingSubmissionBubble = memo(function PendingSubmissionBubble({ submission, t }: {
+  submission: PendingSubmission
+  t: FocusTranslate
+}) {
+  const files = useMemo(
+    () => submission.attachments.flatMap(attachment => attachment.type === 'file' ? [attachment.value] : []),
+    [submission.attachments],
+  )
+  const text = submission.text
+  return (
+    <div className={css.userRow} data-pending-submission={submission.placement} data-time-hover-root>
+      <div className={css.userStack}>
+        {files.length > 0 && (
+          <div className={css.attachmentRow} data-message-attachments>
+            {files.map((file, index) => <FileCard key={`file:${index}`} file={file} />)}
+          </div>
+        )}
+        {text !== '' && <div className={css.bubble}>{text}</div>}
+      </div>
+      <MessageActions text={text} time={submission.time} clock="start" t={t} />
     </div>
   )
 })
