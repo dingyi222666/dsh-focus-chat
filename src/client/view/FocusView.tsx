@@ -447,10 +447,11 @@ export function FocusView({
   const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
   const [fileOpenBusy, setFileOpenBusy] = useState(false)
   const fileOpenRequest = useRef(0)
-  const requestOpenFile = useCallback((path: string) => {
+  const requestOpenFile = useCallback((path: string, options?: { line?: number }) => {
     const id = ++fileOpenRequest.current
     setFileOpenBusy(true)
-    void openFile(path).then(
+    const opened = options === undefined ? openFile(path) : openFile(path, options)
+    void opened.then(
       () => {
         if (id !== fileOpenRequest.current) return
         setFileOpenError(null)

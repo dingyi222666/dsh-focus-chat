@@ -11,8 +11,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+// Type-only: the right-sidebar service's Context merge (ctx.sidebarRight).
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import { resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import { fileAddressFor, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -128,10 +130,25 @@ export function apply(ctx: Context): void {
         // Session-authorized historical image resolution (the chat view's
         // image gallery loader, served by the Conversation assembly).
         loadImage: (attachment: ImageAttachmentRef) => ctx.uiConversation.imageUrl(sessionId, attachment),
-        // Host file opener (the chat view's tool-row semantics): refusals
-        // reject upward so the focus view's in-page open dialog surfaces them.
-        openFile: async (path) => {
+        // File opener (the 0.1.5-alpha.2 chat rule): the file opens in the
+        // right Sidebar as a session-scoped dsh-resource address — the content
+        // stays in the product beside the conversation that produced it — and
+        // an optional line rides the navigation params, not the address. A
+        // host without the right sidebar falls back to the desktop opener;
+        // its refusals reject upward so the in-page open dialog surfaces them.
+        openFile: async (path, options) => {
           const cwd = ctx.sessions.list.getSnapshot().byId[sessionId]?.cwd
+          const sidebar = ctx.get('sidebarRight') as
+            | {
+              openResource: (address: string, options?: { params?: { line?: number } }) => void
+            }
+            | undefined
+          if (sidebar !== undefined) {
+            const address = fileAddressFor(sessionId, cwd, path)
+            if (options?.line === undefined) sidebar.openResource(address)
+            else sidebar.openResource(address, { params: { line: options.line } })
+            return
+          }
           const result = await ctx.remote.session.openWorkspacePath({
             path: resolveWorkspacePath(cwd, path),
           })
@@ -146,12 +163,19 @@ export function apply(ctx: Context): void {
             })
         },
         // Prose file-mention vocabulary for a closing assistant; the optional
-        // chatFileMentions service (ui-deliverables) is absent when composed out.
+        // chatFileMentions service (ui-deliverables) is absent when composed
+        // out. 0.1.5-alpha.2 adds the sessionId: the vocabulary opens a
+        // presented delivery through the session-scoped presenter.
         fileMentions: (owner) => {
           const service = ctx.get('chatFileMentions') as
-            | { forClosing: (owner: FocusTurnTailOwner) => MarkdownFileMentions | undefined }
+            | {
+              forClosing: (
+                owner: FocusTurnTailOwner,
+                sessionId: SessionId,
+              ) => MarkdownFileMentions | undefined
+            }
             | undefined
-          return service?.forClosing(owner)
+          return service?.forClosing(owner, sessionId)
         },
         // The Host's completed-turn index (the remote turn folds): one RPC
         // read per session, cached for the plugin's lifetime. The optional

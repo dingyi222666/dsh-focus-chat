@@ -69,7 +69,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   mdLabels: MarkdownLabels
   /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
   pathImages: MarkdownPathImages
-  openFile: (path: string) => void
+  openFile: (path: string, options?: { line?: number }) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader

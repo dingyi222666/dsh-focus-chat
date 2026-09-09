@@ -157,7 +157,7 @@ function agentsSummary(row: FocusToolRow, t: FocusTranslate): string {
 export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffStyle = 'default', loadImage }: {
   row: FocusToolRow
   t: FocusTranslate
-  openFile: (path: string) => void
+  openFile: (path: string, options?: { line?: number }) => void
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle?: DiffStyle
   /** Session-authorized durable image URL loader (the read_image image card). */
@@ -217,7 +217,11 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffSty
                 className={css.callFileLink}
                 onClick={(event) => {
                   event.stopPropagation()
-                  openFile(row.filePath as string)
+                  // A read call lands the preview on the line the model looked
+                  // at (the chat's readCallLine rule); other file tools open
+                  // the path at its beginning.
+                  if (row.openLine === null) openFile(row.filePath as string)
+                  else openFile(row.filePath as string, { line: row.openLine })
                 }}
                 onKeyDown={(event) => {
                   // Keep Enter/Space on the focused path link from bubbling to

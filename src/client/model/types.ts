@@ -49,6 +49,9 @@ export interface FocusToolRow {
   summary: string
   /** Filesystem path from args for single-file tools; undefined otherwise. */
   filePath: string | undefined
+  /** 1-based line the call was about (a read call's `offset`); null when the
+   *  call named none — the path link then opens the file at its beginning. */
+  openLine: number | null
   state: FocusToolState
   /** Flattened result text; null while running or when the result has none. */
   output: string | null

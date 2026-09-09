@@ -28,7 +28,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, op
   mdLabels: MarkdownLabels
   /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
   pathImages: MarkdownPathImages
-  openFile: (path: string) => void
+  openFile: (path: string, options?: { line?: number }) => void
   forkAt: (seq: number) => void
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>

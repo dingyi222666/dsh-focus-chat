@@ -12,7 +12,7 @@ import css from './TurnTailRow.module.css'
 /** One completed turn's footer: the measured produced-files lane and the chat actions chrome. */
 export const TurnTailRow = memo(function TurnTailRow({ item, openFile, forkAt, feedback, t, isLoopback }: {
   item: Extract<FocusFlowItem, { kind: 'turn-tail' }>
-  openFile: (path: string) => void
+  openFile: (path: string, options?: { line?: number }) => void
   forkAt: (seq: number) => void
   /** Per-message feedback verbs (the assistant-actions strip's business face). */
   feedback: FocusFeedbackActions

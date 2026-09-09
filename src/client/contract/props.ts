@@ -36,8 +36,10 @@ export interface FocusTurnTailOwner {
 export interface FocusViewInjected {
   /** Resolve a session-authorized historical image for inline display. */
   loadImage: (attachment: ImageAttachmentRef) => Promise<string>
-  /** Open a workspace path through the Host; refusals reject so the view can surface its dialog. */
-  openFile: (path: string) => Promise<void>
+  /** Open a workspace path in the right Sidebar (a host without one falls
+   *  back to the desktop opener); refusals reject so the view can surface its
+   *  dialog. `line` lands the preview on that 1-based line. */
+  openFile: (path: string, options?: { line?: number }) => Promise<void>
   /** Fork the session at one message seq (turn-tail branch semantics). */
   forkAt: (seq: number) => void
   /** Prose file-mention vocabulary for a closing assistant (optional service). */

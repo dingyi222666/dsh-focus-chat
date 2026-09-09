@@ -16,7 +16,7 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
   group: FocusToolGroup
   t: FocusTranslate
   mdLabels: MarkdownLabels
-  openFile: (path: string) => void
+  openFile: (path: string, options?: { line?: number }) => void
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
   /** Session-authorized durable image URL loader (the read_image image card). */

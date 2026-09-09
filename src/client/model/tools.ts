@@ -231,6 +231,21 @@ function deriveFilePath(variant: FocusToolVariant, raw: string): string | undefi
   return undefined
 }
 
+/** The 1-based line one read call was about, from its args (the chat's
+ *  readCallLine rule): `offset` is the read tool's own 1-based start line, so
+ *  opening the path can land where the model looked. The args are
+ *  model-produced JSON — only an integer of at least 1 is a line.
+ * @param variant - the row variant.
+ * @param raw - the call's raw args JSON.
+ * @returns the 1-based line, or null when the call named none. */
+function deriveOpenLine(variant: FocusToolVariant, raw: string): number | null {
+  if (variant !== 'read' || raw === '') return null
+  const parsed = parseArgs(raw)
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const offset = (parsed as Record<string, unknown>).offset
+  return typeof offset === 'number' && Number.isInteger(offset) && offset >= 1 ? offset : null
+}
+
 /** Filesystem path from a settled file-mutation call's args (`path` /
  *  file_path) for the edit family's distinct-file count. The row variant
  *  gates filePath on read/write/edit only, so the family's other tools
@@ -884,6 +899,7 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     title: toolTitle ?? VARIANT_TITLE_KEYS[variant],
     summary,
     filePath: deriveFilePath(variant, argsRaw),
+    openLine: deriveOpenLine(variant, argsRaw),
     state: rowState,
     output,
     errorSummary,
