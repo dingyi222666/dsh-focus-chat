@@ -65,6 +65,8 @@ export interface FocusViewInjected {
   /** Page one window of older raw history (the fallback when the Host turn
    *  index is unavailable). */
   loadOlder: () => void
+  /** Page history until the given seq is loaded (the rail's unloaded jump). */
+  loadThrough: (seq: number) => void
   /** Fork the session at one message seq (turn-tail branch semantics). */
   forkAt: (seq: number) => void
   /** Prose file-mention vocabulary for a closing assistant (optional service). */

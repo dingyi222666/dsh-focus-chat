@@ -44,7 +44,7 @@ export interface TurnSlice {
 
 /** One pre-fold row in the slice's scan order. */
 interface ProtoItem {
-  readonly kind: 'message' | 'assistant' | 'tool' | 'command' | 'compaction' | 'retry' | 'turn-error' | 'turn-max-tokens'
+  readonly kind: 'message' | 'assistant' | 'tool' | 'command' | 'compaction' | 'retry' | 'turn-error' | 'turn-max-tokens' | 'system'
   readonly seq: number
   readonly time: number
   /** Message protos: the classified role and content. */
@@ -326,6 +326,9 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
    *  steering lane. `step/start` is not a boundary: the agent loop logs the
    *  step before it admits the prompt, so the prompt rides behind it. */
   let sawActivity = false
+  /** Whether a system-prompt card already exists in this turn's slice (the
+   *  next non-empty append reads as an in-history update). */
+  let sawSystemPrompt = false
   let closingProto: ProtoItem | null = null
   let lastStep = 0
   let endSeq: number | null = null
@@ -519,6 +522,32 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
         // module's types, so the extended kinds read structurally.
         const kind: string = event.type
         const data = asRecord(event.data)
+        if (kind === 'system/message' && data !== null) {
+          // v3 system-prompt surface: a non-empty append owns a card at its
+          // own position; the first one is the initial prompt, later ones are
+          // in-history updates (the official systemMessageDefinition rule).
+          const message = asRecord(data.message)
+          const content = message?.content
+          const text = Array.isArray(content)
+            ? content
+              .map(block => asRecord(block) !== null && (block as { type?: unknown }).type === 'text'
+                ? String((block as { text?: unknown }).text ?? '')
+                : '')
+              .join('')
+            : ''
+          const surfaceOp: unknown = (event as { surfaceOp?: unknown }).surfaceOp
+          if ((surfaceOp === 'append' || surfaceOp === undefined) && text.trim() !== '') {
+            protos.push({
+              kind: 'system', seq: event.seq, time: event.time,
+              item: {
+                kind: 'system-prompt', nodeKey: keyOf('sp', event.seq),
+                text, update: sawSystemPrompt,
+              },
+            })
+            sawSystemPrompt = true
+          }
+          continue
+        }
         if (kind === 'compaction/summary' && data !== null) {
           const summaryBlocks: unknown = data.summary
           const text = Array.isArray(summaryBlocks)
@@ -842,6 +871,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
         })
         continue
       }
+      case 'system':
       case 'command':
       case 'compaction':
       case 'retry':

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useState, type MouseEvent } from 'react'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
@@ -19,7 +19,7 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
   /** Whether the turn reads stopped-after instead of worked. */
   stopped: boolean
   open: boolean
-  onToggle: () => void
+  onToggle: (event: MouseEvent<HTMLButtonElement>) => void
   t: FocusTranslate
 }) {
   return (
@@ -75,7 +75,11 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
         duration={duration}
         stopped={item.stopped}
         open={expanded}
-        onToggle={() => { setExpanded(value => !value) }}
+        onToggle={(event) => {
+          // The official TurnProcessNodeView keeps focus on the fold button.
+          event.currentTarget.focus()
+          setExpanded(value => !value)
+        }}
         t={t}
       />
       {expanded && (

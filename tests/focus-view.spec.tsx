@@ -1014,11 +1014,16 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('u1', 'user', {
         kind: 'user', seq: 1, time: 1,
         content: [{ type: 'text', text: 'hello /compact world @sub1' }], source: null,
+        // The snapshot builder attaches the composed vocabulary; only labels
+        // present there decorate (the official projectUserText rule).
+        referenceLabels: ['sub1'],
+        skillNames: ['compact'],
       }),
     ])
     expect(screen.getByText('hello')).toBeTruthy()
     expect(screen.getByText('/compact')).toBeTruthy()
-    expect(screen.getByText('@sub1')).toBeTruthy()
+    // A session reference renders its ReferenceIcon plus the bare label.
+    expect(screen.getByText('sub1')).toBeTruthy()
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
   })
 
@@ -2422,7 +2427,7 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('tidy')).toBeTruthy()
     expect(screen.getByText('已完成')).toBeTruthy()
     // The nameless command and the running manual compaction share the fallback title.
-    expect(screen.getAllByText('命令').length).toBe(2)
+    expect(screen.getAllByText('指令').length).toBe(2)
     expect(screen.getByText('no name')).toBeTruthy()
     expect(screen.getByText('正在压缩…')).toBeTruthy()
     expect(screen.getByText('上下文已压缩')).toBeTruthy()

@@ -115,12 +115,17 @@ function flowItemOf(
     case 'steering':
     case 'context': {
       const message = data as UserMessageNode | SteeringMessageNode | ContextMessageNode
+      // The chat snapshot builder attaches the composed reference vocabulary
+      // to user/steering nodes; the bubble decorates exactly those labels.
+      const labels = data as { referenceLabels?: readonly string[]; skillNames?: readonly string[] }
       const base = {
         kind: 'message' as const,
         nodeKey: key,
         role: node.kind,
         content: message.content,
         time: message.time,
+        ...(labels.referenceLabels === undefined ? {} : { referenceLabels: labels.referenceLabels }),
+        ...(labels.skillNames === undefined ? {} : { skillNames: labels.skillNames }),
       }
       if (node.kind !== 'context') return base
       const context = message as ContextMessageNode

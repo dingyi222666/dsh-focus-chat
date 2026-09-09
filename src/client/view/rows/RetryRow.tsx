@@ -63,7 +63,7 @@ export const RetryRow = memo(function RetryRow({ item, t }: {
       <div className={css.retryDetails}>
         <div>
           <span className={css.retryDetailLabel}>{t('retry.delay')}</span>
-          {Math.round(item.delayMs)}ms
+          {t('duration.milliseconds', { milliseconds: Math.round(item.delayMs) })}
         </div>
         {item.failure !== null && (
           <div>

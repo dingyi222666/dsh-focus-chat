@@ -20,7 +20,7 @@ export interface FocusTurnRailItem {
   /** How the rail reaches the Turn. */
   readonly anchor:
     | { readonly kind: 'loaded'; readonly key: string }
-    | { readonly kind: 'unloaded' }
+    | { readonly kind: 'unloaded'; readonly seq: number }
 }
 
 interface TurnNavigatorProps {

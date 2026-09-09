@@ -5,6 +5,8 @@ import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
+// Type-only: the session standard kit's turnOutline projection key.
+import type {} from '@deepseek-ai/dsh-session-turn-outline/client'
 import type { FocusPresentedActions, FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, isRowlessChatNode, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
 import type { FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
@@ -210,7 +212,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
  */
 
 export function FocusView({
-  useSession, useChat, sessionId, useSessions, loadImage, openFile, loadOlder, openView, forkAt, fileMentions,
+  useSession, useChat, useProjection, sessionId, useSessions, loadImage, openFile, loadOlder, loadThrough, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
   useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
   ensureFeedback, rateFeedback, toggleFeedback, currentFeedback,
@@ -409,15 +411,34 @@ export function FocusView({
   // need the host turnOutline projection the focus view's own index does not
   // expose — remote folds stay behind the fold pager instead).
   const turnNavigationItems = chat.navigation.items()
-  const railItems = useMemo<readonly FocusTurnRailItem[]>(
-    () => turnNavigationItems.map(item => ({
-      turn: item.turn,
-      prompt: item.prompt,
-      response: item.response,
-      anchor: { kind: 'loaded' as const, key: item.anchorKey },
-    })),
-    [turnNavigationItems],
-  )
+  // The host turn outline names every turn of the session, including those
+  // outside the loaded window; the loaded items supply the anchors and richer
+  // previews for the turns the window holds (the official mergeTurnRailItems).
+  const turnOutline = useProjection('turnOutline')
+  const railItems = useMemo<readonly FocusTurnRailItem[]>(() => {
+    const byTurn = new Map<number, FocusTurnRailItem>()
+    for (const raw of Array.isArray(turnOutline) ? turnOutline : []) {
+      const entry = raw as { turn?: unknown; seq?: unknown; prompt?: unknown; response?: unknown }
+      if (typeof entry.turn !== 'number' || !Number.isSafeInteger(entry.turn) || entry.turn < 0) continue
+      if (typeof entry.seq !== 'number' || !Number.isSafeInteger(entry.seq) || entry.seq < 0) continue
+      byTurn.set(entry.turn, {
+        turn: entry.turn,
+        prompt: typeof entry.prompt === 'string' ? entry.prompt : '',
+        response: typeof entry.response === 'string' ? entry.response : '',
+        anchor: { kind: 'unloaded', seq: entry.seq },
+      })
+    }
+    for (const item of turnNavigationItems) {
+      const outline = byTurn.get(item.turn)
+      byTurn.set(item.turn, {
+        turn: item.turn,
+        prompt: item.prompt !== '' ? item.prompt : outline?.prompt ?? '',
+        response: item.response !== '' ? item.response : outline?.response ?? '',
+        anchor: { kind: 'loaded', key: item.anchorKey },
+      })
+    }
+    return [...byTurn.values()].sort((a, b) => a.turn - b.turn)
+  }, [turnNavigationItems, turnOutline])
   // The live-row debounce: a running call paints nothing until it has run
   // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
   // that settles into the summary a moment later (the flicker fix). The
@@ -799,7 +820,12 @@ export function FocusView({
 
   /** Jump the focus scrollport to one turn's anchor row (the official rail's
    *  navigation); the reader is no longer pinned to the bottom. */
-  const navigateToTurn = useCallback((item: FocusTurnRailItem): void => {
+  // A rail jump to an unloaded turn pages history through its seq first; the
+  // mark pulses until the page settles, then the loaded anchor is followed
+  // (the official pendingJumpRef/loadThrough rule).
+  const [busyTurn, setBusyTurn] = useState<number | null>(null)
+  const pendingJumpRef = useRef<number | null>(null)
+  const jumpToLoaded = useCallback((item: FocusTurnRailItem): void => {
     const local = listRef.current
     /* v8 ignore next -- ref-null guard: the rail only renders with the list mounted. */
     if (local === null || item.anchor.kind !== 'loaded') return
@@ -813,6 +839,23 @@ export function FocusView({
     setActiveTurn(item.turn)
     scroll.save(scrollPosition(local, el))
   }, [scroll])
+  const navigateToTurn = useCallback((item: FocusTurnRailItem): void => {
+    if (item.anchor.kind === 'unloaded') {
+      pendingJumpRef.current = item.turn
+      setBusyTurn(item.turn)
+      loadThrough(item.anchor.seq)
+      return
+    }
+    jumpToLoaded(item)
+  }, [jumpToLoaded, loadThrough])
+  useEffect(() => {
+    const target = pendingJumpRef.current
+    if (loadingOlder || target === null) return
+    pendingJumpRef.current = null
+    setBusyTurn(null)
+    const item = railItems.find(candidate => candidate.turn === target)
+    if (item !== undefined && item.anchor.kind === 'loaded') jumpToLoaded(item)
+  }, [loadingOlder, railItems, jumpToLoaded])
 
   // The flow rows' element list, cached on exactly the inputs the rows
   // render from: a parent re-render driven by other state (scroll chrome,
@@ -878,7 +921,7 @@ export function FocusView({
       <div ref={navigatorMetricsRef} className={css.scroll} data-focus-scroll="">
         {/* The official turn navigator floats over the transcript's right
             gutter (pure CSS positioning, no measuring). */}
-        <TurnNavigator items={railItems} activeTurn={activeTurn} busyTurn={null} onNavigate={navigateToTurn} t={t} />
+        <TurnNavigator items={railItems} activeTurn={activeTurn} busyTurn={busyTurn} onNavigate={navigateToTurn} t={t} />
         <div ref={columnRef} className={css.column} data-focus-flow="">
         {openState === 'loading' && <div className={css.hint}>{t('loadingHistory')}</div>}
         {openState === 'error' && openError !== null && (
@@ -929,7 +972,7 @@ export function FocusView({
           <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
         ))}
         {visibleSubmissions.map(submission => (
-          <PendingSubmissionBubble key={submission.requestId} submission={submission} t={t} />
+          <PendingSubmissionBubble key={submission.requestId} submission={submission} t={t} loadImage={loadImage} />
         ))}
         </div>
         {/* The to-bottom control is a sibling of the column inside the

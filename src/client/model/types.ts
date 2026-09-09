@@ -29,6 +29,14 @@ export type FocusCard =
   | { kind: 'image'; label: string; images: readonly { attachment: ImageAttachmentRef }[]; text: string }
   | { kind: 'search'; props: FocusSearchBlockProps; recovery: string | undefined }
   | { kind: 'web'; props: FocusWebBlockProps }
+  | {
+    kind: 'ask'
+    /** Answered transcript (paired questions) vs an unanswered verdict list. */
+    answered: boolean
+    /** The unanswered verdict source; null on an answered transcript. */
+    verdict: 'cancelled' | 'interrupted' | null
+    questions: readonly { id: string; question: string; answers: readonly string[] }[]
+  }
 
 /** Tool-row state semantics; colors self-supplied by the view. */
 export type FocusToolState = 'running' | 'ok' | 'error' | 'stopped'
@@ -170,6 +178,10 @@ export type FocusFlowItem =
     time: number
     /** Context-injection chrome (the chat ContextInjectionRow); absent for user/steering. */
     context?: { source: ContextMessageNode['source']; provenance: ContextMessageNode['provenance']; form: ContextMessageNode['form'] }
+    /** Session labels the bubble decorates (the chat referenceLabels). */
+    referenceLabels?: readonly string[]
+    /** Skill/command names the bubble decorates (the chat skillNames). */
+    skillNames?: readonly string[]
   }
   | {
     /**

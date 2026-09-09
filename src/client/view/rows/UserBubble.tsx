@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { fileExtension, fileSizeText, FileTypeIcon, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
+import { fileExtension, fileSizeText, FileTypeIcon, JsonBlock, projectUserText } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
@@ -8,10 +8,13 @@ import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
 import { messageImageLabels, userFiles, userImages } from '../helpers/image-labels.ts'
-import { messageText, projectUserText } from '../helpers/message.tsx'
-import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
+import { messageText } from '../helpers/message.tsx'
+import { ImageGallery, type ImageLoader, type MessageImageSpec } from '../chrome/MessageImage.tsx'
 import { MessageActions } from '../chrome/MessageActions.tsx'
 import css from './UserBubble.module.css'
+
+/// Shared empty label list (stable identity for memoized rows).
+const EMPTY_LABELS: readonly string[] = []
 
 /** One file card in the attachment lane (the chat file-card chrome). */
 function FileCard({ file }: { file: FileAttachmentRef }) {
@@ -29,16 +32,25 @@ function FileCard({ file }: { file: FileAttachmentRef }) {
 
 /** The bubble's content split: caption text, attachment blocks, and the rest
  *  (a `file` block joins the attachment lane; anything else is an extra block). */
+type PresentedAttachment =
+  | { readonly type: 'image'; readonly attachment: ImageAttachmentRef }
+  | { readonly type: 'file'; readonly file: FileAttachmentRef }
+
 function contentParts(content: readonly ContentBlock[]): {
   text: string
-  images: readonly ImageAttachmentRef[]
-  files: readonly FileAttachmentRef[]
+  attachments: readonly PresentedAttachment[]
   others: readonly ContentBlock[]
 } {
+  // Attachments keep their authored order (the official contentParts rule):
+  // an image after a file stays after it in the lane.
+  const attachments: PresentedAttachment[] = []
+  for (const block of content) {
+    if (block.type === 'image') attachments.push({ type: 'image', attachment: block.attachment })
+    else if (block.type === 'file') attachments.push({ type: 'file', file: block.attachment })
+  }
   return {
     text: messageText(content),
-    images: userImages(content).map(image => image.attachment),
-    files: userFiles(content),
+    attachments,
     others: content.filter(block => block.type !== 'text' && block.type !== 'image' && block.type !== 'file'),
   }
 }
@@ -46,39 +58,41 @@ function contentParts(content: readonly ContentBlock[]): {
 /** The message body: the attachment lane above the bubble (the chat row shape).
  *  One message renders either the caption bubble, the attachment lane, or
  *  both; an attachment-only message shows the lane without a bubble shell. */
-function MessageBody({ text, images, files, others, t, loadImage, align }: {
+function MessageBody({ text, attachments, others, referenceLabels, skillNames, t, loadImage, align }: {
   text: string
-  images: readonly ImageAttachmentRef[]
-  files: readonly FileAttachmentRef[]
+  attachments: readonly PresentedAttachment[]
   others: readonly ContentBlock[]
+  referenceLabels: readonly string[]
+  skillNames: readonly string[]
   t: FocusTranslate
   loadImage: ImageLoader
   align: 'start' | 'end'
 }) {
-  const attachments = images.length + files.length
+  const count = attachments.length
   const showBubble = text !== '' || others.length > 0
   return (
     <>
-      {attachments > 0 && (
+      {count > 0 && (
         <div className={css.attachmentRow} data-message-attachments>
-          {images.map((image, index) => (
-            // One gallery call per image: a message mixing images and files
-            // forces the compact tile on each (the chat compact rule).
-            <ImageGallery
-              key={`image:${index}`}
-              images={[{ attachment: image }]}
-              load={loadImage}
-              align={align}
-              labels={messageImageLabels(t)}
-              compact={attachments > 1}
-            />
-          ))}
-          {files.map((file, index) => <FileCard key={`file:${index}`} file={file} />)}
+          {attachments.map((attachment, index) => attachment.type === 'image'
+            ? (
+              // One gallery call per image: a message mixing images and files
+              // forces the compact tile on each (the chat compact rule).
+              <ImageGallery
+                key={`image:${index}`}
+                images={[{ attachment: attachment.attachment }]}
+                load={loadImage}
+                align={align}
+                labels={messageImageLabels(t)}
+                compact={count > 1}
+              />
+            )
+            : <FileCard key={`file:${index}`} file={attachment.file} />)}
         </div>
       )}
       {showBubble && (
         <div className={css.bubble}>
-          {projectUserText(text)}
+          {projectUserText(text, referenceLabels, skillNames)}
           {others.map((block, index) => (
             <JsonBlock
               key={index}
@@ -87,6 +101,13 @@ function MessageBody({ text, images, files, others, t, loadImage, align }: {
               truncatedLabel={jsonTruncated(t)}
             />
           ))}
+        </div>
+      )}
+      {referenceLabels.length > 0 && (
+        <div className={css.referenceSummary}>
+          {t('message.referenceSummary', {
+            labels: referenceLabels.join(t('message.referenceSeparator')),
+          })}
         </div>
       )}
     </>
@@ -99,11 +120,22 @@ export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImag
   mdLabels: MarkdownLabels
   loadImage: ImageLoader
 }) {
-  const { text, images, files, others } = useMemo(() => contentParts(item.content), [item.content])
+  const { text, attachments, others } = useMemo(() => contentParts(item.content), [item.content])
+  const referenceLabels = item.referenceLabels ?? EMPTY_LABELS
+  const skillNames = item.skillNames ?? EMPTY_LABELS
   return (
     <div className={css.userRow} data-role={item.role} data-time-hover-root>
       <div className={css.userStack}>
-        <MessageBody text={text} images={images} files={files} others={others} t={t} loadImage={loadImage} align="end" />
+        <MessageBody
+          text={text}
+          attachments={attachments}
+          others={others}
+          referenceLabels={referenceLabels}
+          skillNames={skillNames}
+          t={t}
+          loadImage={loadImage}
+          align="end"
+        />
       </div>
       <MessageActions
         text={text}
@@ -121,11 +153,20 @@ export const PendingSteeringBubble = memo(function PendingSteeringBubble({ conte
   t: FocusTranslate
   loadImage: ImageLoader
 }) {
-  const { text, images, files, others } = useMemo(() => contentParts(content), [content])
+  const { text, attachments, others } = useMemo(() => contentParts(content), [content])
   return (
     <div className={css.userRow} data-pending-steering data-time-hover-root>
       <div className={css.userStack}>
-        <MessageBody text={text} images={images} files={files} others={others} t={t} loadImage={loadImage} align="end" />
+        <MessageBody
+          text={text}
+          attachments={attachments}
+          others={others}
+          referenceLabels={EMPTY_LABELS}
+          skillNames={EMPTY_LABELS}
+          t={t}
+          loadImage={loadImage}
+          align="end"
+        />
       </div>
       <MessageActions
         text={text}
@@ -144,20 +185,46 @@ export const PendingSteeringBubble = memo(function PendingSteeringBubble({ conte
  * PendingSubmissionBubble shape). Image previews ride the submitter's own
  * object URLs, so only text and durable file attachments render here.
  */
-export const PendingSubmissionBubble = memo(function PendingSubmissionBubble({ submission, t }: {
+export const PendingSubmissionBubble = memo(function PendingSubmissionBubble({ submission, t, loadImage }: {
   submission: PendingSubmission
   t: FocusTranslate
+  loadImage: ImageLoader
 }) {
   const files = useMemo(
     () => submission.attachments.flatMap(attachment => attachment.type === 'file' ? [attachment.value] : []),
+    [submission.attachments],
+  )
+  // Image previews are browser-owned object URLs: the gallery's preview arm
+  // displays them directly, no loader round-trip.
+  const images = useMemo<readonly MessageImageSpec[]>(
+    () => submission.attachments.flatMap(attachment => attachment.type === 'image'
+      ? [{
+        preview: {
+          url: attachment.value.previewUrl,
+          ...(attachment.value.name === undefined ? {} : { name: attachment.value.name }),
+          ...(attachment.value.width === undefined ? {} : { width: attachment.value.width }),
+          ...(attachment.value.height === undefined ? {} : { height: attachment.value.height }),
+        },
+      }]
+      : []),
     [submission.attachments],
   )
   const text = submission.text
   return (
     <div className={css.userRow} data-pending-submission={submission.placement} data-time-hover-root>
       <div className={css.userStack}>
-        {files.length > 0 && (
+        {(images.length > 0 || files.length > 0) && (
           <div className={css.attachmentRow} data-message-attachments>
+            {images.length > 0 && (
+              <ImageGallery
+                images={images}
+                load={loadImage}
+                align="end"
+                labels={messageImageLabels(t)}
+                // A mixed row renders every image as a tile (the attachments-row rule).
+                compact={files.length > 0}
+              />
+            )}
             {files.map((file, index) => <FileCard key={`file:${index}`} file={file} />)}
           </div>
         )}

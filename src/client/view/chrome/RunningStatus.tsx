@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FocusTranslate } from '../../contract/props.ts'
-import { formatElapsed } from '../helpers/format.ts'
+import { formatRunDuration } from '../helpers/format.ts'
 import css from './RunningStatus.module.css'
 
 export function RunningStatus({ startTime, t }: {
@@ -23,7 +23,7 @@ export function RunningStatus({ startTime, t }: {
   return (
     <div className={css.turnStatus} role="status" aria-live="polite">
       {t('status.diving')}
-      {showClock && <span className={css.turnStatusClock} aria-hidden>{formatElapsed(elapsedMs, t)}</span>}
+      {showClock && <span className={css.turnStatusClock} aria-hidden>{formatRunDuration(elapsedMs, t)}</span>}
     </div>
   )
 }

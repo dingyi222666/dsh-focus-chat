@@ -20,12 +20,13 @@ export const CommandRow = memo(function CommandRow({ item, runningSummary, t }: 
   // Title is the bare command name: the row already reads `name · outcome`,
   // and the dispatched line's own `/` and arguments only restate what the
   // settlement text says (the chat row's rule).
-  const title = item.name ?? t('command')
+  const title = item.name ?? t('command.title')
   const body = text !== null && text.includes('\n') ? text : null
   const open = expanded && body !== null
   return (
-    <div className={css.commandRow} data-state={item.running ? 'running' : item.outcomeError ? 'error' : 'ok'}>
+    <div className={css.commandRow} data-variant="others" data-state={item.running ? 'running' : item.outcomeError ? 'error' : 'ok'}>
       {item.running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
+      {!item.running && item.outcomeError && <span className={a11yCss.visuallyHidden}>{t('row.failed')}</span>}
       <DisclosureRow
         className={css.commandRowInner}
         chevronClassName={css.commandChevron}

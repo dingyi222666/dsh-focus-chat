@@ -459,9 +459,7 @@ export const ContextRow = memo(function ContextRow({ item, t, mdLabels }: {
     source: context?.source,
     t,
   })
-  const title = provenance !== undefined && provenance.role !== 'recall'
-    ? t('contextInjection')
-    : t('contextRecall')
+  const title = provenance?.role === 'recall' ? t('contextRecall') : t('contextInjection')
   const recall = provenance?.role === 'recall'
   return (
     <DisclosureRow

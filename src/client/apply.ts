@@ -15,6 +15,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { fileAddressFor, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
@@ -178,6 +179,7 @@ export function apply(ctx: Context): void {
         // Raw history paging: the fallback when the Host turn index is absent
         // (the chat view's own loadOlder).
         loadOlder: () => { ctx.sessions.binding(sessionId)?.session.loadOlder() },
+        loadThrough: (seq) => { ctx.sessions.binding(sessionId)?.session.loadThrough(SessionSeq(seq)) },
         // Fork the session at one message seq (the chat view's branch semantics).
         forkAt: (seq) => {
           ctx.sessions.fork({ sessionId, atSeq: seq, increaseTitle: true })

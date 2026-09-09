@@ -72,7 +72,7 @@ export const ManualCompactionRow = memo(function ManualCompactionRow({ item, t, 
           shadowedItemCount: item.compaction.shadowedItemCount,
           shadowedTokenCount: item.compaction.shadowedTokenCount,
         }}
-        title="compact"
+        title={t('compaction.commandTitle')}
         fallbackSummary={item.outcomeText}
         t={t}
         mdLabels={mdLabels}

@@ -1,12 +1,18 @@
 .assistant {
   display: flex;
   flex-direction: column;
-  gap: 16px;
   /* The message-body tier: the Settings font-size axis rides the body
      variable (the markdown base reading). */
   font-size: var(--dsh-content-font-size, 14px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-primary);
+}
+
+/* The markdown block stack (the official AssistantMarkdown .body rule). */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* Interrupted-turn terminal marker: quiet inline tag, no animation (the chat
@@ -75,7 +81,7 @@
    the whole transcript width instead of clipping at the 748px message
    column, while the table content keeps starting at its normal x (the lead
    padding compensates the negative margin) — the chat view's breakout. */
-.assistant :global(.md-table-wide) {
+.body :global(.md-table-wide) {
   --dsh-table-spare: max(0px, calc((100cqw - var(--dsh-chat-content-width)) / 2));
   --dsh-table-lead: calc(var(--dsh-table-spare) + min(var(--dsh-chat-content-width), 100cqw) - 100%);
   box-sizing: border-box;

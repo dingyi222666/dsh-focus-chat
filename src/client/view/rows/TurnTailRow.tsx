@@ -104,7 +104,12 @@ export const TurnTailRow = memo(function TurnTailRow({ item, presented, openFile
     </button>
   )
   return (
-    <div className={css.turnTail} data-turn-tail={item.turn} data-time-hover-root>
+    <div
+      className={css.turnTail}
+      data-turn-tail={item.turn}
+      data-actions-reveal={item.branchUnavailable ? 'always' : undefined}
+      data-time-hover-root
+    >
       {paths.length > 0 && (
         <div className={css.producedRow} ref={rowRef} data-produced-row>
           <span className={css.producedLabel}>{t('produced.label')}</span>

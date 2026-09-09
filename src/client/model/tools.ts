@@ -4,6 +4,7 @@ import type { DiffHunk, ReadBlockLine } from '@deepseek-ai/dsh-client-ui-primiti
 import type { AttachmentId as AttachmentIdType, ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { FocusCard, FocusGroupMetrics, FocusGroupThink, FocusMetricKey, FocusToolGroup, FocusToolRow, FocusToolState, FocusToolVariant } from './types.ts'
+import { hasSpillNotice } from '@deepseek-ai/dsh-spill-policy/notice'
 import { flattenText, relativizeToCwd } from './text.ts'
 
 export const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
@@ -576,7 +577,8 @@ function searchCard(block: ToolCallBlock): FocusCard | null {
   const call = parsedCall(block)
   if (call === null) return null
   const { pattern, path } = call.args
-  if (typeof pattern !== 'string') return null
+  // A blank pattern names no search (the official validSearchCall rule).
+  if (typeof pattern !== 'string' || pattern.trim() === '') return null
   const tool = call.name === 'glob' ? 'glob'
     : call.name === 'grep' && pattern !== '' ? 'grep' : null
   if (tool === null) return null
@@ -706,6 +708,95 @@ function cardOf(block: ToolCallBlock, cwd?: string, home?: string): FocusCard | 
   return settledCardOf(block, cwd, home)
 }
 
+/** One question as authored in the ask_user_question arguments. */
+interface AskQuestionEntry {
+  id: string
+  question: string
+}
+
+/** Parse the args' questions array; null when pairing would be ambiguous. */
+function askQuestionEntries(raw: string): AskQuestionEntry[] | null {
+  const parsed = parseArgs(raw)
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const questions = (parsed as Record<string, unknown>).questions
+  if (!Array.isArray(questions) || questions.length === 0) return null
+  const entries: AskQuestionEntry[] = []
+  const ids = new Set<string>()
+  for (const question of questions) {
+    if (typeof question !== 'object' || question === null) return null
+    const record = question as Record<string, unknown>
+    const id = record.id
+    const text = record.question
+    if (typeof id !== 'string' || typeof text !== 'string' || ids.has(id)) return null
+    ids.add(id)
+    entries.push({ id, question: text })
+  }
+  return entries
+}
+
+/** Pair the result's answers with the args' questions by stable id. */
+function pairAskAnswers(
+  questions: readonly AskQuestionEntry[],
+  raw: string,
+): { id: string; question: string; answers: string[] }[] | null {
+  const parsed = parseArgs(raw)
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const answers = (parsed as Record<string, unknown>).answers
+  if (!Array.isArray(answers) || answers.length !== questions.length) return null
+  const byId = new Map<string, { selected: string[]; custom?: string }>()
+  for (const answer of answers) {
+    if (typeof answer !== 'object' || answer === null) return null
+    const record = answer as Record<string, unknown>
+    const id = record.id
+    const selected = record.selected
+    const custom = record.custom
+    if (typeof id !== 'string' || !Array.isArray(selected)
+      || !selected.every(item => typeof item === 'string')
+      || (custom !== undefined && typeof custom !== 'string')
+      || byId.has(id)) return null
+    byId.set(id, { selected, ...(custom === undefined ? {} : { custom }) })
+  }
+  const paired: { id: string; question: string; answers: string[] }[] = []
+  for (const question of questions) {
+    const answer = byId.get(question.id)
+    if (answer === undefined) return null
+    paired.push({
+      id: question.id,
+      question: question.question,
+      answers: [...answer.selected, ...(answer.custom === undefined || answer.custom === '' ? [] : [answer.custom])],
+    })
+  }
+  return paired
+}
+
+/**
+ * The ask-user transcript card (the official AskQuestionCard model): answered
+ * pairs when the result echoes every question id, an unanswered verdict list
+ * for a cancelled/aborted set, or null when strict pairing is unsafe.
+ */
+function askCard(block: ToolResultNode): FocusCard | null {
+  const parsed = parsedCall(block)
+  if (parsed === null || parsed.name !== 'ask_user_question') return null
+  const call = 'kind' in block ? block.call : block
+  const questions = askQuestionEntries(call?.argsRaw ?? '')
+  if (questions === null) return null
+  const code = block.error?.code
+  if (code === 'ASK_CANCELLED' || code === 'ASK_ABORTED') {
+    return {
+      kind: 'ask',
+      answered: false,
+      verdict: code === 'ASK_CANCELLED' ? 'cancelled' : 'interrupted',
+      questions: questions.map(question => ({ ...question, answers: [] })),
+    }
+  }
+  if (block.isError) return null
+  const text = singleResultText(block)
+  if (text === undefined) return null
+  const paired = pairAskAnswers(questions, text)
+  if (paired === null) return null
+  return { kind: 'ask', answered: true, verdict: null, questions: paired }
+}
+
 /** The settled-call card derivations, in the chat's precedence order. */
 function settledCardOf(block: ToolResultNode, cwd?: string, home?: string): FocusCard | null {
   const parsed = parsedCall(block)
@@ -716,7 +807,10 @@ function settledCardOf(block: ToolResultNode, cwd?: string, home?: string): Focu
     // result stays on the generic path; background calls never own a card.
     if (shell !== null && !shell.persistent && !shell.background) {
       const output = singleResultText(block)
-      if (output !== undefined) {
+      // A retained spill notice replaced the [exit code: N] marker; painting a
+      // terminal card would fabricate a successful exit status (the official
+      // isSpilledShellCall rule), so the call falls to the generic body.
+      if (output !== undefined && !hasSpillNotice(output)) {
         const status = parseExitStatus(output)
         return {
           kind: 'terminal',
@@ -746,7 +840,7 @@ function settledCardOf(block: ToolResultNode, cwd?: string, home?: string): Focu
       }
     }
   }
-  return diffCard(block) ?? readCard(block, cwd, home) ?? imageCardOf(block, cwd, home) ?? searchCard(block) ?? webCard(block)
+  return askCard(block) ?? diffCard(block) ?? readCard(block, cwd, home) ?? imageCardOf(block, cwd, home) ?? searchCard(block) ?? webCard(block)
 }
 
 /** The media types a durable image block may claim; anything else declines.

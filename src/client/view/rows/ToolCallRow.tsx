@@ -43,6 +43,40 @@ function CardBody({ card, t, diffStyle, loadImage }: {
       return diffStyle === 'codex-bar'
         ? <ChangesBarDiff diffs={card.diffs} labels={diffLabels(t)} expandLabels={changesBarExpandLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
         : <DiffBlock diffs={card.diffs} labels={diffLabels(t)} maxLines={CHAT_DIFF_MAX_LINES} className={css.diffBody} />
+    case 'ask': {
+      // The official AskQuestionCard: a bordered transcript of question/answer
+      // pairs, or the verdict and question list of a cancelled/aborted set.
+      if (!card.answered) {
+        return (
+          <div className={css.askCard}>
+            <p className={css.askVerdict}>
+              {card.verdict === 'cancelled' ? t('ask.cancelledDetail') : t('ask.interruptedDetail')}
+            </p>
+            <ul className={css.askQuestionList}>
+              {card.questions.map(question => (
+                <li className={css.askUnanswered} key={question.id}>{question.question}</li>
+              ))}
+            </ul>
+          </div>
+        )
+      }
+      return (
+        <dl className={css.askCard}>
+          {card.questions.map(question => (
+            <div className={css.askItem} key={question.id}>
+              <dt className={css.askQuestion}>{question.question}</dt>
+              <dd className={css.askAnswer}>
+                {question.answers.length === 0
+                  ? <span className={css.askSkipped}>{t('ask.skipped')}</span>
+                  : question.answers.map((answer, index) => (
+                    <span className={css.askAnswerLine} key={`${question.id}-${String(index)}`}>{answer}</span>
+                  ))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )
+    }
     case 'read':
       return <ReadBlock label={card.label} lines={card.lines} totalLines={card.totalLines} lang={card.lang} labels={readLabels(t)} maxLines={CHAT_READ_MAX_LINES} className={css.readBody} />
     case 'image':

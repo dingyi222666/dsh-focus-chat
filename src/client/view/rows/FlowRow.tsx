@@ -62,6 +62,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
       const last = item.blocks.length - 1
       return (
         <div className={css.assistant} data-streaming={item.running || undefined}>
+          <div className={css.body}>
           {item.blocks.map((block, index) => {
             switch (block.kind) {
               case 'text':
@@ -123,7 +124,8 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
                 )
             }
           })}
-          {item.interrupted && <div className={css.stopped}>{t('stopped')}</div>}
+          {item.interrupted && <span className={css.stopped}>{t('stopped')}</span>}
+          </div>
         </div>
       )
     }

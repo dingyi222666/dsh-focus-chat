@@ -49,7 +49,7 @@ export function diffLabels(t: FocusTranslate): DiffBlockLabels {
     expandAria: count => t('diff.expandAria', { count }),
     collapse: t('terminal.collapse'),
     expand: hidden => t('terminal.expand', { n: hidden }),
-    files: count => t('diff.files', { count }),
+    files: count => t(count === 1 ? 'diff.files.one' : 'diff.files', { count }),
   }
 }
 
