@@ -52,7 +52,7 @@ If you want the chat view itself to behave differently, that's an in-repo change
 
 Focus chat is a faithful reading surface, not a second chat view:
 
-- **No Inspect / details-panel deep links.** The chat's Inspect affordance needs internals plugins can't touch. The tool cards render the same content, just without the jump-to-details button.
+- **Inspect focuses the trajectory view.** A tool row's Inspect action opens the official trajectory view on that call (`openView('trajectory', callId)`) — the 0.1.5 replacement for the removed details panel. Focus cannot render third-party keyed tool views (see the next bullet).
 - **Third-party tool-card extensions don't render here.** Cards that other plugins add to the chat view won't appear in the focus view; the built-in card renderers are used instead.
 - **Folding is per consecutive tool-run.** Any visible content between two runs (a reply, a command, your interjection) keeps them separate.
 - **Inline file links need the optional file-mentions service** — the same off switch the chat view uses.
