@@ -284,6 +284,7 @@ function flowItemOf(
         ttftMs: tail.ttftMs ?? null,
         tokensPerSecond: tail.tokensPerSecond ?? null,
         branchUnavailable: tail.branchUnavailable,
+        isLatest: false,
         produced,
         presented,
         tokenUsage: tail.tokenUsage,
@@ -854,6 +855,16 @@ export function buildFocusFlow(
   flush()
   flushFold(null)
   flushContext()
+  // The newest turn's tail keeps its action row visible; every earlier tail
+  // reveals it on hover/focus (the official isLatestTurn rule). The flow is
+  // in log order, so the last tail is the newest.
+  for (let index = flow.length - 1; index >= 0; index -= 1) {
+    const item = flow[index]
+    if (item !== undefined && item.kind === 'turn-tail') {
+      flow[index] = { ...item, isLatest: true }
+      break
+    }
+  }
   return flow
 }
 

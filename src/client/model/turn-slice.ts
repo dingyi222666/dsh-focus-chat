@@ -972,6 +972,8 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
     ttftMs,
     tokensPerSecond,
     branchUnavailable: true,
+    // A remote fold is never the session's newest turn.
+    isLatest: false,
     // The produced/presented lanes are window-only (the slice carries no
     // engine-published turn data); a remote fold's tail draws the readings
     // that live in the durable events alone.

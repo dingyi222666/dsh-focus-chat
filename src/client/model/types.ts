@@ -252,6 +252,9 @@ export type FocusFlowItem =
     tokensPerSecond: number | null
     /** Whether fork is unavailable (engine-computed; mirrors the chat tail). */
     branchUnavailable: boolean
+    /** The newest turn's tail keeps its actions visible; earlier tails reveal
+     *  them on hover/focus (the official data-actions-reveal rule). */
+    isLatest: boolean
     /** Files produced by the closing turn, in first-seen order. */
     produced: readonly string[]
     /** Files the closing turn explicitly presented for delivery (the 0.1.5

@@ -32,6 +32,19 @@
    marker lives on the focus view's flow-item wrapper (data-chat-flow-kind);
    transient pending bubbles carry none and stay visible. */
 @media (hover: hover) {
+  /* An earlier turn tail reveals its actions on hover/focus; the newest tail
+     carries data-actions-reveal="always" and stays visible (the official
+     MessageIconActions rule). */
+  [data-actions-reveal='hover'] .messageActions {
+    opacity: 0;
+    transition: opacity 80ms ease;
+  }
+
+  [data-actions-reveal='hover']:hover .messageActions,
+  [data-actions-reveal='hover']:focus-within .messageActions {
+    opacity: 1;
+  }
+
   :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering']):has(
     ~ :is([data-chat-flow-kind='user'], [data-chat-flow-kind='steering'])
   ) .messageActions {

@@ -107,7 +107,7 @@ export const TurnTailRow = memo(function TurnTailRow({ item, presented, openFile
     <div
       className={css.turnTail}
       data-turn-tail={item.turn}
-      data-actions-reveal={item.branchUnavailable ? 'always' : undefined}
+      data-actions-reveal={item.isLatest ? 'always' : 'hover'}
       data-time-hover-root
     >
       {paths.length > 0 && (
