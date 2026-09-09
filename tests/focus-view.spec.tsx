@@ -149,6 +149,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     useFeedback: (_selector: unknown) => undefined,
     useDiffStyle: (selector: (style: 'default' | 'codex-bar') => 'default' | 'codex-bar') => selector(opts.diffStyle ?? 'default'),
     useMdStyle: (selector: (style: 'default' | 'highlight') => 'default' | 'highlight') => selector(opts.mdStyle ?? 'default'),
+    useTranscriptView: (selector: (mode: 'compact' | 'normal') => 'compact' | 'normal') => selector('compact'),
     usePresentedOpen: (selector: (states: Record<string, never>) => unknown) => selector({}),
     usePresentedHost: (selector: (host: null) => unknown) => selector(null),
     reloadPresentedHost: () => {},
@@ -334,6 +335,7 @@ it('renders the empty hint for an empty conversation', () => {
       useHostHome: () => undefined,
       useDiffStyle: () => 'default',
       useMdStyle: () => 'default',
+      useTranscriptView: () => 'compact',
       t,
     } as unknown as FocusViewProps)} />)
     expect(screen.getByText('two')).toBeTruthy()
@@ -508,7 +510,7 @@ it('renders the empty hint for an empty conversation', () => {
       chatNode('t2', 'tool-call', { root: settledCall('c2', 'job_kill', '{"job_id":"j2"}') }),
     ])
     // The job control tools fold into the background-jobs family.
-    expect(fullText('后台任务 2 个')).toBeTruthy()
+    expect(fullText('2 个后台任务')).toBeTruthy()
     renderView([
       chatNode('t3', 'tool-call', { root: settledCall('c3', 'read_image', '{"path":"/ws/a.png"}') }),
     ])
@@ -699,7 +701,7 @@ it('renders the empty hint for an empty conversation', () => {
     expect(rowOf('代码')?.querySelector('[data-tool-icon="code"]')).toBeTruthy()
     // The todo and skill rows own their family icons (the chat toolviews).
     expect(rowOf('更新任务清单')?.querySelector('[data-tool-icon="todo"]')).toBeTruthy()
-    expect(rowOf('技能')?.querySelector('[data-tool-icon="skill"]')).toBeTruthy()
+    expect(rowOf('Skill')?.querySelector('[data-tool-icon="skill"]')).toBeTruthy()
     expect(rowOf('工具调用')?.querySelector('[data-tool-icon="others"]')).toBeTruthy()
     // The failing call keeps the red state dot, not the family icon.
     expect(screen.getByText('boom').closest('[data-disclosure-row]')?.querySelector('[data-tool-icon]')).toBeNull()
@@ -766,7 +768,7 @@ it('renders the empty hint for an empty conversation', () => {
     renderView([
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'skill', '{"name":"web-browse"}') }),
     ])
-    expect(screen.getByText('技能')).toBeTruthy()
+    expect(screen.getByText('Skill')).toBeTruthy()
     expect(screen.getByText('web-browse')).toBeTruthy()
   })
 
@@ -1708,11 +1710,11 @@ it('renders the empty hint for an empty conversation', () => {
     ])
     // A settlement counts into the background-jobs family, not as a loaded
     // context item or a verbatim "injected <summary>" account.
-    expect(screen.getByText('运行了 1 个命令，后台任务 1 个')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令，1 个后台任务')).toBeTruthy()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
     expect(screen.queryByText(/注入了/)).toBeNull()
     // Expanding the group reveals the absorbed notice row with its body.
-    fireEvent.click(screen.getByText('运行了 1 个命令，后台任务 1 个'))
+    fireEvent.click(screen.getByText('运行了 1 个命令，1 个后台任务'))
     expect(screen.getByText('tool-tasks')).toBeTruthy()
   })
 
@@ -1734,9 +1736,9 @@ it('renders the empty hint for an empty conversation', () => {
     // background-jobs segment.
     expect(screen.queryByText(/Background subagent/)).toBeNull()
     expect(screen.queryByText(/上下文注入/)).toBeNull()
-    expect(screen.getByText('运行了 1 个命令，后台任务 1 个')).toBeTruthy()
+    expect(screen.getByText('运行了 1 个命令，1 个后台任务')).toBeTruthy()
     // Expanding the group reveals the notice row with its summary.
-    fireEvent.click(screen.getByText('运行了 1 个命令，后台任务 1 个'))
+    fireEvent.click(screen.getByText('运行了 1 个命令，1 个后台任务'))
     expect(screen.getByText('subagent-settled')).toBeTruthy()
   })
 

@@ -107,10 +107,8 @@
   align-items: center;
   gap: 4px;
   margin-left: 10px;
-  transform: translateY(0.5px);
   font-family: var(--ds-font-family-code);
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
-  line-height: calc(24px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-caption);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

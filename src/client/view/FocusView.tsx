@@ -214,7 +214,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
 export function FocusView({
   useSession, useChat, useProjection, sessionId, useSessions, loadImage, openFile, loadOlder, loadThrough, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
-  useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
+  useDiffStyle, useMdStyle, useTranscriptView, usePresentedOpen, usePresentedHost,
   ensureFeedback, rateFeedback, toggleFeedback, currentFeedback,
   reloadPresentedHost, openPresented, t,
 }: FocusViewProps) {
@@ -245,6 +245,7 @@ export function FocusView({
   // rendering, both defaulting to the official surfaces.
   const diffStyle = useDiffStyle(style => style)
   const mdStyle = useMdStyle(style => style)
+  const transcriptView = useTranscriptView(mode => mode)
   // The presented-delivery face the tail rows read: durable open status, the
   // Host desktop metadata, and the two verbs, bound to this Session.
   const presented = useMemo<FocusPresentedActions>(() => ({
@@ -383,6 +384,7 @@ export function FocusView({
     const windowFlow = buildFocusFlow(
       chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current,
       hideFrom.size > 0 ? hideFrom : undefined,
+      transcriptView === 'compact',
     )
     if (remoteTurns.length === 0) return windowFlow
     const remote = remoteTurns.map(summary => {
@@ -403,7 +405,7 @@ export function FocusView({
     return [...remote, ...windowFlow]
     // sliceVersion: a slice landing re-composes the remote rows with the
     // cached projection; the window flow's identities survive unchanged.
-  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion])
+  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion, transcriptView])
   // The official turn-navigation rail's items, accumulated in the Chat
   // snapshot: the array identity moves only when a Turn enters, leaves, or
   // changes its preview. The rail chrome is the alpha.5 fixed-pitch ladder;
@@ -862,12 +864,15 @@ export function FocusView({
   // live-row clock) reuses the same elements instead of recreating every
   // row's props object.
   const flowRows = useMemo(
-    () => flow.map(item => (
+    () => flow.map((item, index) => (
       <div
         key={flowKey(item)}
         className={css.flowItem}
         data-focus-anchor-key={flowKey(item)}
         data-focus-turn={flowTurnOf(item, chat) ?? undefined}
+        // A row that directly follows a completed-turn fold is that fold's
+        // answer: it tightens to the official 8px process-answer gap.
+        data-turn-process-answer={flow[index - 1]?.kind === 'turn-fold' ? true : undefined}
         // The alpha.5 actions-reveal rule: a user/steering row that has any
         // later user/steering row in the flow hides its actions row until
         // hover/focus (the chat flow-kind seat marker). Remote folds and

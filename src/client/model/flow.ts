@@ -297,6 +297,9 @@ export function buildFocusFlow(
   home?: string,
   cache?: FlowBuildCache,
   hideFrom?: ReadonlyMap<number, number>,
+  /** Compact folds a closed turn into one worked-for line; normal keeps its
+   *  rows expanded (the official transcriptView setting). */
+  compact = true,
 ): FocusFlowItem[] {
   // Pre-scan the order once: per-node turn membership, and for each turn the
   // wall boundaries (start/end), the closing assistant — the last assistant
@@ -423,6 +426,12 @@ export function buildFocusFlow(
     const folded = pendingFold
     pendingFold = []
     if (turnId === null || folded.length === 0) return
+    // The normal transcript keeps the completed turn's rows inline (the
+    // official Normal mode); compact emits the worked-for fold.
+    if (!compact) {
+      for (const item of folded) flow.push(item)
+      return
+    }
     const plan = turnPlans.get(turnId)
     const endTime = end ?? plan?.endTime ?? null
     const durationMs = start !== null && endTime !== null

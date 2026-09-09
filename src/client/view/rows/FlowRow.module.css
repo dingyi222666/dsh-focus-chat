@@ -62,6 +62,7 @@
   margin-right: 6px;
   color: var(--dsw-alias-state-warn-primary);
   font-weight: 600;
+}
 
 .turnErrorMessage {
   color: var(--dsw-alias-label-secondary);

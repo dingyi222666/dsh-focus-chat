@@ -10,7 +10,7 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
   DEFAULT_FOCUS_SETTINGS,
-  type DiffStyle, type FocusSettings, type MdStyle,
+  type DiffStyle, type FocusSettings, type MdStyle, type TranscriptViewMode,
 } from '../settings.ts'
 
 /** Live focus-view preferences consumed by the view and its Settings rows. */
@@ -19,6 +19,8 @@ export class FocusSettingsPolicy {
   readonly diffStyle: SnapshotStore<DiffStyle> = createSnapshotStore(DEFAULT_FOCUS_SETTINGS.diffStyle)
   /** Reactive markdown inline-code rendering; defaults to the official box. */
   readonly mdStyle: SnapshotStore<MdStyle> = createSnapshotStore(DEFAULT_FOCUS_SETTINGS.mdStyle)
+  /** Reactive completed-turn transcript layout; defaults to the compact fold. */
+  readonly transcriptView: SnapshotStore<TranscriptViewMode> = createSnapshotStore(DEFAULT_FOCUS_SETTINGS.transcriptView)
 
   /**
    * @param host - durable focus settings scope.
@@ -46,6 +48,16 @@ export class FocusSettingsPolicy {
     if (this.mdStyle.getSnapshot() === style) return
     this.mdStyle.set(style)
     void this.host.set('mdStyle', style)
+  }
+
+  /**
+   * Publish and persist the completed-turn transcript layout.
+   * @param mode - Compact (fold completed turns) or normal (keep them open).
+   */
+  setTranscriptView(mode: TranscriptViewMode): void {
+    if (this.transcriptView.getSnapshot() === mode) return
+    this.transcriptView.set(mode)
+    void this.host.set('transcriptView', mode)
   }
 
   /** Adopt the latest accepted Host section without writing it back. */

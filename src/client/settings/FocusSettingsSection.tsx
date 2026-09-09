@@ -11,7 +11,7 @@ import { IconChevronDownOutline14, Menu } from '@deepseek-ai/dsh-client-ui-primi
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { DiffStyle, MdStyle } from '../../settings.ts'
+import type { DiffStyle, MdStyle, TranscriptViewMode } from '../../settings.ts'
 import type { FocusKey } from '../locales.ts'
 import css from './SettingsSection.module.css'
 
@@ -22,11 +22,15 @@ export interface FocusSettingsSectionInjected {
     diffStyle: SnapshotStore<DiffStyle>
     /** Persisted markdown inline-code preference bound as useMdStyle. */
     mdStyle: SnapshotStore<MdStyle>
+    /** Persisted completed-turn transcript layout bound as useTranscriptView. */
+    transcriptView: SnapshotStore<TranscriptViewMode>
   }
   /** Change the file-mutation diff renderer. */
   setDiffStyle: (style: DiffStyle) => void
   /** Change the markdown inline-code rendering. */
   setMdStyle: (style: MdStyle) => void
+  /** Change the completed-turn transcript layout. */
+  setTranscriptView: (mode: TranscriptViewMode) => void
 }
 
 /** Full component props: runtime share + locale seat + injected hooks face. */
@@ -46,10 +50,11 @@ interface RowOption<T extends string> {
  * @param props - composed slot props.
  */
 export function FocusSettingsSection({
-  useDiffStyle, useMdStyle, setDiffStyle, setMdStyle, t,
+  useDiffStyle, useMdStyle, useTranscriptView, setDiffStyle, setMdStyle, setTranscriptView, t,
 }: FocusSettingsSectionProps) {
   const diffStyle = useDiffStyle(style => style)
   const mdStyle = useMdStyle(style => style)
+  const transcriptView = useTranscriptView(mode => mode)
   return (
     <div className={css.section}>
       <h3 className={css.title}>{t('settings.section.title')}</h3>
@@ -75,6 +80,17 @@ export function FocusSettingsSection({
           value={mdStyle}
           t={t}
           onSelect={id => { setMdStyle(id as MdStyle) }}
+        />
+        <SelectorRow
+          title={t('settings.transcript.title')}
+          desc={t('settings.transcript.desc')}
+          options={[
+            { id: 'compact' as const, label: 'settings.transcript.compact' as const },
+            { id: 'normal' as const, label: 'settings.transcript.normal' as const },
+          ]}
+          value={transcriptView}
+          t={t}
+          onSelect={id => { setTranscriptView(id as TranscriptViewMode) }}
         />
       </div>
     </div>

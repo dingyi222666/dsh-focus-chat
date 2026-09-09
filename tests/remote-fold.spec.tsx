@@ -137,6 +137,7 @@ function renderView(nodes: ChatConversationViewNode[], opts: RenderOptions = {})
     useFeedback: (_selector: unknown) => undefined,
     useDiffStyle: (selector: (style: 'default' | 'codex-bar') => 'default' | 'codex-bar') => selector('default'),
     useMdStyle: (selector: (style: 'default' | 'highlight') => 'default' | 'highlight') => selector('default'),
+    useTranscriptView: (selector: (mode: 'compact' | 'normal') => 'compact' | 'normal') => selector('compact'),
     usePresentedOpen: (selector: (states: Record<string, never>) => unknown) => selector({}),
     usePresentedHost: (selector: (host: null) => unknown) => selector(null),
     reloadPresentedHost: () => {},

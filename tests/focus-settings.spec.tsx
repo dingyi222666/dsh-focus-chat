@@ -26,10 +26,7 @@ describe('resolveFocusSettings', () => {
   })
 
   it('accepts valid choices and drops malformed ones', () => {
-    expect(resolveFocusSettings({ diffStyle: 'codex-bar', mdStyle: 'highlight' })).toEqual({
-      diffStyle: 'codex-bar',
-      mdStyle: 'highlight',
-    })
+    expect(resolveFocusSettings({ diffStyle: 'codex-bar', mdStyle: 'highlight' })).toEqual({ diffStyle: 'codex-bar', mdStyle: 'highlight', transcriptView: 'compact' })
     expect(resolveFocusSettings({ diffStyle: 'nope', mdStyle: 42 })).toEqual(DEFAULT_FOCUS_SETTINGS)
   })
 })
@@ -100,6 +97,8 @@ describe('FocusSettingsSection', () => {
     useMdStyle: ((selector: (s: 'default' | 'highlight') => unknown) => selector(overrides.mdStyle ?? 'default')) as never,
     setDiffStyle: vi.fn(),
     setMdStyle: vi.fn(),
+    setTranscriptView: vi.fn(),
+    useTranscriptView: ((selector: (mode: 'compact' | 'normal') => unknown) => selector('compact')) as never,
     t,
   })
 

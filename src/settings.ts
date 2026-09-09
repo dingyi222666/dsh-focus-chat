@@ -24,12 +24,20 @@ export const MD_STYLES = ['default', 'highlight'] as const
 /** One selectable markdown inline-code rendering. */
 export type MdStyle = typeof MD_STYLES[number]
 
+/** The completed-turn transcript layouts the focus view can draw. */
+export const TRANSCRIPT_VIEW_MODES = ['compact', 'normal'] as const
+
+/** One selectable completed-turn transcript layout. */
+export type TranscriptViewMode = typeof TRANSCRIPT_VIEW_MODES[number]
+
 /** Durable focus-view preferences. */
 export interface FocusSettings {
   /** Which diff renderer file-mutation cards use. */
   diffStyle: DiffStyle
   /** Which inline-code rendering markdown text uses. */
   mdStyle: MdStyle
+  /** Whether completed turns fold into one worked-for line or stay expanded. */
+  transcriptView: TranscriptViewMode
 }
 
 /** Default preferences applied when the user document holds no override. */
@@ -38,6 +46,8 @@ export const DEFAULT_FOCUS_SETTINGS: FocusSettings = Object.freeze({
   diffStyle: 'default',
   // The official markdown inline-code box, untouched.
   mdStyle: 'default',
+  // The official compact transcript: completed turns fold.
+  transcriptView: 'compact',
 })
 
 /**
@@ -59,6 +69,15 @@ export function isMdStyle(value: unknown): value is MdStyle {
 }
 
 /**
+ * Narrow one candidate to a transcript layout.
+ * @param value - value crossing the settings or wire boundary.
+ * @returns whether the value is a selectable transcript layout.
+ */
+export function isTranscriptView(value: unknown): value is TranscriptViewMode {
+  return TRANSCRIPT_VIEW_MODES.some(mode => mode === value)
+}
+
+/**
  * Merge an unknown wire section over the defaults, dropping malformed fields
  * so a hand-edited user document degrades to the default rather than to a
  * broken view configuration.
@@ -72,5 +91,8 @@ export function resolveFocusSettings(raw: unknown): FocusSettings {
   return {
     diffStyle: isDiffStyle(source.diffStyle) ? source.diffStyle : DEFAULT_FOCUS_SETTINGS.diffStyle,
     mdStyle: isMdStyle(source.mdStyle) ? source.mdStyle : DEFAULT_FOCUS_SETTINGS.mdStyle,
+    transcriptView: isTranscriptView(source.transcriptView)
+      ? source.transcriptView
+      : DEFAULT_FOCUS_SETTINGS.transcriptView,
   }
 }

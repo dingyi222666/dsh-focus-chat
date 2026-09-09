@@ -61,7 +61,7 @@
   align-items: baseline;
   gap: 4px;
   font-family: var(--ds-font-family-code);
-  font-size: 0.875em;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
