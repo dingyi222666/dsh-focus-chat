@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import type { DiffStyle } from '../../../settings.ts'
@@ -48,10 +48,12 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
  * stays the focus view's reading; the turn-process node's counts ride the
  * model.
  */
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
+  /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
+  pathImages: MarkdownPathImages
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
@@ -81,6 +83,7 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, openFi
               item={inner}
               t={t}
               mdLabels={mdLabels}
+              pathImages={pathImages}
               openFile={openFile}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}

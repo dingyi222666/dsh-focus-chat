@@ -62,6 +62,22 @@ export const CHAT_KIND_DISPOSITION = {
   'user': 'message',
 } satisfies Record<ChatNodeKind, string>
 
+/**
+ * Whether one chat node paints no flow row at all: a hidden surface
+ * placeholder (the official system-prompt / request-prompt anchors) or a
+ * control kind this view drops (turn-process). The flow scans skip these
+ * nodes; every other consumer that measures the window's own span — the
+ * remote-fold head in particular — must skip them the same way, or a hidden
+ * placeholder near the window edge pulls the measured head below the first
+ * painted row and strands the boundary turn's opening rows.
+ * @param node - one chat conversation node.
+ * @returns whether the node contributes no row.
+ */
+export function isRowlessChatNode(node: ChatConversationViewNode): boolean {
+  return node.visibility === 'hidden'
+    || (CHAT_KIND_DISPOSITION as Record<string, string | undefined>)[node.kind] === 'dropped'
+}
+
 /** The node facts a cached item's validity depends on. */
 function nodeSignature(node: ChatConversationViewNode): unknown {
   if (node.kind === 'tool-call') return node.data

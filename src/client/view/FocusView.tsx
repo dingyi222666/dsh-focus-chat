@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Button, IconChevronDownOutline14, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownFileMentions, MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-chat merge (useChat on the session standard kit).
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
-import { buildFocusFlow, createFlowBuildCache, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
+import { buildFocusFlow, createFlowBuildCache, isRowlessChatNode, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
 import type { FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
 import type { TurnSummary } from '../../protocol.ts'
 import { markdownLabels } from './helpers/terminal.ts'
+import { markdownPathImages } from './helpers/path-images.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
 import { PendingSteeringBubble } from './rows/UserBubble.tsx'
 import { RemoteTurnRow } from './rows/RemoteTurnRow.tsx'
@@ -283,8 +284,14 @@ export function FocusView({
   // pages) has no head, so nothing renders remotely.
   const windowHead = useMemo(() => {
     if (!hasMore) return 0
+    // The head is the first PAINTED row of the window: a hidden surface
+    // placeholder or a dropped control node (turn-process) contributes no
+    // row, so counting it would pull the head below the window's real start
+    // and strand the boundary turn's opening rows between the remote fold
+    // and the window (the refresh-time gap).
     let min = Infinity
     for (const node of chat.nodes.values()) {
+      if (isRowlessChatNode(node)) continue
       if (node.anchorSeq < min) min = node.anchorSeq
     }
     return Number.isFinite(min) ? min : 0
@@ -418,6 +425,11 @@ export function FocusView({
   }, [flow, liveNow])
   const runningTurnStart = useMemo(() => runningTurnStartTime(chat.timeline), [chat.timeline])
   const mdLabels = useMemo<MarkdownLabels>(() => markdownLabels(t), [t])
+  // Local media paths in the closing prose rewrite to the same-origin file
+  // API (policy re-validation lives host-side). The vocabulary identity is
+  // stable per page load because MarkdownText memoizes on it (the chat
+  // AssistantMarkdown rule).
+  const pathImages = useMemo<MarkdownPathImages>(() => markdownPathImages(), [])
   // Host open-path refusals surface as an in-page dialog with a same-path
   // retry (the chat view's FileOpenErrorDialog); a settlement that started
   // before the latest close/retry gesture is ignored so a cancelled in-flight
@@ -796,6 +808,7 @@ export function FocusView({
             onExpand={requestTurnSlice}
             t={t}
             mdLabels={mdLabels}
+            pathImages={pathImages}
             openFile={requestOpenFile}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
@@ -809,6 +822,7 @@ export function FocusView({
             item={item}
             t={t}
             mdLabels={mdLabels}
+            pathImages={pathImages}
             openFile={requestOpenFile}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
@@ -820,7 +834,7 @@ export function FocusView({
         )}
       </div>
     )),
-    [flow, chat, t, mdLabels, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle, requestTurnSlice],
+    [flow, chat, t, mdLabels, pathImages, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle, requestTurnSlice],
   )
 
   return (

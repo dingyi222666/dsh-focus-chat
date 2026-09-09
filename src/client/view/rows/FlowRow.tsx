@@ -1,6 +1,6 @@
 import { Fragment, memo } from 'react'
 import { JsonBlock, MarkdownText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -22,10 +22,12 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
+export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
   item: FocusFlowItem
   t: FocusTranslate
   mdLabels: MarkdownLabels
+  /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
+  pathImages: MarkdownPathImages
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
@@ -67,6 +69,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
                     streaming={item.running}
                     labels={mdLabels}
                     fileMentions={mentionsByKey.get(item.nodeKey)}
+                    pathImages={pathImages}
                   />
                 )
               case 'reasoning':
@@ -141,6 +144,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
           item={item}
           t={t}
           mdLabels={mdLabels}
+          pathImages={pathImages}
           openFile={openFile}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}

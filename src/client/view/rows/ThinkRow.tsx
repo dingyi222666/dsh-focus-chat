@@ -20,7 +20,9 @@ export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
   t: FocusTranslate
 }) {
   const [expanded, setExpanded] = useState(false)
-  const summary = running ? latestLine(text) : firstLine(text)
+  // The collapsed summary omits double-asterisk markers (the 0.1.5-alpha.2
+  // ReasoningRow rule); the expanded body preserves the complete text.
+  const summary = (running ? latestLine(text) : firstLine(text)).replaceAll('**', '')
   return (
     <div className={css.thinkWrap} data-state={running ? 'running' : 'ok'} data-expanded={expanded || undefined}>
       {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}

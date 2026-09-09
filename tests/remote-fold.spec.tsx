@@ -200,6 +200,36 @@ function windowNodes(): ChatConversationViewNode[] {
 }
 
 describe('remote turn folds', () => {
+  it('measures the window head from painted rows only, so a hidden placeholder cannot strand a boundary turn', async () => {
+    // The window carries a hidden surface placeholder (the official
+    // system-prompt anchor) whose anchorSeq sits below the first painted row.
+    // Counting it would push the measured head below turn 4's start, so turn 4
+    // would neither fold remotely nor paint from the window — the refresh-time
+    // gap between the fold stack and the newest rows.
+    const hidden = {
+      ...chatNode('sp-hidden', 'system-prompt', { text: '' }, { kind: 'unresolved' }, 52),
+      visibility: 'hidden',
+    } as ChatConversationViewNode
+    const nodes = [
+      hidden,
+      chatNode('a5', 'assistant-step', {
+        status: 'settled', turn: 5, step: 1, time: 80000,
+        blocks: [ablock('turn 5 reply')],
+      }, turnLocation(5), 60),
+    ]
+    renderView(nodes, {
+      turnIndex: () => Promise.resolve({
+        turns: [summary(4, 55, 59, 'reply 4'), summary(5, 60, 70, 'reply 5')],
+        cursor: 100,
+      }),
+    })
+    // Turn 4 lies entirely outside the window: it must fold remotely.
+    await waitFor(() => expect(screen.getByText('ask 4')).toBeTruthy())
+    expect(screen.getByText('工作了 4 秒')).toBeTruthy()
+    // Turn 5 owns the painted window rows and keeps rendering them.
+    expect(screen.getByText('turn 5 reply')).toBeTruthy()
+  })
+
   it('renders the index turns before the window head as collapsed folds; the boundary turn keeps its real closing reply', async () => {
     renderView(windowNodes(), {
       turnIndex: () => Promise.resolve({

@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from 'react'
-import type { MarkdownLabels, MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -58,7 +58,7 @@ function closingItem(nodeKey: string, summary: TurnSummary): FocusFlowItem | nul
  * fetch surfaces inline with a retry.
  */
 export const RemoteTurnRow = memo(function RemoteTurnRow({
-  item, slice, onExpand, t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
+  item, slice, onExpand, t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
 }: {
   item: Extract<FocusFlowItem, { kind: 'remote-turn' }>
   /** The cached projection for this turn; absent until first expansion. */
@@ -67,6 +67,8 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   onExpand: (turn: number) => Promise<void>
   t: FocusTranslate
   mdLabels: MarkdownLabels
+  /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
+  pathImages: MarkdownPathImages
   openFile: (path: string) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
@@ -110,7 +112,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   }
 
   const rowProps = {
-    t, mdLabels, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
+    t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
   } as const
 
   return (
