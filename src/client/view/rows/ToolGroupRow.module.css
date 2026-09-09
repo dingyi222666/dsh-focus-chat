@@ -67,12 +67,8 @@
 .calls {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 4px 0 2px 22px;
-  padding-left: 8px;
-  /* The summary line's second-level content keeps one continuous indent
-     line; only the worked-fold expansion is line-free. */
-  border-left: 0.5px solid var(--dsw-alias-border-l2);
+  gap: 8px;
+  margin: 12px 0 6px;
 }
 
 /* One running turn's context batch: the collapsed line and its rows. */

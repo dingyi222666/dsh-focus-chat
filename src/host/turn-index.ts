@@ -5,9 +5,10 @@
  * @module dsh-focus-chat/host/turn-index
  */
 
+import { assistantStreamFirstTokenTime, type AssistantStreamRecord } from '@deepseek-ai/dsh-llm/assistant-stream'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
-import type { TurnOpeningMessage, TurnSummary } from '../protocol.ts'
+import type { TurnOpeningMessage, TurnStepTiming, TurnSummary } from '../protocol.ts'
 
 /** The complete turn index over one session log. */
 export interface TurnIndex {
@@ -89,6 +90,8 @@ export function computeTurnIndex(events: readonly SessionEvent[]): TurnIndex {
     stopped: boolean
     closing: ClosingMessage | null
     opening: TurnOpeningMessage[]
+    /** Durable per-step timing, keyed by step number (insertion order kept). */
+    steps: Map<number, TurnStepTiming>
   } | null = null
 
   const close = (endTime: number, endSeq: number): void => {
@@ -105,6 +108,7 @@ export function computeTurnIndex(events: readonly SessionEvent[]): TurnIndex {
       closingTime: open.closing?.time ?? null,
       closingContent: open.closing?.content ?? null,
       opening: open.opening,
+      steps: [...open.steps.values()],
     })
     open = null
   }
@@ -122,6 +126,7 @@ export function computeTurnIndex(events: readonly SessionEvent[]): TurnIndex {
         stopped: false,
         closing: null,
         opening: [],
+        steps: new Map(),
       }
       continue
     }
@@ -137,6 +142,29 @@ export function computeTurnIndex(events: readonly SessionEvent[]): TurnIndex {
       if (reason.kind === 'interrupted' || reason.kind === 'aborted') open.stopped = true
       close(event.time, event.seq)
       continue
+    }
+    if (event.type === 'step/start') {
+      if (!open.steps.has(event.data.step)) {
+        open.steps.set(event.data.step, {
+          step: event.data.step,
+          stepStartTime: event.time,
+          firstTokenTime: null,
+        })
+      }
+      continue
+    }
+    if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+      // The durable stream still carries the first visible token's time, so a
+      // reload keeps the thinking reading the live chunks supplied.
+      const timing = open.steps.get(event.data.step)
+      if (timing !== undefined && timing.firstTokenTime === null) {
+        // Older fixtures (and a malformed log) may omit the stream entirely.
+        const stream = (event.data as { stream?: readonly AssistantStreamRecord[] }).stream ?? []
+        const firstTokenTime = assistantStreamFirstTokenTime(stream)
+        if (firstTokenTime !== undefined) {
+          open.steps.set(event.data.step, { ...timing, firstTokenTime })
+        }
+      }
     }
     if (event.type === 'user/message') {
       // User-source messages before the first assistant activity are the

@@ -1,6 +1,7 @@
 /** One condensed flow over the chat snapshot (React-free). */
 import type { AssistantChatData, ChatNodeDataMap, ChatNodeKind, ManualCompactionChatData, ToolChatData, TurnProcessChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { TurnStepTiming } from '../../protocol.ts'
 import { toolGroup, type ToolRowModelCache } from './tools.ts'
 import { assistantText, presentedForClosing, producedForClosing, thoughtDurationMs } from './text.ts'
 import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, FocusToolGroup } from './types.ts'
@@ -95,6 +96,7 @@ function flowItemCached(
   key: string,
   node: ChatConversationViewNode,
   data: FocusNodeData,
+  stepTiming?: ReadonlyMap<string, TurnStepTiming>,
 ): FocusFlowItem | null {
   if (cache === undefined) return flowItemOf(key, node, data)
   const previous = cache.items.get(key)
@@ -105,10 +107,31 @@ function flowItemCached(
   return item
 }
 
+/**
+ * Thinking time recovered from the durable per-step timing when the assistant
+ * node carries none (a reloaded window has no live-chunk first token).
+ * @param node - the assistant-step node.
+ * @param stepTiming - the `${turn}:${step}` durable timing map.
+ * @returns the thinking duration in ms, or null when unavailable.
+ */
+function durableThoughtMs(
+  node: ChatConversationViewNode,
+  stepTiming: ReadonlyMap<string, TurnStepTiming> | undefined,
+): number | null {
+  if (stepTiming === undefined) return null
+  const location = node.location
+  if (location.kind !== 'step') return null
+  const timing = stepTiming.get(`${location.turn.turn}:${location.step.step}`)
+  if (timing === undefined || timing.firstTokenTime === null) return null
+  const ms = timing.firstTokenTime - timing.stepStartTime
+  return ms > 0 ? ms : null
+}
+
 function flowItemOf(
   key: string,
   node: ChatConversationViewNode,
   data: FocusNodeData,
+  stepTiming?: ReadonlyMap<string, TurnStepTiming>,
 ): FocusFlowItem | null {
   switch (node.kind) {
     case 'user':
@@ -142,7 +165,7 @@ function flowItemOf(
         blocks: assistant.blocks,
         running: assistant.status === 'running',
         interrupted: assistant.status === 'interrupted',
-        thoughtMs: thoughtDurationMs(assistant),
+        thoughtMs: thoughtDurationMs(assistant) ?? durableThoughtMs(node, stepTiming),
         finalSeq: assistant.finalNode?.seq ?? null,
       }
     }
@@ -300,6 +323,9 @@ export function buildFocusFlow(
   /** Compact folds a closed turn into one worked-for line; normal keeps its
    *  rows expanded (the official transcriptView setting). */
   compact = true,
+  /** Durable per-step timing keyed `${turn}:${step}` (the reload fallback for
+   *  a thinking duration whose live-chunk first token is gone). */
+  stepTiming?: ReadonlyMap<string, TurnStepTiming>,
 ): FocusFlowItem[] {
   // Pre-scan the order once: per-node turn membership, and for each turn the
   // wall boundaries (start/end), the closing assistant — the last assistant
@@ -808,7 +834,7 @@ export function buildFocusFlow(
       continue
     }
     flush()
-    const item = flowItemCached(cache, key, node, node.data as FocusNodeData)
+    const item = flowItemCached(cache, key, node, node.data as FocusNodeData, stepTiming)
     if (item !== null) {
       pushItem(item)
     } else {

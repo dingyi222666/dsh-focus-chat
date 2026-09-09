@@ -161,6 +161,7 @@ function summary(turn: number, startSeq: number, endSeq: number, reply = ''): Tu
     closingTime: (endSeq - 1) * 1000,
     closingContent: reply === '' ? null : [text(reply)],
     opening: [{ seq: startSeq + 1, time: startSeq * 1000 + 10, role: 'user', content: [text(`ask ${turn}`)] }],
+    steps: [],
   }
 }
 

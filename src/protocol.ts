@@ -59,6 +59,22 @@ export interface TurnSummary {
   closingContent: readonly ContentBlock[] | null
   /** User-source messages before the turn's first assistant activity, in log order. */
   opening: readonly TurnOpeningMessage[]
+  /**
+   * Per-step timing recovered from the durable stream (the live-chunk
+   * first-token time is gone after a reload): the window flow reads a step's
+   * thinking duration from here when its assistant node carries none.
+   */
+  steps: readonly TurnStepTiming[]
+}
+
+/** One step's durable timing inside a turn. */
+export interface TurnStepTiming {
+  /** The `step/start` payload's step number. */
+  step: number
+  /** Unix epoch ms of the `step/start` event. */
+  stepStartTime: number
+  /** First visible token's time from the durable stream; null when none was recorded. */
+  firstTokenTime: number | null
 }
 
 /** Payload of `focus/turnIndex`. */

@@ -10,7 +10,7 @@ import type {} from '@deepseek-ai/dsh-session-turn-outline/client'
 import type { FocusPresentedActions, FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, isRowlessChatNode, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
 import type { FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
-import type { TurnSummary } from '../../protocol.ts'
+import type { TurnStepTiming, TurnSummary } from '../../protocol.ts'
 import { markdownLabels } from './helpers/terminal.ts'
 import { markdownPathImages } from './helpers/path-images.ts'
 import { FlowRow, flowKey } from './rows/FlowRow.tsx'
@@ -357,6 +357,17 @@ export function FocusView({
     }
     return map
   }, [preHeadTurns, windowHead])
+  // The durable per-step timing from the Host index: a reloaded window's
+  // assistant nodes carry no live-chunk first token, so the thinking metric
+  // reads this instead.
+  const stepTiming = useMemo<ReadonlyMap<string, TurnStepTiming> | undefined>(() => {
+    if (turnIndexState.status !== 'ready') return undefined
+    const map = new Map<string, TurnStepTiming>()
+    for (const turn of turnIndexState.turns) {
+      for (const step of turn.steps) map.set(`${turn.turn}:${step.step}`, step)
+    }
+    return map
+  }, [turnIndexState])
   // Expanded-turn slice cache: the projected flow items per turn, LRU-bounded
   // (an expanded fold's rows stay warm while the reader scrolls back to it).
   const slicesRef = useRef(new Map<number, TurnSlice>())
@@ -385,6 +396,7 @@ export function FocusView({
       chat.order, key => chat.nodes.get(key), cwd, home, flowCacheRef.current,
       hideFrom.size > 0 ? hideFrom : undefined,
       transcriptView === 'compact',
+      stepTiming,
     )
     if (remoteTurns.length === 0) return windowFlow
     const remote = remoteTurns.map(summary => {
@@ -405,7 +417,7 @@ export function FocusView({
     return [...remote, ...windowFlow]
     // sliceVersion: a slice landing re-composes the remote rows with the
     // cached projection; the window flow's identities survive unchanged.
-  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion, transcriptView])
+  }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion, transcriptView, stepTiming])
   // The official turn-navigation rail's items, accumulated in the Chat
   // snapshot: the array identity moves only when a Turn enters, leaves, or
   // changes its preview. The rail chrome is the alpha.5 fixed-pitch ladder;
