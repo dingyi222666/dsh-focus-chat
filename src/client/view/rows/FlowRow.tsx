@@ -1,7 +1,7 @@
 import { Fragment, memo } from 'react'
 import { JsonBlock, MarkdownText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusFlowItem } from '../../model/types.ts'
 import type { DiffStyle } from '../../../settings.ts'
@@ -22,20 +22,23 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
+export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
   item: FocusFlowItem
   t: FocusTranslate
   mdLabels: MarkdownLabels
   /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
   pathImages: MarkdownPathImages
+  /** Presented-delivery face for the turn-tail cards. */
+  presented: FocusPresentedActions
   openFile: (path: string, options?: { line?: number }) => void
+  /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
+  inspect: (callId: string) => void
   forkAt: (seq: number) => void
   /** Inline file-mention vocabulary per assistant node key (closing prose). */
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
   /** Per-message feedback verbs (the assistant-actions strip's business face). */
   feedback: FocusFeedbackActions
-  isLoopback: boolean
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
 }) {
@@ -134,9 +137,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, op
         && group.context.length === 0
         && 'callId' in group.items[0]
         && group.items[0].state !== 'running') {
-        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} diffStyle={diffStyle} loadImage={loadImage} />
+        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
       }
-      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} diffStyle={diffStyle} loadImage={loadImage} />
+      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
     }
     case 'turn-fold':
       return (
@@ -145,12 +148,13 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, op
           t={t}
           mdLabels={mdLabels}
           pathImages={pathImages}
+          presented={presented}
           openFile={openFile}
+          inspect={inspect}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}
           loadImage={loadImage}
           feedback={feedback}
-          isLoopback={isLoopback}
           diffStyle={diffStyle}
         />
       )
@@ -158,11 +162,11 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, op
       return (
         <TurnTailRow
           item={item}
+          presented={presented}
           openFile={openFile}
           forkAt={forkAt}
           feedback={feedback}
           t={t}
-          isLoopback={isLoopback}
         />
       )
     case 'command':
@@ -191,7 +195,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, op
         <div className={css.turnErrorRow} role="status">
           <StateDot state="warning" className={css.turnErrorDot} />
           <div className={css.turnErrorCopy}>
-            <span className={css.turnErrorTitle}>{t('maxTokens')}</span>
+            <span className={css.maxTokensTitle}>{t('maxTokens')}</span>
             <span className={css.turnErrorMessage}>{t('maxTokens.hint')}</span>
           </div>
         </div>

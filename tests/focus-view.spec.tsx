@@ -148,6 +148,10 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     useFeedback: (_selector: unknown) => undefined,
     useDiffStyle: (selector: (style: 'default' | 'codex-bar') => 'default' | 'codex-bar') => selector(opts.diffStyle ?? 'default'),
     useMdStyle: (selector: (style: 'default' | 'highlight') => 'default' | 'highlight') => selector(opts.mdStyle ?? 'default'),
+    usePresentedOpen: (selector: (states: Record<string, never>) => unknown) => selector({}),
+    usePresentedHost: (selector: (host: null) => unknown) => selector(null),
+    reloadPresentedHost: () => {},
+    openPresented: () => {},
     ensureFeedback: () => Promise.resolve({ ok: true as const }),
     rateFeedback: opts.feedback?.rate ?? (() => Promise.resolve({ ok: true as const })),
     toggleFeedback: opts.feedback?.toggle ?? (() => Promise.resolve({ ok: true as const })),
@@ -1895,7 +1899,7 @@ it('renders the empty hint for an empty conversation', () => {
     // The produced row lists only paths settled at or before the closing seq.
     // Chip queries go through the accessible name: the measurement probes
     // duplicate the chip text in an aria-hidden subtree.
-    expect(screen.getByText('产物')).toBeTruthy()
+    expect(screen.getByText('本轮文件改动')).toBeTruthy()
     expect(screen.getByRole('button', { name: /report\.html/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /a\.ts/ })).toBeNull()
     // The actions footer: the clock pill carries the turn wall time; the

@@ -81,9 +81,8 @@
 
 /* The path/summary hugs its content (the change tally follows it tightly
    instead of being pushed to the row's far edge). */
-.callSummary,
-.callFileLink {
-  flex: 0 1 auto;
+.callSummary {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -107,7 +106,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 5px;
+  margin-left: 10px;
+  transform: translateY(0.5px);
   font-family: var(--ds-font-family-code);
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 2px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));
@@ -118,12 +118,11 @@
 
 /* The +/- colors are the diff reading itself: additions success-green,
    removals error-red, always — never a neutral resting state. */
-.changeAdd {
-  color: var(--dsw-alias-state-success-primary);
-}
-
+/* The official diffStat is one caption-colored tally; the +/- signs carry
+   the meaning, not color. */
+.changeAdd,
 .changeRemove {
-  color: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-caption);
 }
 
 /* File-tool path: same geometry as the summary, with a persistent link
@@ -165,11 +164,12 @@
   color: var(--dsw-alias-state-error-primary);
 }
 
-/* Expanded body wrapper (sibling of the row: clicks never toggle). */
+/* Expanded body wrapper (sibling of the row: clicks never toggle). The
+   official ToolRow bodyWrap carries no margin; the card's own margins supply
+   the inset. */
 .callBodyWrap {
   display: flex;
   flex-direction: column;
-  margin-top: 8px;
 }
 
 /* Expanded-body scroll wrapper for the run_code CodeBlock; the IN/OUT card
@@ -184,7 +184,7 @@
 .ioCard {
   display: flex;
   flex-direction: column;
-  margin: 8px 0;
+  margin: 4px 0 4px 4px;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 12px;
   background: var(--dsw-alias-markdown-code-block);
@@ -193,6 +193,17 @@
 
 /* One card section (IN or OUT): the gutter-label grid, capped and scrolling
    independently so a long input never buries a short output. */
+.ioSection::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 6px;
+}
+
+/* Track end-margins keep the thumb's travel out of the rounded corners. */
+.ioSection::-webkit-scrollbar-track {
+  margin: 6px 0;
+}
+
 .ioSection {
   display: grid;
   grid-template-columns: max-content 1fr;
@@ -288,7 +299,38 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 8px 0 6px 22px;
+  margin: 4px 0 2px 22px;
   padding-left: 8px;
   border-left: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+/* The Inspect affordance (the official 0.1.5 ToolRow .inspectButton): a quiet
+   in-flow pill that reveals the call in the trajectory view; it fades in with
+   the row's hover/focus. */
+.inspectButton {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 4px;
+  margin: 4px 0 2px 4px;
+  padding: 2px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.callRow:hover .inspectButton,
+.inspectButton:focus-visible {
+  opacity: 1;
+}
+
+.inspectButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover-solid);
 }

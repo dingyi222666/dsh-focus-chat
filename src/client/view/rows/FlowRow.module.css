@@ -31,8 +31,8 @@
   gap: 8px;
   align-items: start;
   padding: 2px 0;
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
 .turnErrorDot {
@@ -50,6 +50,13 @@
   font-weight: 600;
 }
 
+/* The max-tokens notice keeps the error row's layout but warns rather than
+   fails (the official MessageItem .maxTokensTitle). */
+.maxTokensTitle {
+  margin-right: 6px;
+  color: var(--dsw-alias-state-warn-primary);
+  font-weight: 600;
+
 .turnErrorMessage {
   color: var(--dsw-alias-label-secondary);
 }
@@ -61,7 +68,7 @@
 
 /* The unknown-surface fallback row keeps the flow's breathing room. */
 .contextRow {
-  margin: 4px 0;
+  padding: 2px 0;
 }
 
 /* Wide markdown tables (the renderer's >=4-column md-table-wide hook) span

@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import { formatElapsed } from '../helpers/format.ts'
@@ -48,19 +48,22 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
  * stays the focus view's reading; the turn-process node's counts ride the
  * model.
  */
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
   /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
   pathImages: MarkdownPathImages
+  /** Presented-delivery face for the turn-tail cards. */
+  presented: FocusPresentedActions
   openFile: (path: string, options?: { line?: number }) => void
+  /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
+  inspect: (callId: string) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
   /** Per-message feedback verbs (the assistant-actions strip's business face). */
   feedback: FocusFeedbackActions
-  isLoopback: boolean
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
 }) {
@@ -84,12 +87,13 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
               t={t}
               mdLabels={mdLabels}
               pathImages={pathImages}
+              presented={presented}
               openFile={openFile}
+              inspect={inspect}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}
               loadImage={loadImage}
               feedback={feedback}
-              isLoopback={isLoopback}
               diffStyle={diffStyle}
             />
           ))}

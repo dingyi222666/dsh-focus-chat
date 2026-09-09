@@ -34,7 +34,7 @@ export type FocusCard =
 export type FocusToolState = 'running' | 'ok' | 'error' | 'stopped'
 
 /** Tool-call row variants selected by the generic renderer (the chat table). */
-export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'todo' | 'skill' | 'others'
+export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'todo' | 'skill' | 'present' | 'others'
 
 /** One Tool call's condensed row model, derived from the frozen block. */
 export interface FocusToolRow {
@@ -242,6 +242,9 @@ export type FocusFlowItem =
     branchUnavailable: boolean
     /** Files produced by the closing turn, in first-seen order. */
     produced: readonly string[]
+    /** Files the closing turn explicitly presented for delivery (the 0.1.5
+     *  deliverables/presented vocabulary), in first-seen path order. */
+    presented: readonly FocusPresentedFile[]
     /** Exact provider-reported token accounting, when the turn recorded it. */
     tokenUsage: TurnTokenUsage | undefined
   }
@@ -300,8 +303,23 @@ export type FocusFlowItem =
 /** The chat node data union the focus view narrows, keyed by the merge-extensible map. */
 export type FocusNodeData = ChatNodeDataMap[Extract<keyof ChatNodeDataMap, string>]
 
+/** One presented-file fact: a workspace path explicitly delivered by a turn
+ *  (the ui-deliverables presented vocabulary), with its durable coordinates. */
+export interface FocusPresentedFile {
+  /** Exact workspace path supplied to the present call. */
+  readonly path: string
+  /** Optional human description from the delivery declaration. */
+  readonly description?: string
+  /** Seq of the `deliverables/presented` event that declared it. */
+  readonly seq: number
+  /** Original index in that event's file list (the open address). */
+  readonly index: number
+}
+
 /** One produced-path fact (the ui-deliverables turn data contract). */
 export interface FocusDeliverablesData {
   readonly produced: readonly { readonly seq: number; readonly path: string }[]
+  /** Explicit deliveries accumulated in the turn (0.1.5). */
+  readonly presented?: readonly FocusPresentedFile[]
 }
 

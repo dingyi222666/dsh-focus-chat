@@ -2,7 +2,7 @@
 import type { AssistantChatData, ChatNodeDataMap, ChatNodeKind, ManualCompactionChatData, ToolChatData, TurnProcessChatData, TurnTailChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionSummaryNode, ContextMessageNode, SteeringMessageNode, ToolCallBlock, TurnErrorNode, UserMessageNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { toolGroup, type ToolRowModelCache } from './tools.ts'
-import { assistantText, producedForClosing, thoughtDurationMs } from './text.ts'
+import { assistantText, presentedForClosing, producedForClosing, thoughtDurationMs } from './text.ts'
 import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, FocusToolGroup } from './types.ts'
 
 /**
@@ -232,6 +232,7 @@ function flowItemOf(
         ? null
         : Math.max(0, turn.end.time - turn.start.time)
       const produced = producedForClosing(turn?.data.get('deliverables'), closing?.finalNode.seq ?? tail.seq)
+      const presented = presentedForClosing(turn?.data.get('deliverables'), closing?.finalNode.seq ?? tail.seq)
       return {
         kind: 'turn-tail',
         nodeKey: key,
@@ -247,6 +248,7 @@ function flowItemOf(
         tokensPerSecond: tail.tokensPerSecond ?? null,
         branchUnavailable: tail.branchUnavailable,
         produced,
+        presented,
         tokenUsage: tail.tokenUsage,
       }
     }

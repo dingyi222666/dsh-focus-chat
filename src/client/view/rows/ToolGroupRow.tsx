@@ -12,11 +12,13 @@ import { ToolCallRow } from './ToolCallRow.tsx'
 import css from './ToolGroupRow.module.css'
 
 /** One folded run of Tool calls: the step-summary line with its metrics. */
-export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, openFile, diffStyle, loadImage }: {
+export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, openFile, inspect, diffStyle, loadImage }: {
   group: FocusToolGroup
   t: FocusTranslate
   mdLabels: MarkdownLabels
   openFile: (path: string, options?: { line?: number }) => void
+  /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
+  inspect?: (callId: string) => void
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
   /** Session-authorized durable image URL loader (the read_image image card). */
@@ -52,6 +54,7 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
     <div className={css.groupRow} data-state={group.running ? 'running' : 'ok'}>
     <DisclosureRow
       className={css.groupRowInner}
+      chevronClassName={css.groupChevron}
       icon={<IconSparkle16 size={16} />}
       title=""
       open={expanded}
@@ -89,7 +92,7 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
           'callId' in item ? (
             item.state === 'running'
               ? null
-              : <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} diffStyle={diffStyle} loadImage={loadImage} />
+              : <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
           ) : 'kind' in item ? (
             // An absorbed context injection expands to its chat row.
             <ContextRow key={item.nodeKey} item={item} t={t} mdLabels={mdLabels} />

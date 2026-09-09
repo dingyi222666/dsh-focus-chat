@@ -1,7 +1,7 @@
 /** Text derivations of the focus flow model (React-free). */
 import type { AssistantBlock, AssistantChatData } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
-import type { FocusDeliverablesData } from './types.ts'
+import type { FocusDeliverablesData, FocusPresentedFile } from './types.ts'
 
 export function assistantText(blocks: readonly AssistantBlock[]): string {
   return blocks.flatMap(block => block.kind === 'text' ? [block.text] : []).join('')
@@ -25,6 +25,25 @@ export function producedForClosing(data: Readonly<FocusDeliverablesData> | undef
     paths.push(produced.path)
   }
   return paths
+}
+
+/**
+ * Files one closing assistant explicitly delivered: the latest declaration of
+ * each path before the closing reply, in first-seen path order (the
+ * ui-deliverables presentedForClosing rule).
+ * @param data - engine-published deliverables for one turn.
+ * @param seq - closing assistant seq; later declarations are excluded.
+ * @returns presented files in first-seen path order.
+ */
+export function presentedForClosing(
+  data: Readonly<FocusDeliverablesData> | undefined,
+  seq: number,
+): readonly FocusPresentedFile[] {
+  const files = new Map<string, FocusPresentedFile>()
+  for (const file of data?.presented ?? []) {
+    if (file.seq < seq) files.set(file.path, file)
+  }
+  return [...files.values()]
 }
 
 /**

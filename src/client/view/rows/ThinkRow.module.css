@@ -93,7 +93,7 @@
 
 
 .thinkBody {
-  padding: 4px 0 4px 22px;
+  padding: 4px 0 4px calc(22px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
@@ -102,3 +102,10 @@
 }
 
 /* One completed turn's work line and its folded rows. */
+
+
+/* The disclosure chevron sits one step brighter than the leading icon
+   (the official ReasoningRow / GenericCommandCard / ToolRow rule). */
+.thinkChevron {
+  color: var(--dsw-alias-label-secondary);
+}

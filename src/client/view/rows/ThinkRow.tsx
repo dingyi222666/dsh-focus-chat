@@ -28,6 +28,7 @@ export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
       {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.thinkRow}
+        chevronClassName={css.thinkChevron}
         rowClassName={css.thinkRowInner}
         icon={<IconThinkOutline14 size={14} />}
         title={title}

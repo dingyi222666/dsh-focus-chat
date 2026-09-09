@@ -1,16 +1,36 @@
 /** Shared props of the focus view entry (the contract face between the apply side and the view). */
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { HostObservable, InjectFace, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import type { HostObservable, InjectFace, SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the ui-chat merge (useChat on the session standard kit).
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConvViewProps, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { MessageFeedbackActionResult, MessageFeedbackView } from '../model/feedback-controller.ts'
+import type { MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackView } from '../model/feedback-controller.ts'
 import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TurnEventsResponse, TurnIndexResponse } from '../../protocol.ts'
 import type { DiffStyle, MdStyle } from '../../settings.ts'
+import type { PresentedAction, PresentedHost, PresentedOpenPhase } from '../model/presented-open.ts'
+
+/** The presented-file delivery face the rows read: the Session's durable
+ *  open status, the Host desktop metadata, and the two verbs (the
+ *  ui-deliverables presented controller, re-declared here because the focus
+ *  view cannot take that plugin's slot seat). */
+export interface FocusPresentedActions {
+  /** Owning Session (the durable open coordinates). */
+  sessionId: SessionId
+  /** Session workspace root for the card's full-path title. */
+  cwd: string | undefined
+  /** Per-file open status keyed by action URL. */
+  useOpen: SnapshotSelectorHook<Record<string, PresentedOpenPhase | undefined>>
+  /** Host desktop metadata, a retryable read failure, or null while unread. */
+  useHost: SnapshotSelectorHook<PresentedHost | 'error' | null>
+  /** Read (or retry) the Host desktop metadata. */
+  reloadHost: () => void
+  /** Open or reveal one declared file through the Host. */
+  open: (seq: number, index: number, action: PresentedAction) => void
+}
 
 /** One reflow-resistant scroll position (the chat view's saved shape). */
 export interface FocusScrollPosition {
@@ -57,8 +77,6 @@ export interface FocusViewInjected {
    * on the row with a retry.
    */
   turnEvents?: (sessionId: SessionId, turn: number) => Promise<TurnEventsResponse>
-  /** Whether the browser itself is connected over loopback (produced-chip gating). */
-  isLoopback: boolean
   /** Per-session scroll-position ledger (the chat view's persistence). */
   scroll: {
     save: (position: FocusScrollPosition | null) => void
@@ -83,11 +101,19 @@ export interface FocusHooksInjected {
     /** The focus view's markdown inline-code preference (official box vs the
      *  highlight rendering), bound as useMdStyle. */
     mdStyle: HostObservable<MdStyle>
+    /** Per-file presented open status (the delivery cards), bound as usePresentedOpen. */
+    presentedOpen: HostObservable<Record<string, PresentedOpenPhase | undefined>>
+    /** Host desktop metadata for the delivery cards, bound as usePresentedHost. */
+    presentedHost: HostObservable<PresentedHost | 'error' | null>
   }
+  /** Read (or retry) the Host desktop metadata for the delivery cards. */
+  reloadPresentedHost: () => void
+  /** Open or reveal one declared file through the Host. */
+  openPresented: (sessionId: SessionId, seq: number, index: number, action: PresentedAction) => void
   /** Load the Session's feedback once, on first interaction. */
   ensureFeedback: () => Promise<MessageFeedbackActionResult>
   /** Create or replace feedback for one message. */
-  rateFeedback: (messageId: MessageId, rating: MessageFeedbackRating, note?: string) => Promise<MessageFeedbackActionResult>
+  rateFeedback: (messageId: MessageId, rating: MessageFeedbackRating, entry?: MessageFeedbackEntry) => Promise<MessageFeedbackActionResult>
   /** Toggle or retract one message's rating. */
   toggleFeedback: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackActionResult>
   /** Drop the note while keeping the rating. */

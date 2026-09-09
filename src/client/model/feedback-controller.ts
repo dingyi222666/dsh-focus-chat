@@ -11,10 +11,19 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MessageId } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { FeedbackCategory } from '@deepseek-ai/dsh-command-feedback/types'
 import type {
   MessageFeedbackItem,
   MessageFeedbackRating,
 } from '@deepseek-ai/dsh-message-feedback/types'
+
+/** The optional explanation and category one rating carries (the 0.1.5 dialog). */
+export interface MessageFeedbackEntry {
+  /** Replacement explanation; omitted keeps the stored note. */
+  readonly note?: string
+  /** Category filed with a negative judgment; omitted keeps the stored one. */
+  readonly category?: FeedbackCategory
+}
 
 /** Load state of the one list read that seeds every per-message control. */
 export type MessageFeedbackStatus = 'cold' | 'loading' | 'ready' | 'error'
@@ -152,17 +161,23 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
    * {@link clearNote} removes one.
    * @param messageId - target assistant message.
    * @param rating - desired judgment.
-   * @param note - replacement explanation; omitted keeps the stored note.
+   * @param entry - replacement explanation/category; omitted keeps the stored values.
    * @returns the settled mutation result.
    */
   rate(
     messageId: MessageId,
     rating: MessageFeedbackRating,
-    note?: string,
+    entry?: MessageFeedbackEntry,
   ): Promise<MessageFeedbackActionResult> {
     return this.mutate(async () => {
       const observed = this.view.items.get(messageId)
-      return await this.putCommitted(messageId, rating, note ?? observed?.note, observed)
+      return await this.putCommitted(
+        messageId,
+        rating,
+        entry?.note ?? observed?.note,
+        entry?.category ?? observed?.category,
+        observed,
+      )
     })
   }
 
@@ -180,7 +195,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
     return this.mutate(async () => {
       const observed = this.view.items.get(messageId)
       if (observed?.rating === rating) return await this.deleteCommitted(messageId, observed)
-      return await this.putCommitted(messageId, rating, observed?.note, observed)
+      return await this.putCommitted(messageId, rating, observed?.note, observed?.category, observed)
     })
   }
 
@@ -193,7 +208,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
     return this.mutate(async () => {
       const observed = this.view.items.get(messageId)
       if (observed === undefined || observed.note === undefined) return OK
-      return await this.putCommitted(messageId, observed.rating, undefined, observed)
+      return await this.putCommitted(messageId, observed.rating, undefined, observed.category, observed)
     })
   }
 
@@ -216,6 +231,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
     messageId: MessageId,
     rating: MessageFeedbackRating,
     note: string | undefined,
+    category: FeedbackCategory | undefined,
     observed: MessageFeedbackItem | undefined,
   ): Promise<MessageFeedbackActionResult> {
     const carried = await this.ctx.remote.messageFeedback.put({
@@ -223,6 +239,7 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
       messageId,
       rating,
       ...(note === undefined ? {} : { note }),
+      ...(category === undefined ? {} : { category }),
       ifVersion: observed?.version ?? null,
     })
     if (!carried.ok) return carrierFailure(carried.error)

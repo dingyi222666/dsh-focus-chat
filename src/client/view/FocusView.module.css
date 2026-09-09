@@ -50,8 +50,17 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px 0;
+}
+
+/* The official flow rhythm: visible children are separated by a top margin,
+   so a hidden/empty flow item contributes no spacing. A closed process
+   answer tightens to 8px via --dsh-chat-flow-gap. */
+.column > :not([hidden]):not(.flowItem:empty) ~ :not([hidden]):not(.flowItem:empty) {
+  margin-top: var(--dsh-chat-flow-gap, 16px);
+}
+
+.flowItem[data-turn-process-answer] {
+  --dsh-chat-flow-gap: 8px;
 }
 
 .flowItem {
@@ -89,20 +98,20 @@
   padding: 24px 0;
   color: var(--dsw-alias-label-tertiary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
-  line-height: 20px;
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
 
 .hint {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
 .openError {
   color: var(--dsw-alias-state-error-primary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
 .toBottomSlot {

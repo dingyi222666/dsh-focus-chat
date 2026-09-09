@@ -6,7 +6,7 @@
   display: flex;
   align-items: center;
   width: 100%;
-  height: 24px;
+  height: calc(24px + var(--dsh-content-font-delta, 0px));
   min-width: 0;
   padding: 0;
   border: none;
@@ -29,8 +29,8 @@
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: calc(16px + var(--dsh-content-font-delta, 0px));
+  height: calc(16px + var(--dsh-content-font-delta, 0px));
   margin-right: 6px;
   color: var(--dsw-alias-label-secondary);
 }
@@ -85,7 +85,7 @@
 }
 
 .compactionBody {
-  padding: 4px 0 4px 22px;
+  padding: 4px 0 4px calc(22px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-tertiary);
   font-size: var(--dsh-content-font-size-secondary, 13px);
   line-height: calc(24px + var(--dsh-content-font-delta, 0px));

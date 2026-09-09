@@ -36,9 +36,9 @@
    inheriting the code face to the form bodies inside. */
 .contextBody {
   box-sizing: border-box;
-  width: calc(100% - 22px);
+  width: calc(100% - 22px - var(--dsh-content-font-delta, 0px));
   max-height: 141px;
-  margin: 4px 0 0 22px;
+  margin: 4px 0 0 calc(22px + var(--dsh-content-font-delta, 0px));
   overflow: auto;
   padding: 10px 16px 12px 12px;
   border: none;

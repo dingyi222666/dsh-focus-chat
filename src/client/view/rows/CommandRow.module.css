@@ -83,3 +83,10 @@
 
 /* Compaction marker: one dim 24px row with a context icon at rest and a
    hover/focus disclosure for the summary body (the chat CompactionItem). */
+
+
+/* The disclosure chevron sits one step brighter than the leading icon
+   (the official ReasoningRow / GenericCommandCard / ToolRow rule). */
+.commandChevron {
+  color: var(--dsw-alias-label-secondary);
+}

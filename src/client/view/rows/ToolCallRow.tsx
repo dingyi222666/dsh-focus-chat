@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { CodeBlock, DiffBlock, DisclosureRow, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
+import { CodeBlock, DiffBlock, DisclosureRow, IconInspectOutline12, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ChangesBarDiff } from './ChangesBarDiff.tsx'
 import type { FocusTranslate } from '../../contract/props.ts'
 import type { FocusKey } from '../../locales.ts'
@@ -154,10 +154,12 @@ function agentsSummary(row: FocusToolRow, t: FocusTranslate): string {
 }
 
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
-export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffStyle = 'default', loadImage }: {
+export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect, diffStyle = 'default', loadImage }: {
   row: FocusToolRow
   t: FocusTranslate
   openFile: (path: string, options?: { line?: number }) => void
+  /** Reveal this call in the trajectory view (the chat's Inspect action). */
+  inspect?: (callId: string) => void
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle?: DiffStyle
   /** Session-authorized durable image URL loader (the read_image image card). */
@@ -283,9 +285,19 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, diffSty
           {row.subcalls.length > 0 && (
             <div className={css.subcalls} data-subcalls>
               {row.subcalls.map(sub => (
-                <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} />
+                <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} inspect={inspect} />
               ))}
             </div>
+          )}
+          {inspect !== undefined && (
+            <button
+              type="button"
+              className={css.inspectButton}
+              onClick={() => { inspect(row.callId) }}
+            >
+              <IconInspectOutline12 />
+              {t('tool.inspect')}
+            </button>
           )}
         </div>
       </DisclosureRow>

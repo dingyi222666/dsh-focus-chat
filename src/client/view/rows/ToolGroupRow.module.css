@@ -76,3 +76,10 @@
 }
 
 /* One running turn's context batch: the collapsed line and its rows. */
+
+
+/* The disclosure chevron sits one step brighter than the leading icon
+   (the official ReasoningRow / GenericCommandCard / ToolRow rule). */
+.groupChevron {
+  color: var(--dsw-alias-label-secondary);
+}

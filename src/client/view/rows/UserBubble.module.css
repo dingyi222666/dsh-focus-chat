@@ -13,7 +13,7 @@
   align-items: flex-end;
   gap: 8px;
   min-width: 0;
-  max-width: min(525px, 82%);
+  max-width: min(calc(var(--dsh-chat-content-width, 748px) * 0.702), 82%);
 }
 
 .bubble {
@@ -26,6 +26,9 @@
   font-size: var(--dsh-content-font-size, 14px);
   line-height: calc(22px + var(--dsh-content-font-delta, 0px));
   color: var(--dsw-alias-label-primary);
+  /* Any non-plain child inside the bubble keeps the chat's wrapping rule. */
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* The attachment lane: images and file cards flow together above the bubble

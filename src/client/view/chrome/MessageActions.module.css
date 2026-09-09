@@ -26,21 +26,6 @@
   white-space: nowrap;
 }
 
-/* Message containers opt in with data-time-hover-root: the time label fades
-   in on message hover (or keyboard focus within). Opacity keeps the layout
-   stable, and devices without hover keep the label always visible. */
-@media (hover: hover) {
-  [data-time-hover-root] .messageClock {
-    opacity: 0;
-    transition: opacity 80ms ease;
-  }
-
-  [data-time-hover-root]:hover .messageClock,
-  [data-time-hover-root]:focus-within .messageClock {
-    opacity: 1;
-  }
-}
-
 /* The alpha.5 recency gate, CSS-only off the flow-kind seat: every user or
    steering flow row that has ANY later user/steering row hides its whole
    actions row until hover/focus-within; the latest one stays visible. The

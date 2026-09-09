@@ -1,6 +1,6 @@
 import { memo, useRef, useState } from 'react'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { toAssistantBlock, type TurnSlice } from '../../model/turn-slice.ts'
@@ -58,7 +58,7 @@ function closingItem(nodeKey: string, summary: TurnSummary): FocusFlowItem | nul
  * fetch surfaces inline with a retry.
  */
 export const RemoteTurnRow = memo(function RemoteTurnRow({
-  item, slice, onExpand, t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
+  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
 }: {
   item: Extract<FocusFlowItem, { kind: 'remote-turn' }>
   /** The cached projection for this turn; absent until first expansion. */
@@ -69,12 +69,15 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   mdLabels: MarkdownLabels
   /** Local media-path resolver for assistant prose (the chat AssistantMarkdown vocabulary). */
   pathImages: MarkdownPathImages
+  /** Presented-delivery face for the turn-tail cards. */
+  presented: FocusPresentedActions
   openFile: (path: string, options?: { line?: number }) => void
+  /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
+  inspect: (callId: string) => void
   forkAt: (seq: number) => void
   mentionsByKey: ReadonlyMap<string, MarkdownFileMentions | undefined>
   loadImage: ImageLoader
   feedback: FocusFeedbackActions
-  isLoopback: boolean
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
 }) {
@@ -112,7 +115,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   }
 
   const rowProps = {
-    t, mdLabels, pathImages, openFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle,
+    t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
   } as const
 
   return (

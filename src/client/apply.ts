@@ -28,6 +28,7 @@ import { FocusSettingsPolicy } from './focus-settings.ts'
 import { FocusSettingsSection, type FocusSettingsSectionInjected } from './settings/FocusSettingsSection.tsx'
 import type { FocusHooksInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
 import { MessageFeedbackController } from './model/feedback-controller.ts'
+import { PresentedOpenController } from './model/presented-open.ts'
 import { en, zh, type FocusKey } from './locales.ts'
 
 /** Dictionary namespace owned by this plugin. */
@@ -83,6 +84,14 @@ export function apply(ctx: Context): void {
     }
     return controller
   }
+
+  // One presented-delivery controller backs every delivery card and file
+  // mention across Sessions (the ui-deliverables controller shape: the open
+  // status is keyed by the durable coordinates, and the desktop metadata is
+  // one read per connection generation).
+  const presentedOpen = new PresentedOpenController()
+  ctx.effect(() => () => { void presentedOpen.dispose() }, 'dsh-focus-chat: presented open controller')
+  ctx.on('connection/reset', () => { presentedOpen.resetHost() })
 
   // The focus RPC channel: the Host's turn index and per-turn event slices.
   // The index caches per session for the plugin's lifetime (tab switches stay
@@ -193,8 +202,6 @@ export function apply(ctx: Context): void {
         // One completed turn's raw event slice (the expand-then-load fetch);
         // the view projects and caches the slice.
         turnEvents: (id, turn) => focusRpc<TurnEventsResponse>('focus/turnEvents', { sessionId: id, turn }),
-        // Whether the browser itself is connected over loopback (produced-chip gating).
-        isLoopback: connection.isLoopback,
         scroll: {
           save: (position) => { focusScrollPositions.set(sessionId, position) },
           read: () => focusScrollPositions.get(sessionId) ?? null,
@@ -202,9 +209,13 @@ export function apply(ctx: Context): void {
         // Per-message feedback verbs (the assistant-actions strip's business
         // face, re-declared for the focus view).
         ensureFeedback: () => feedback.ensure(),
-        rateFeedback: (messageId, rating, note) => feedback.rate(messageId, rating, note),
+        rateFeedback: (messageId, rating, entry) => feedback.rate(messageId, rating, entry),
         toggleFeedback: (messageId, rating) => feedback.toggle(messageId, rating),
         clearFeedbackNote: messageId => feedback.clearNote(messageId),
+        // Presented-delivery verbs and desktop metadata (the ui-deliverables
+        // controller, re-declared for the focus view's delivery cards).
+        reloadPresentedHost: () => { void presentedOpen.loadHost() },
+        openPresented: (id, seq, index, action) => { void presentedOpen.open(id, seq, index, action) },
         // Host account home (account home for `~` path display) and the
         // Session feedback view, bound by the slot renderer into the view's
         // useHostHome / useFeedback hooks.
@@ -213,6 +224,8 @@ export function apply(ctx: Context): void {
           feedback,
           diffStyle: focusSettings.diffStyle,
           mdStyle: focusSettings.mdStyle,
+          presentedOpen: presentedOpen.state,
+          presentedHost: presentedOpen.host,
         },
       }
     },

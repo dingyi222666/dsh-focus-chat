@@ -5,7 +5,7 @@ import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
+import type { FocusPresentedActions, FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, isRowlessChatNode, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
 import type { FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
 import type { TurnSummary } from '../../protocol.ts'
@@ -175,11 +175,6 @@ function openFailureMessage(error: unknown, fallback: string): string {
   return message === '' ? fallback : message
 }
 
-/** ProducedFiles opens the session workspace as `.`. */
-function isFolderOpenPath(path: string): boolean {
-  return path === '.'
-}
-
 /** The chat view's in-page Host open-path refusal: the wire reason plus a retry of the same path. */
 function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
   path: string
@@ -194,7 +189,7 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
       open
       onClose={onClose}
       closeLabel={t('close')}
-      title={t(isFolderOpenPath(path) ? 'fileOpen.folderTitle' : 'fileOpen.title')}
+      title={t('fileOpen.title')}
       description={message}
       footer={(
         <>
@@ -215,10 +210,11 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
  */
 
 export function FocusView({
-  useSession, useChat, sessionId, useSessions, loadImage, openFile, forkAt, fileMentions,
-  turnIndex, turnEvents, isLoopback, scroll, useHostHome, useFeedback,
-  useDiffStyle, useMdStyle,
-  ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote, t,
+  useSession, useChat, sessionId, useSessions, loadImage, openFile, openView, forkAt, fileMentions,
+  turnIndex, turnEvents, scroll, useHostHome, useFeedback,
+  useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
+  ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote,
+  reloadPresentedHost, openPresented, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
   // SessionSnapshot); conversation content rides useChat (the Chat target's
@@ -245,6 +241,16 @@ export function FocusView({
   // rendering, both defaulting to the official surfaces.
   const diffStyle = useDiffStyle(style => style)
   const mdStyle = useMdStyle(style => style)
+  // The presented-delivery face the tail rows read: durable open status, the
+  // Host desktop metadata, and the two verbs, bound to this Session.
+  const presented = useMemo<FocusPresentedActions>(() => ({
+    sessionId,
+    cwd,
+    useOpen: usePresentedOpen,
+    useHost: usePresentedHost,
+    reloadHost: reloadPresentedHost,
+    open: (seq, index, action) => { openPresented(sessionId, seq, index, action) },
+  }), [sessionId, cwd, usePresentedOpen, usePresentedHost, reloadPresentedHost, openPresented])
   const pendingSteering = useMemo(
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
@@ -463,13 +469,16 @@ export function FocusView({
           path,
           message: openFailureMessage(
             error,
-            t(isFolderOpenPath(path) ? 'fileOpen.folderUnknown' : 'fileOpen.unknown'),
+            t('fileOpen.unknown'),
           ),
         })
         setFileOpenBusy(false)
       },
     )
   }, [openFile, t])
+  // Reveal one tool call in the trajectory view (the chat's Inspect action:
+  // the details panel is gone in 0.1.5, replaced by this cross-view focus).
+  const inspectCall = useCallback((callId: string) => { openView('trajectory', callId) }, [openView])
   const closeFileOpenError = useCallback(() => {
     fileOpenRequest.current += 1
     setFileOpenError(null)
@@ -810,12 +819,13 @@ export function FocusView({
             t={t}
             mdLabels={mdLabels}
             pathImages={pathImages}
+            presented={presented}
             openFile={requestOpenFile}
+            inspect={inspectCall}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
             loadImage={loadImage}
             feedback={feedback}
-            isLoopback={isLoopback}
             diffStyle={diffStyle}
           />
         ) : (
@@ -824,18 +834,19 @@ export function FocusView({
             t={t}
             mdLabels={mdLabels}
             pathImages={pathImages}
+            presented={presented}
             openFile={requestOpenFile}
+            inspect={inspectCall}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
             loadImage={loadImage}
             feedback={feedback}
-            isLoopback={isLoopback}
             diffStyle={diffStyle}
           />
         )}
       </div>
     )),
-    [flow, chat, t, mdLabels, pathImages, requestOpenFile, forkAt, mentionsByKey, loadImage, feedback, isLoopback, diffStyle, requestTurnSlice],
+    [flow, chat, t, mdLabels, pathImages, presented, requestOpenFile, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
   )
 
   return (
@@ -879,6 +890,10 @@ export function FocusView({
         {pendingSteering.map(item => (
           <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
         ))}
+        </div>
+        {/* The to-bottom control is a sibling of the column inside the
+            scrollport (the chat rule): as a column child its zero-height slot
+            would consume one flow-gap at the transcript floor. */}
         {!atBottom && (
           <div className={css.toBottomSlot}>
             <button
@@ -895,7 +910,6 @@ export function FocusView({
             </button>
           </div>
         )}
-        </div>
       </div>
       {fileOpenError !== null && (
         <FileOpenErrorDialog

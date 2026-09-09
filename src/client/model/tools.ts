@@ -120,6 +120,8 @@ const SUMMARY_KEYS: Readonly<Record<FocusToolVariant, readonly string[]>> = {
   // first active item); the skill row's name is the args `name` field.
   todo: ['content'],
   skill: ['name'],
+  // The present row names the delivered files, not a raw arg.
+  present: [],
   others: [],
 }
 
@@ -129,7 +131,8 @@ const SUMMARY_KEYS: Readonly<Record<FocusToolVariant, readonly string[]>> = {
 const VARIANT_TITLE_KEYS: Readonly<Record<FocusToolVariant, string>> = {
   search: 'tool.title.search', read: 'tool.title.read', bash: 'tool.title.bash',
   write: 'tool.title.write', edit: 'tool.title.edit', code: 'tool.title.code',
-  question: 'ask.rowTitle', todo: 'todo.rowTitle', skill: 'tool.title.skill', others: 'tool.title.generic',
+  question: 'ask.rowTitle', todo: 'todo.rowTitle', skill: 'tool.title.skill',
+  present: 'tool.title.present', others: 'tool.title.generic',
 }
 
 /**
@@ -151,6 +154,7 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   ask_user_question: 'question',
   todo_write: 'todo',
   skill: 'skill',
+  present: 'present',
   write: 'write',
   edit: 'edit',
   str_replace_editor: 'edit',
@@ -205,6 +209,16 @@ function deriveSummary(variant: FocusToolVariant, raw: string): string {
   const args = parsed as Record<string, unknown>
   // The search card names every query it ran (the chat row's multi-query
   // summary); a single pattern still lands through the preferred key below.
+  // The present row names every delivered file (the official PresentRow
+  // reads args.files[].path); a partial stream keeps the raw text.
+  if (variant === 'present' && Array.isArray(args.files)) {
+    const paths = args.files.flatMap((file: unknown) => {
+      if (typeof file !== 'object' || file === null) return []
+      const path = (file as Record<string, unknown>).path
+      return typeof path === 'string' && path !== '' ? [firstLine(path)] : []
+    })
+    if (paths.length > 0) return paths.join(', ')
+  }
   if (variant === 'search' && Array.isArray(args.queries)) {
     const queries = args.queries.filter((query): query is string => typeof query === 'string' && query !== '')
     if (queries.length > 0) return queries.map(firstLine).join(', ')
