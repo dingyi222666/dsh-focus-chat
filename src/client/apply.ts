@@ -91,7 +91,16 @@ export function apply(ctx: Context): void {
   // one read per connection generation).
   const presentedOpen = new PresentedOpenController()
   ctx.effect(() => () => { void presentedOpen.dispose() }, 'dsh-focus-chat: presented open controller')
-  ctx.on('connection/reset', () => { presentedOpen.resetHost() })
+  ctx.on('connection/reset', () => {
+    presentedOpen.resetHost()
+    // A reconnect re-reads every Session's feedback behind its queued
+    // mutations, so a stale list cannot resurrect a replaced version (the
+    // official ui-message-feedback rule; a cold controller has nothing to
+    // resync and stays cold until first interaction).
+    for (const controller of feedbackControllers.values()) {
+      if (controller.getSnapshot().status !== 'cold') void controller.resync()
+    }
+  })
 
   // The focus RPC channel: the Host's turn index and per-turn event slices.
   // The index caches per session for the plugin's lifetime (tab switches stay
@@ -211,7 +220,7 @@ export function apply(ctx: Context): void {
         ensureFeedback: () => feedback.ensure(),
         rateFeedback: (messageId, rating, entry) => feedback.rate(messageId, rating, entry),
         toggleFeedback: (messageId, rating) => feedback.toggle(messageId, rating),
-        clearFeedbackNote: messageId => feedback.clearNote(messageId),
+        currentFeedback: messageId => feedback.current(messageId),
         // Presented-delivery verbs and desktop metadata (the ui-deliverables
         // controller, re-declared for the focus view's delivery cards).
         reloadPresentedHost: () => { void presentedOpen.loadHost() },

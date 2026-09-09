@@ -6,8 +6,10 @@ import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
 // Type-only: pulls the ui-chat merge (useChat on the session standard kit).
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConvViewProps, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackView } from '../model/feedback-controller.ts'
-import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
+import type {
+  MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackToggleResult, MessageFeedbackView,
+} from '../model/feedback-controller.ts'
+import type { MessageFeedbackItem, MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TurnEventsResponse, TurnIndexResponse } from '../../protocol.ts'
 import type { DiffStyle, MdStyle } from '../../settings.ts'
@@ -115,9 +117,9 @@ export interface FocusHooksInjected {
   /** Create or replace feedback for one message. */
   rateFeedback: (messageId: MessageId, rating: MessageFeedbackRating, entry?: MessageFeedbackEntry) => Promise<MessageFeedbackActionResult>
   /** Toggle or retract one message's rating. */
-  toggleFeedback: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackActionResult>
-  /** Drop the note while keeping the rating. */
-  clearFeedbackNote: (messageId: MessageId) => Promise<MessageFeedbackActionResult>
+  toggleFeedback: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackToggleResult>
+  /** The committed item this Session's controller last observed. */
+  currentFeedback: (messageId: MessageId) => MessageFeedbackItem | undefined
 }
 
 /**

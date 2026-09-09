@@ -42,6 +42,9 @@ export function PresentedFileCard({ file, cwd, phase, host, onPreview, onAction,
   const previewRef = useRef<HTMLButtonElement>(null)
   const pending = phase === 'opening' || phase === 'revealing'
   const menuDisabled = pending || host === null || !host.available
+  // The menu closes itself when the Host metadata turns unavailable mid-open
+  // (the official PresentedFileCard render reset).
+  if (menuDisabled && menuOpen) setMenuOpen(false)
   const reveal = host?.fileManager ?? 'directory'
   const act = (action: PresentedAction): void => {
     setMenuOpen(false)

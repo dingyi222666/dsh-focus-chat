@@ -183,7 +183,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
           <StateDot state="error" className={css.turnErrorDot} />
           <div className={css.turnErrorCopy}>
             <span className={css.turnErrorTitle}>{t('turnError')}</span>
-            <span className={css.turnErrorMessage}>{item.message}</span>
+            <span className={css.turnErrorMessage}>
+              {item.code === 'AUTH' ? t('message.failure.auth') : item.message}
+            </span>
           </div>
           {item.code !== undefined && <code className={css.turnErrorCode}>{item.code}</code>}
         </div>

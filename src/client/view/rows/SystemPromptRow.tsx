@@ -30,7 +30,7 @@ export const SystemPromptRow = memo(function SystemPromptRow({ text, update = fa
       onToggle={() => { setOpen(value => !value) }}
     >
       <div className={css.body} data-system-prompt-body>
-        <pre className={css.text}>{text}</pre>
+        <pre className={css.text} data-context-text>{text}</pre>
       </div>
     </DisclosureRow>
   )

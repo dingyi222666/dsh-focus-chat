@@ -515,8 +515,9 @@ it('renders the empty hint for an empty conversation', () => {
     renderView([
       chatNode('t4', 'tool-call', { root: settledCall('c4', 'str_replace_editor', '{"command":"str_replace","path":"/ws/a.ts"}') }),
     ])
-    // str_replace_editor is an edit tool: a lone call renders its row.
-    expect(screen.getByText('编辑')).toBeTruthy()
+    // str_replace_editor stays generic in 0.1.5 (its mutating command body
+    // must remain visible), so the row reads the generic tool title.
+    expect(screen.getByText('工具调用')).toBeTruthy()
   })
 
   it('shows a dirs-only exploration metric, the edit family folding writes, and the total-count fallback', () => {
@@ -2302,7 +2303,9 @@ it('renders the empty hint for an empty conversation', () => {
     fireEvent.click(screen.getByText('Bash'))
     // The terminal card draws the command output; the sub-call row appears nested.
     expect(screen.getByText('built ok')).toBeTruthy()
-    fireEvent.click(screen.getByText('搜索'))
+    // The child row carries its own official title (glob → "Glob"), and the
+    // dispatch tree is visible even before the parent expands.
+    fireEvent.click(screen.getByText('Glob'))
     expect(screen.getByText('src/a.ts')).toBeTruthy()
   })
 

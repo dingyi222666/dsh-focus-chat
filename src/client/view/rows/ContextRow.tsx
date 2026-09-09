@@ -2,7 +2,7 @@ import { memo, useState, type ReactNode } from 'react'
 import { DisclosureRow, IconContextInjectionOutline16, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
-import { ReferenceIcon } from '../chrome/ReferenceIcon.tsx'
+import { ReferenceIcon } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusContextItem, FocusFlowItem } from '../../model/types.ts'
 import { jsonTruncated } from '../helpers/terminal.ts'
 import css from './ContextRow.module.css'
@@ -476,7 +476,7 @@ export const ContextRow = memo(function ContextRow({ item, t, mdLabels }: {
       expandOnRowClick
       keepContentWhenOpen
       onToggle={() => { setOpen(value => !value) }}
-      collapsedContent={label === null && summary === null ? undefined : (
+      collapsedContent={label === null ? undefined : (
         <>
           {label !== null && (
             <>

@@ -16,8 +16,10 @@ import {
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
 import type { FeedbackCategory } from '@deepseek-ai/dsh-command-feedback/types'
-import type { MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
-import type { MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackView } from '../../model/feedback-controller.ts'
+import type { MessageFeedbackItem, MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
+import type {
+  MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackToggleResult, MessageFeedbackView,
+} from '../../model/feedback-controller.ts'
 import type { FocusTranslate } from '../../contract/props.ts'
 import css from './MessageFeedbackActions.module.css'
 
@@ -32,9 +34,9 @@ export interface FocusFeedbackActions {
   /** Create or replace this Session's feedback for one message. */
   rate: (messageId: MessageId, rating: MessageFeedbackRating, entry?: MessageFeedbackEntry) => Promise<MessageFeedbackActionResult>
   /** Toggle or retract one message's rating. */
-  toggle: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackActionResult>
-  /** Drop the note while keeping the rating. */
-  clearNote: (messageId: MessageId) => Promise<MessageFeedbackActionResult>
+  toggle: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackToggleResult>
+  /** The committed item this Session's controller last observed. */
+  current: (messageId: MessageId) => MessageFeedbackItem | undefined
 }
 
 /** Full props of one assistant-message feedback entry. */
@@ -74,7 +76,7 @@ const FAILURE_COPY: Partial<Record<string, 'feedback.error.conflict' | 'feedback
  *  shared feedback hook.
  * @returns the rating buttons, with the dialog while open.
  */
-export function MessageFeedbackActions({ messageId, ensure, rate, toggle, useFeedback, t }: FocusMessageFeedbackProps) {
+export function MessageFeedbackActions({ messageId, ensure, rate, toggle, current, useFeedback, t }: FocusMessageFeedbackProps) {
   const item = useFeedback(view => view.items.get(messageId))
   const loadFailed = useFeedback(view => view.status === 'error')
   const rating = item?.rating
@@ -109,7 +111,6 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, useFee
   const onLike = useCallback(() => {
     setPending(true)
     setRowFailure(null)
-    const recording = rating !== 'positive'
     void toggle(messageId, 'positive').then((result) => {
       if (!alive.current) return
       setPending(false)
@@ -117,9 +118,10 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, useFee
         setRowFailure(errorCopy(result))
         return
       }
-      if (recording) setToast(value => value + 1)
+      // Only a recording is acknowledged; a retraction is not.
+      if (result.rating === 'positive') setToast(value => value + 1)
     })
-  }, [errorCopy, messageId, rating, toggle])
+  }, [errorCopy, messageId, toggle])
 
   // A recorded Dislike retracts on click; otherwise the dialog collects the
   // reason and records the judgment on submit. The decision waits for the
@@ -129,7 +131,9 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, useFee
     setRowFailure(null)
     void ensure().then((loaded) => {
       if (!alive.current) return
-      if (!loaded.ok || rating !== 'negative') {
+      // The committed item decides record-vs-retract (the official
+      // current(messageId) rule): a cold row's render-time rating is stale.
+      if (!loaded.ok || current(messageId)?.rating !== 'negative') {
         setPending(false)
         setCategory(null)
         setText('')
@@ -143,7 +147,7 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, useFee
         if (!result.ok) setRowFailure(errorCopy(result))
       })
     })
-  }, [ensure, errorCopy, messageId, rating, toggle])
+  }, [current, ensure, errorCopy, messageId, toggle])
 
   const submit = useCallback(() => {
     setSubmitting(true)

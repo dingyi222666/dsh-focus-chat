@@ -625,7 +625,10 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
         maxRetries: mode === 'normal' ? (isCount(current.maxRetries) ? current.maxRetries : null) : null,
         mode,
         retryState,
-        failure: failure === null ? null : { message: typeof failure.message === 'string' ? failure.message : '' },
+        failure: failure === null ? null : {
+          message: typeof failure.message === 'string' ? failure.message : '',
+          ...(typeof failure.code === 'string' ? { code: failure.code } : {}),
+        },
       },
     })
   }

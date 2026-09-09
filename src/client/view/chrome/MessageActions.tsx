@@ -1,7 +1,8 @@
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { memo, useId, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { IconBranchOutline16, IconCheckOutline16, IconCopyOutline16, Tooltip, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusTranslate } from '../../contract/props.ts'
 import { formatMessageClock, useCalendarDay } from '../helpers/format.ts'
+import a11yCss from '../accessibility.module.css'
 import css from './MessageActions.module.css'
 
 export const MessageActions = memo(function MessageActions({ text, time, clock, onBranch, branchUnavailable = false, extraActions, usageAction, t }: {
@@ -23,6 +24,7 @@ export const MessageActions = memo(function MessageActions({ text, time, clock, 
   usageAction?: ReactNode | undefined
   t: FocusTranslate
 }) {
+  const reasonId = useId()
   const day = useCalendarDay()
   // Same success chrome as the chat rows: a short check swap after the write,
   // gated so re-clicks during the window neither re-copy nor stack timers.
@@ -70,19 +72,25 @@ export const MessageActions = memo(function MessageActions({ text, time, clock, 
       </Tooltip>
       {extraActions}
       {onBranch !== undefined && (
-        <Tooltip label={branchUnavailable ? t('branchUnavailable') : t('branch')} side="bottom">
-          {/* Native disabled buttons do not deliver the hover/focus events Tooltip needs. */}
-          <button
-            type="button"
-            className={css.messageAction}
-            aria-label={t('branch')}
-            aria-disabled={branchUnavailable || undefined}
-            data-unavailable={branchUnavailable || undefined}
-            onClick={branchUnavailable ? undefined : onBranch}
-          >
-            <IconBranchOutline16 />
-          </button>
-        </Tooltip>
+        <>
+          <Tooltip label={branchUnavailable ? t('branchUnavailable') : t('branch')} side="bottom">
+            {/* Native disabled buttons do not deliver the hover/focus events Tooltip needs. */}
+            <button
+              type="button"
+              className={css.messageAction}
+              aria-label={t('branch')}
+              aria-disabled={branchUnavailable || undefined}
+              aria-describedby={branchUnavailable ? reasonId : undefined}
+              data-unavailable={branchUnavailable || undefined}
+              onClick={branchUnavailable ? undefined : onBranch}
+            >
+              <IconBranchOutline16 />
+            </button>
+          </Tooltip>
+          {branchUnavailable && (
+            <span id={reasonId} className={a11yCss.visuallyHidden}>{t('branchUnavailable')}</span>
+          )}
+        </>
       )}
       {usageAction}
       {clock === 'end' ? clockEl : null}

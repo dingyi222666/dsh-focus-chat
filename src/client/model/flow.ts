@@ -192,7 +192,7 @@ function flowItemOf(
         mode: 'normal' | 'always'
         maxRetries?: number
         retryState: 'scheduled' | 'started' | 'cancelled'
-        failure?: { message?: string } | null
+        failure?: { message?: string; code?: string } | null
       }
       return {
         kind: 'retry',
@@ -204,7 +204,10 @@ function flowItemOf(
         retryState: retry.retryState,
         failure: retry.failure === undefined || retry.failure === null
           ? null
-          : { message: retry.failure.message ?? '' },
+          : {
+            message: retry.failure.message ?? '',
+            ...(retry.failure.code === undefined ? {} : { code: retry.failure.code }),
+          },
       }
     }
     case 'turn-error': {

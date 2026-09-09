@@ -157,7 +157,9 @@ const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   present: 'present',
   write: 'write',
   edit: 'edit',
-  str_replace_editor: 'edit',
+  // str_replace_editor stays generic (the official 0.1.5 classification): its
+  // mutating command body must remain visible rather than be suppressed by
+  // the edit variant's args-body rule.
   run_code: 'code',
   cordis_package_inspect: 'read',
   cordis_runtime_inspect: 'read',
@@ -193,6 +195,10 @@ const TOOL_TITLES: Readonly<Record<string, string>> = {
   // summary, but its own title (the chat's readImage key) — never the read
   // row's plain "Read".
   read_image: 'tool.title.readImage',
+  // The search family keeps per-tool titles (the official search-row rule):
+  // grep and glob read their own names, not the shared "Search".
+  grep: 'tool.title.grep',
+  glob: 'tool.title.glob',
 }
 
 /** Path keys only — never `url` (web_fetch lands on the read variant). */
@@ -256,8 +262,17 @@ function deriveOpenLine(variant: FocusToolVariant, raw: string): number | null {
   if (variant !== 'read' || raw === '') return null
   const parsed = parseArgs(raw)
   if (typeof parsed !== 'object' || parsed === null) return null
-  const offset = (parsed as Record<string, unknown>).offset
-  return typeof offset === 'number' && Number.isInteger(offset) && offset >= 1 ? offset : null
+  const args = parsed as Record<string, unknown>
+  // The official validReadCall gate: a named file, and every position
+  // argument a 1-based integer.
+  const filePath = args.file_path
+  if (typeof filePath !== 'string' || filePath.trim() === '') return null
+  for (const key of ['offset', 'limit']) {
+    const value = args[key]
+    if (value !== undefined && (typeof value !== 'number' || !Number.isInteger(value) || value < 1)) return null
+  }
+  const offset = args.offset
+  return typeof offset === 'number' ? offset : null
 }
 
 /** Filesystem path from a settled file-mutation call's args (`path` /
@@ -575,7 +590,8 @@ function searchCard(block: ToolCallBlock): FocusCard | null {
   if (typeof meta.truncated !== 'boolean') return null
   if (typeof meta.total !== 'number' || !Number.isInteger(meta.total) || meta.total < 0) return null
   const common = { truncated: meta.truncated, total: meta.total }
-  const recovery = meta.truncated ? flattenText(block.content) : undefined
+  const recoveryText = meta.truncated ? flattenText(block.content) : ''
+  const recovery = recoveryText === '' ? undefined : recoveryText
   if (tool === 'grep') {
     if (meta.shape !== 'matches' || !Array.isArray(meta.files)) return null
     const files: { path: string; matches: { lineNumber: number; line: string }[] }[] = []

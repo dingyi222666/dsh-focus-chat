@@ -180,7 +180,9 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
   const question = row.name === 'ask_user_question'
   const todo = row.name === 'todo_write'
   const agents = row.name === 'list_agents'
-  const failureLine = !question && !todo && !agents && row.state === 'error' ? row.errorSummary : null
+  // Every row kind surfaces its own failure line (the official ToolRow rule);
+  // a failed todo/ask/agents call must not keep painting its normal summary.
+  const failureLine = row.state === 'error' ? row.errorSummary : null
   const summaryText = question ? questionSummary(row, t)
     : todo ? todoSummary(row, t)
       : agents ? agentsSummary(row, t)
@@ -194,7 +196,14 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
   // joins the IN/OUT card; every other variant's input does too.
   const cardBody = row.variant === 'code' ? null : row.body
   return (
-    <div className={css.callRow} data-variant={row.variant} data-tool={row.name || undefined} data-state={row.state}>
+    <div
+      className={css.callRow}
+      data-variant={row.variant}
+      data-tool={row.name || undefined}
+      data-state={row.state}
+      data-chat-anchor-key={`call:${row.callId}`}
+      data-chat-call-id={row.callId}
+    >
       {status !== null && <span className={a11yCss.visuallyHidden}>{status}</span>}
       <DisclosureRow
         className={css.callRowInner}
@@ -265,7 +274,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
                 <div className={css.ioCard}>
                   {cardBody !== null && (
                     <div className={css.ioSection}>
-                      <span className={css.ioLabel}>IN</span>
+                      <span className={css.ioLabel}>{t('tool.input')}</span>
                       <span className={css.ioText}>{cardBody}</span>
                     </div>
                   )}
@@ -274,20 +283,13 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
                   )}
                   {row.output !== null && (
                     <div className={css.ioSection}>
-                      <span className={css.ioLabel}>OUT</span>
+                      <span className={css.ioLabel}>{t('tool.output')}</span>
                       <span className={css.ioText} data-error={row.state === 'error' || undefined}>{row.output}</span>
                     </div>
                   )}
                 </div>
               )}
             </>
-          )}
-          {row.subcalls.length > 0 && (
-            <div className={css.subcalls} data-subcalls>
-              {row.subcalls.map(sub => (
-                <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} inspect={inspect} />
-              ))}
-            </div>
           )}
           {inspect !== undefined && (
             <button
@@ -301,6 +303,17 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
           )}
         </div>
       </DisclosureRow>
+      {/* The dispatch tree is always visible, a sibling of the row's
+          disclosure (the official ToolCallTree rule): a collapsed parent still
+          shows its children, and the child rows carry the same renderer
+          props as the root. */}
+      {row.subcalls.length > 0 && (
+        <div className={css.subcalls} data-subcalls>
+          {row.subcalls.map(sub => (
+            <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
+          ))}
+        </div>
+      )}
     </div>
   )
 })

@@ -24,7 +24,7 @@ export const ThinkRow = memo(function ThinkRow({ text, running, title, t }: {
   // ReasoningRow rule); the expanded body preserves the complete text.
   const summary = (running ? latestLine(text) : firstLine(text)).replaceAll('**', '')
   return (
-    <div className={css.thinkWrap} data-state={running ? 'running' : 'ok'} data-expanded={expanded || undefined}>
+    <div className={css.thinkWrap} data-variant="think" data-state={running ? 'running' : 'ok'} data-expanded={expanded || undefined}>
       {running && <span className={a11yCss.visuallyHidden}>{t('row.running')}</span>}
       <DisclosureRow
         className={css.thinkRow}

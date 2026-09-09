@@ -259,7 +259,7 @@ describe('projectTurnSlice', () => {
     if (retry?.kind !== 'retry' || turnError?.kind !== 'turn-error') throw new Error('unexpected rows')
     expect(retry.mode).toBe('normal')
     expect(retry.maxRetries).toBe(3)
-    expect(retry.failure).toEqual({ message: 'boom again' })
+    expect(retry.failure).toEqual({ message: 'boom again', code: 'X' })
     expect(turnError.code).toBe('PROVIDER')
   })
 

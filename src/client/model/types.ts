@@ -260,7 +260,7 @@ export type FocusFlowItem =
     maxRetries: number | null
     mode: 'normal' | 'always'
     retryState: 'scheduled' | 'started' | 'cancelled'
-    failure: { message: string } | null
+    failure: { message: string; code?: string } | null
   }
   | { kind: 'turn-error'; nodeKey: string; message: string; code: string | undefined }
   | { kind: 'turn-max-tokens'; nodeKey: string }

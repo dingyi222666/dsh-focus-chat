@@ -178,7 +178,7 @@ export const TurnTailRow = memo(function TurnTailRow({ item, presented, openFile
               ensure={feedback.ensure}
               rate={feedback.rate}
               toggle={feedback.toggle}
-              clearNote={feedback.clearNote}
+              current={feedback.current}
               t={t}
             />
           )}

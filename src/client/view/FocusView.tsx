@@ -213,7 +213,7 @@ export function FocusView({
   useSession, useChat, sessionId, useSessions, loadImage, openFile, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
   useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
-  ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote,
+  ensureFeedback, rateFeedback, toggleFeedback, currentFeedback,
   reloadPresentedHost, openPresented, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
@@ -448,8 +448,8 @@ export function FocusView({
     ensure: ensureFeedback,
     rate: rateFeedback,
     toggle: toggleFeedback,
-    clearNote: clearFeedbackNote,
-  }), [useFeedback, ensureFeedback, rateFeedback, toggleFeedback, clearFeedbackNote])
+    current: currentFeedback,
+  }), [useFeedback, ensureFeedback, rateFeedback, toggleFeedback, currentFeedback])
   const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
   const [fileOpenBusy, setFileOpenBusy] = useState(false)
   const fileOpenRequest = useRef(0)

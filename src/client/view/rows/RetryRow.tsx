@@ -68,7 +68,7 @@ export const RetryRow = memo(function RetryRow({ item, t }: {
         {item.failure !== null && (
           <div>
             <span className={css.retryDetailLabel}>{t('retry.failure')}</span>
-            {item.failure.message}
+            {item.failure.code === 'AUTH' ? t('message.failure.auth') : item.failure.message}
           </div>
         )}
       </div>
