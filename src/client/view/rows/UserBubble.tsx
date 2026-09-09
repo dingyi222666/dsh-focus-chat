@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { DocumentFileIcon, fileSizeText, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
+import { fileExtension, fileSizeText, FileTypeIcon, JsonBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
@@ -12,19 +12,12 @@ import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
 import { MessageActions } from '../chrome/MessageActions.tsx'
 import css from './UserBubble.module.css'
 
-/** Uppercased file extension for the card's meta line (the chat's rule). */
-function extensionOf(name: string): string {
-  const dot = name.lastIndexOf('.')
-  if (dot <= 0 || dot === name.length - 1) return ''
-  return name.slice(dot + 1).toUpperCase().slice(0, 8)
-}
-
 /** One file card in the attachment lane (the chat file-card chrome). */
 function FileCard({ file }: { file: FileAttachmentRef }) {
-  const meta = [extensionOf(file.name), fileSizeText(file.bytes)].filter(Boolean).join(' ')
+  const meta = [fileExtension(file.name).toUpperCase().slice(0, 8), fileSizeText(file.bytes)].filter(Boolean).join(' ')
   return (
     <span className={css.fileCard} title={file.name}>
-      <DocumentFileIcon className={css.fileIcon} />
+      <FileTypeIcon path={file.name} className={css.fileIcon} />
       <span className={css.fileContent}>
         <span className={css.fileName}>{file.name}</span>
         <span className={css.fileMeta}>{meta}</span>

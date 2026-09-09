@@ -2210,6 +2210,15 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('You are a helpful assistant.')).toBeTruthy()
   })
 
+  it('renders an in-history system prompt update under its own title', () => {
+    renderView([
+      chatNode('sp1', 'system-prompt', { text: 'You are a helpful assistant.', update: true }),
+    ])
+    expect(screen.getByText('系统提示词更新')).toBeTruthy()
+    fireEvent.click(screen.getByText('系统提示词更新'))
+    expect(screen.getByText('You are a helpful assistant.')).toBeTruthy()
+  })
+
   it('renders the turn usage pill and opens the usage dialog from the turn-tail tokenUsage', () => {
     const turn = {
       turn: 1, start: { time: 1000 }, end: { time: 9000 }, status: 'closed', steps: [],

@@ -45,7 +45,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, openFile, fork
     case 'context-fold':
       return <ContextFoldRow item={item} t={t} mdLabels={mdLabels} />
     case 'system-prompt':
-      return <SystemPromptRow text={item.text} t={t} />
+      return <SystemPromptRow text={item.text} update={item.update} t={t} />
     case 'assistant': {
       // The chat assistant's shell rule: a node that is only tool-call heads
       // (or empty) paints nothing, so the flow shows no dead gap.

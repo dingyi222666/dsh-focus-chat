@@ -286,13 +286,13 @@ describe('projectTurnSlice', () => {
     expect(slice.closing).not.toBeNull()
   })
 
-  it('nests code-dispatch subcalls under their parent root', () => {
+  it('nests PTC-dispatch subcalls under their parent root', () => {
     const slice = projectTurnSlice([
       turnStart(1, 1, 1000),
       stepStart(1, 1, 2, 2000),
       toolCall(1, 1, 3, 3000, 'root1', 'run_code', '{"code":"..."}'),
-      ev(4, 3100, 'tool/code-dispatch-start', { rootCallId: 'root1', parentCallId: 'root1', subCallId: 'root1:code:1', name: 'read', arguments: { file_path: 'a.ts' } }),
-      ev(5, 3200, 'tool/code-dispatch', { rootCallId: 'root1', parentCallId: 'root1', subCallId: 'root1:code:1', name: 'read', arguments: { file_path: 'a.ts' }, isError: false, content: [text('file body')] }),
+      ev(4, 3100, 'tool/ptc-dispatch-start', { rootCallId: 'root1', parentCallId: 'root1', subCallId: 'root1:code:1', name: 'read', arguments: { file_path: 'a.ts' } }),
+      ev(5, 3200, 'tool/ptc-dispatch', { rootCallId: 'root1', parentCallId: 'root1', subCallId: 'root1:code:1', name: 'read', arguments: { file_path: 'a.ts' }, isError: false, content: [text('file body')] }),
       toolResult(1, 1, 6, 3300, 'root1', 'program done'),
       assistantMessage(1, 1, 7, 4000, [text('done')]),
       turnEnd(1, 8, 5000),

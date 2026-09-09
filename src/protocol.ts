@@ -15,7 +15,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 /**
  * One event entry of the durable session log, serialized verbatim. The
  * plugin-merged event vocabulary (`command/*`, `compaction/*`, `llm/retry`,
- * `tool/code-dispatch*`, …) rides the same merge-extensible `SessionEventMap`
+ * `tool/ptc-dispatch*`, …) rides the same merge-extensible `SessionEventMap`
  * the host wrote, so consumers read extended kinds structurally.
  */
 export type SessionEventEntry = SessionEvent

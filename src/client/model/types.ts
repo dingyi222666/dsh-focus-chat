@@ -197,6 +197,8 @@ export type FocusFlowItem =
     nodeKey: string
     /** Complete model-visible prompt text. */
     text: string
+    /** True when this prompt replaced an earlier one at its history position. */
+    update: boolean
   }
   | {
     kind: 'turn-fold'

@@ -204,8 +204,8 @@ function flowItemOf(
       // fold row; the node itself never renders (TURN_PROCESS_INDEPENDENT_KINDS).
       return null
     case 'system-prompt': {
-      const prompt = data as { text: string }
-      return { kind: 'system-prompt', nodeKey: key, text: prompt.text }
+      const prompt = data as { text: string; update?: boolean }
+      return { kind: 'system-prompt', nodeKey: key, text: prompt.text, update: prompt.update === true }
     }
     case 'turn-tail': {
       const tail = data as TurnTailChatData

@@ -95,6 +95,7 @@ describe('FocusSettingsSection', () => {
     useSessions: (() => undefined) as never,
     useSessionPendingInteraction: (() => undefined) as never,
     useWorkspaces: (() => undefined) as never,
+    usePanelInfo: (() => undefined) as never,
     useDiffStyle: ((selector: (s: 'default' | 'codex-bar') => unknown) => selector(overrides.diffStyle ?? 'default')) as never,
     useMdStyle: ((selector: (s: 'default' | 'highlight') => unknown) => selector(overrides.mdStyle ?? 'default')) as never,
     setDiffStyle: vi.fn(),

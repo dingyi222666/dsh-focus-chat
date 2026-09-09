@@ -309,7 +309,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
   const roots = new Map<string, ToolCallBlock>()
   /** Running call heads by call id, for the result's paired call head. */
   const runningHeads = new Map<string, { name: string; argsRaw: string; time: number }>()
-  /** Code-dispatch children by parent call id, in dispatch order. */
+  /** PTCDispatch children by parent call id, in dispatch order. */
   const children = new Map<string, ToolCallBlock[]>()
   /** Command protos by commandId, for the done update and the compaction pairing. */
   const commandProtos = new Map<string, ProtoItem>()
@@ -560,11 +560,11 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
     }
   }
 
-  // Code-dispatch subcalls: `tool/code-dispatch-start` opens a running child
-  // under its parent, `tool/code-dispatch` settles it (paired by subCallId).
+  // Code-dispatch subcalls: `tool/ptc-dispatch-start` opens a running child
+  // under its parent, `tool/ptc-dispatch` settles it (paired by subCallId).
   for (const event of events) {
     const kind: string = event.type
-    if (kind !== 'tool/code-dispatch-start' && kind !== 'tool/code-dispatch') continue
+    if (kind !== 'tool/ptc-dispatch-start' && kind !== 'tool/ptc-dispatch') continue
     const data = asRecord(event.data)
     if (data === null) continue
     const parentCallId = readString(data, 'parentCallId')
@@ -573,7 +573,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
     const siblings = children.get(parentCallId) ?? []
     const index = siblings.findIndex(child => child.callId === subCallId)
     const previous = index === -1 ? undefined : siblings[index]
-    if (kind === 'tool/code-dispatch-start') {
+    if (kind === 'tool/ptc-dispatch-start') {
       if (previous !== undefined) continue
       attachChild(parentCallId, {
         callId: subCallId, parentCallId,
@@ -687,7 +687,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
   const flushRun = (): void => {
     if (pending === null) return
     const runKeys = pending.keys
-    // The code-dispatch tree nests at read time: the protos hold the roots
+    // The PTC-dispatch tree nests at read time: the protos hold the roots
     // without their subcalls until the dispatch loop has paired them all.
     const runBlocks = pending.blocks.map(block => nestChildren(block, 0))
     pending = null

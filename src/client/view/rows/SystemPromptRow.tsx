@@ -7,11 +7,14 @@ import css from './SystemPromptRow.module.css'
  * One complete system prompt as a collapsed disclosure (the official
  * SystemPromptRow chrome: browse icon, "System prompt" title, and an
  * expanded body holding the full model-visible prompt text with its real
- * line breaks).
+ * line breaks). An in-history prompt update renders under its own title
+ * ("System prompt update"), mirroring the chat's system-message surface.
  */
-export const SystemPromptRow = memo(function SystemPromptRow({ text, t }: {
+export const SystemPromptRow = memo(function SystemPromptRow({ text, update = false, t }: {
   /** Complete model-visible prompt text. */
   text: string
+  /** True when this prompt replaced an earlier one at its history position. */
+  update?: boolean
   t: FocusTranslate
 }) {
   const [open, setOpen] = useState(false)
@@ -20,7 +23,7 @@ export const SystemPromptRow = memo(function SystemPromptRow({ text, t }: {
       className={css.root}
       icon={<IconBrowseOutline16 size={14} />}
       chevronClassName={css.chevron}
-      title={t('systemPrompt')}
+      title={t(update ? 'systemPromptUpdate' : 'systemPrompt')}
       open={open}
       expandable
       expandOnRowClick

@@ -25,8 +25,8 @@ export type { DiffStyle, FocusSettings, MdStyle } from './settings.ts'
 export { DEFAULT_FOCUS_SETTINGS, DIFF_STYLES, MD_STYLES, isDiffStyle, isMdStyle, resolveFocusSettings } from './settings.ts'
 export { FocusSettingsSchema } from './schema.ts'
 
-/** Required services: the connection RPC registry and the session query engine. */
-export const inject = ['connection', 'sessionQuery']
+/** Required services: the connection RPC registry, session query engine, and web server carrier. */
+export const inject = ['connection', 'sessionQuery', 'webServer']
 
 /**
  * Register the focus RPC channel and the settings namespace as effects, so
