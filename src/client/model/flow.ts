@@ -333,6 +333,9 @@ export function buildFocusFlow(
   /** Durable per-step timing keyed `${turn}:${step}` (the reload fallback for
    *  a thinking duration whose live-chunk first token is gone). */
   stepTiming?: ReadonlyMap<string, TurnStepTiming>,
+  /** The session's newest turn number (the official isLatestTurn); that tail
+   *  keeps its actions visible, every earlier one reveals them on hover. */
+  latestTurn?: number,
 ): FocusFlowItem[] {
   // Pre-scan the order once: per-node turn membership, and for each turn the
   // wall boundaries (start/end), the closing assistant — the last assistant
@@ -856,13 +859,13 @@ export function buildFocusFlow(
   flushFold(null)
   flushContext()
   // The newest turn's tail keeps its action row visible; every earlier tail
-  // reveals it on hover/focus (the official isLatestTurn rule). The flow is
-  // in log order, so the last tail is the newest.
-  for (let index = flow.length - 1; index >= 0; index -= 1) {
-    const item = flow[index]
-    if (item !== undefined && item.kind === 'turn-tail') {
-      flow[index] = { ...item, isLatest: true }
-      break
+  // reveals it on hover/focus (the official isLatestTurn rule).
+  if (latestTurn !== undefined) {
+    for (let index = 0; index < flow.length; index += 1) {
+      const item = flow[index]
+      if (item !== undefined && item.kind === 'turn-tail' && item.turn === latestTurn) {
+        flow[index] = { ...item, isLatest: true }
+      }
     }
   }
   return flow

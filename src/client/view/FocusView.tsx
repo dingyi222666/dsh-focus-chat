@@ -399,6 +399,7 @@ export function FocusView({
       hideFrom.size > 0 ? hideFrom : undefined,
       transcriptView === 'compact',
       stepTiming,
+      chat.timeline.turnOrder.at(-1),
     )
     if (remoteTurns.length === 0) return windowFlow
     const remote = remoteTurns.map(summary => {
