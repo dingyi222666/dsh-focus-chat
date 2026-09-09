@@ -246,7 +246,7 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, curren
           readOnly={submitting}
           onChange={(event) => { setText(event.target.value) }}
         />
-        {dialogFailure !== null && <span className={css.failure} role="status">{dialogFailure}</span>}
+        {dialogFailure !== null && <span className={css.dialogFailure} role="status">{dialogFailure}</span>}
       </Modal>
       {toast > 0 && (
         <Toast

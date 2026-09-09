@@ -332,6 +332,7 @@
 
 .inspectButton:hover {
   background: var(--dsw-alias-interactive-bg-hover-solid);
+  color: var(--dsw-alias-label-primary);
 }
 
 /* The ask-user transcript card (the official AskQuestionCard chrome). */

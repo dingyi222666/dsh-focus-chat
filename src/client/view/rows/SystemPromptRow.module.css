@@ -30,3 +30,10 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+
+/* An expanded prompt keeps the official 4px bottom inset (the shared
+   context-injection body rule). */
+.root[data-open] {
+  padding-bottom: 4px;
+}

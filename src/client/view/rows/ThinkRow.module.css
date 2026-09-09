@@ -57,7 +57,6 @@
 }
 
 .thinkSummary {
-  display: flex;
   min-width: 0;
   overflow: hidden;
   flex: 1 1 auto;
@@ -79,6 +78,7 @@
    ReasoningRow rule — no JS scrollLeft), showing the newest text; the
    ellipsis drops so nothing masks the tail. */
 .thinkSummary[data-follow-end] {
+  display: flex;
   justify-content: flex-end;
 }
 

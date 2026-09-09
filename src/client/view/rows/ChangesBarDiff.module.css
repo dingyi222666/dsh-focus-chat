@@ -40,7 +40,9 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 10px 14px 4px;
+  /* Reserve the floating copy button's lane so the path tail stays readable
+     and clickable (the official DiffBlock rule). */
+  padding: 10px 56px 4px 14px;
   color: var(--dsw-alias-label-primary);
   /* The font shorthand resets weight, so the 600 sits AFTER it. */
   font: var(--dsw-font-markdown-code-block);

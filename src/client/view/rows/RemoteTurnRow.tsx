@@ -121,17 +121,22 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   return (
     <div className={foldCss.turnFold} data-remote-turn={item.turn}>
       {summary.opening.map(message => (
-        <FlowRow
-          key={`o${message.seq}`}
-          item={openingItem(item.nodeKey, message)}
-          {...rowProps}
-        />
+        // The opening bubble carries the flow-kind marker so an earlier one
+        // hides its action row until hover/focus (the MessageIconActions
+        // recency rule the window rows already follow).
+        <div key={`o${message.seq}`} data-chat-flow-kind="user">
+          <FlowRow item={openingItem(item.nodeKey, message)} {...rowProps} />
+        </div>
       ))}
       <TurnFoldLine
         duration={duration}
         stopped={summary.stopped}
         open={expanded && slice !== undefined}
-        onToggle={request}
+        onToggle={(event) => {
+          // The official turn-process toggle keeps focus on itself.
+          event.currentTarget.focus()
+          request()
+        }}
         t={t}
       />
       {slice !== undefined && expanded && (

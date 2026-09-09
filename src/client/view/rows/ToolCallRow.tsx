@@ -136,6 +136,15 @@ function answeredSummary(text: string | null, t: FocusTranslate): string | null 
 /** The ask-question row's summary: the composer verdict while pending or
  *  dismissed, the answered count once settled, the args summary otherwise
  *  (the chat AskQuestionRow derivation). */
+/** The present row's status word followed by its delivered paths (the
+ *  official PresentRow reading). */
+function presentSummary(row: FocusToolRow, t: FocusTranslate): string {
+  const status = row.state === 'running' ? t('presented.row.running')
+    : row.state === 'error' ? t('presented.row.error')
+      : row.state === 'stopped' ? t('presented.row.stopped') : t('presented.row.ok')
+  return row.summary === '' ? status : `${status} ${row.summary}`
+}
+
 function questionSummary(row: FocusToolRow, t: FocusTranslate): string {
   if (row.errorCode === 'ASK_CANCELLED') return t('ask.cancelled')
   if (row.errorCode === 'ASK_ABORTED') return t('ask.interrupted')
@@ -217,10 +226,14 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
   // Every row kind surfaces its own failure line (the official ToolRow rule);
   // a failed todo/ask/agents call must not keep painting its normal summary.
   const failureLine = row.state === 'error' ? row.errorSummary : null
-  const summaryText = question ? questionSummary(row, t)
-    : todo ? todoSummary(row, t)
-      : agents ? agentsSummary(row, t)
-        : failureLine ?? row.summary
+  // The failure line outranks every derived summary (the official ToolRow
+  // rule); the present row prefixes its delivery status word.
+  const summaryText = failureLine
+    ?? (row.variant === 'present' ? presentSummary(row, t) : null)
+    ?? (question ? questionSummary(row, t)
+      : todo ? todoSummary(row, t)
+        : agents ? agentsSummary(row, t)
+          : row.summary)
   // The failure line is error prose, not the path: no open-file affordance.
   const fileLink = row.filePath !== undefined && failureLine === null
   const status = row.state === 'running' ? t('row.running')
@@ -240,7 +253,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
     >
       {status !== null && <span className={a11yCss.visuallyHidden}>{status}</span>}
       <DisclosureRow
-        className={css.callRowInner}
+        rowClassName={css.callRowInner}
         leadingClassName={css.callLeading}
         titleClassName={css.callTitle}
         chevronClassName={css.callChevron}
@@ -285,7 +298,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
                 suffix after the path (the "Edit · path +3 -2" reading), both
                 sides always shown. Neutral at rest; the row's hover turns the
                 additions success-green and the removals error-red. */}
-            {row.changeStat !== null && (
+            {row.changeStat !== null && failureLine === null && (
               <span className={css.changeStat} data-change-stat>
                 <span className={css.changeAdd}>+{row.changeStat.added}</span>
                 <span className={css.changeRemove}>-{row.changeStat.removed}</span>

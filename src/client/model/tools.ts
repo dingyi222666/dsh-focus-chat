@@ -988,8 +988,11 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
   const argsRaw = done ? block.call?.argsRaw ?? '' : block.argsRaw
   const errorCode = done && block.error !== undefined ? block.error.code : null
   const state: FocusToolState = !done ? 'running'
-    : block.error !== undefined && STOPPED_TOOL_CODES.has(block.error.code) ? 'stopped'
-      : block.isError ? 'error' : 'ok'
+    // The user's own dismissal of a question set reads as a normal outcome
+    // (the official AskQuestionRow rule), not a failure.
+    : block.error?.code === 'ASK_CANCELLED' ? 'ok'
+      : block.error !== undefined && STOPPED_TOOL_CODES.has(block.error.code) ? 'stopped'
+        : block.isError ? 'error' : 'ok'
   const variant = TOOL_VARIANTS[name] ?? 'others'
   // The empty string is "no text" for both derived result fields: a settled
   // call with blank content has nothing to expand, and a blank first line

@@ -1,6 +1,6 @@
 /* Per-message feedback controls. The rating buttons mirror the shared message
-   IconActions chrome so the strip reads as one row. The note editor is a
-   popover portaled to document.body and fixed from the note trigger's rect,
+   IconActions chrome so the strip reads as one row. The feedback dialog is a
+   modal; the row only carries the rating buttons,
    so it neither competes with the row for inline width nor gets cropped by the
    conversation column's overflow clip. Surface recipe follows the Menu card:
    r12, elevation-prominent with an l1 stroke. */
@@ -42,27 +42,8 @@
   color: var(--dsw-alias-label-primary);
 }
 
-
-.noteOpen:hover,
-.noteOpen[aria-expanded='true'] {
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
-}
-
 /* Portal surface: fixed in the viewport, left/top supplied inline from the
    trigger rect. Portaled panels must layer above modal overlays (z 1000). */
-
-
-
-.noteSave,
-
-
-.noteSave:hover:not(:disabled) {
-  background: var(--dsw-alias-button-primary-hover);
-}
-
-
-
 
 .failure {
   padding-left: 4px;
@@ -181,4 +162,14 @@
   .detail {
     transition: none;
   }
+}
+
+/* The dialog's failure line sits below the textarea as a block (the official
+   FeedbackDialog rule), unlike the inline row failure beside the buttons. */
+.dialogFailure {
+  display: block;
+  margin-top: 8px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 20px;
 }

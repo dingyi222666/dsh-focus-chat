@@ -31,6 +31,11 @@
   place-items: center;
   width: calc(16px + var(--dsh-content-font-delta, 0px));
   height: calc(16px + var(--dsh-content-font-delta, 0px));
+}
+
+.compactionLeading svg {
+  width: calc(14px + var(--dsh-content-font-delta, 0px));
+  height: calc(14px + var(--dsh-content-font-delta, 0px));
   margin-right: 6px;
   color: var(--dsw-alias-label-secondary);
 }

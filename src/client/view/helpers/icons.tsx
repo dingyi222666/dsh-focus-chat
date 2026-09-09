@@ -50,6 +50,15 @@ const TOOL_ICONS: Readonly<Record<string, ReactNode>> = {
 
 /** One call's leading glyph: the family icon, or the state dot for failures. */
 export function leadingFor(row: FocusToolRow): ReactNode {
+  // The present row leads with a delivery state dot in every state (the
+  // official PresentRow: ongoing / done / warning / error).
+  if (row.variant === 'present') {
+    return (
+      <StateDot state={row.state === 'running' ? 'ongoing'
+        : row.state === 'ok' ? 'done'
+          : row.state === 'stopped' ? 'warning' : 'error'} />
+    )
+  }
   if (row.state === 'error') return <StateDot state="error" />
   if (row.state === 'stopped') return <StateDot state="warning" />
   const override = TOOL_ICONS[row.name]
