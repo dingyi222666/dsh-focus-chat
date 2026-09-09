@@ -364,7 +364,9 @@ export function FocusView({
     if (turnIndexState.status !== 'ready') return undefined
     const map = new Map<string, TurnStepTiming>()
     for (const turn of turnIndexState.turns) {
-      for (const step of turn.steps) map.set(`${turn.turn}:${step.step}`, step)
+      // An older Host half predates the step timing; its summaries carry no
+      // `steps` and the thinking metric stays unavailable until it restarts.
+      for (const step of turn.steps ?? []) map.set(`${turn.turn}:${step.step}`, step)
     }
     return map
   }, [turnIndexState])
