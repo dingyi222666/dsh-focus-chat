@@ -451,4 +451,10 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **npm 关联**: package.json 补上 repository / homepage / bugs 字段,npm 上的包由此关联回本仓库,插件市场与精选列表可据此展示下载量',
     ],
   },
+  '0.7.10': {
+    features: [
+      '- **上游 0.1.5-rc.1**: 全量依赖升级到 dsh 0.1.5-rc.1;本区间上游改动为模型目录(DeepSeek V4 Flash 系列)、右侧栏引导页与文档预览的布局打磨,以及 CodeBlock 新增 contentRef/稳定的内容节点包装——对聚焦视图均为向后兼容的新增,无需代码改动',
+    ],
+    fixes: [],
+  },
 }
