@@ -445,7 +445,7 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **其它细节**: 压缩行图标跟随字号轴、检查按钮悬停加深文字色、展开的系统提示词补 4px 下边距、折叠内容顶部间距对齐 16px、思考摘要的省略机制对齐官方、错误行不再同时显示 +A -R 徽标、反馈对话框的错误行按块级排版;清理未使用的样式与文件',
     ],
   },
-  '0.7.10': {
+  '0.7.11': {
     features: [],
     fixes: [
       '- **npm 关联**: package.json 补上 repository / homepage / bugs 字段,npm 上的包由此关联回本仓库,插件市场与精选列表可据此展示下载量',
