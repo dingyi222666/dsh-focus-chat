@@ -683,9 +683,18 @@ export function buildFocusFlow(
       flow.push(item)
       return
     }
+    // The completed turn's process rows fold into its worked line. The
+    // process set is the official one (every Chat kind outside
+    // TURN_PROCESS_INDEPENDENT_KINDS): a model retry or a compaction between
+    // two runs is process, not conversation — leaving it visible would break
+    // the turn's stretch in two and print its wall time twice.
     if (item.kind === 'assistant'
       || item.kind === 'tools'
       || item.kind === 'system-prompt'
+      || item.kind === 'command'
+      || item.kind === 'manual-compaction'
+      || item.kind === 'compaction'
+      || item.kind === 'retry'
       || (item.kind === 'message' && item.role === 'context')) {
       if (pendingFoldTurn !== null && pendingFoldTurn !== turnId) flushFold(null)
       pendingFoldTurn = turnId

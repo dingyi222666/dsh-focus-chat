@@ -1334,6 +1334,50 @@ it('renders the empty hint for an empty conversation', () => {
     fireEvent.click(screen.getByText('Bash'))
   })
 
+  it('folds a mid-turn model retry and compaction into the worked line instead of splitting it', () => {
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 8000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    const at = (key: string, kind: string, data: unknown) => chatNode(key, kind, data, { kind: 'turn', turn } as never)
+    const step = (key: string, time: number, block: unknown, seq: number) => at(key, 'assistant-step', {
+      status: 'settled', turn: 1, step: 1, time,
+      blocks: [block],
+      finalNode: {
+        kind: 'assistant', seq, time, turn: 1, step: 1, blocks: [],
+        timing: { stepStartTime: time - 1000, firstTokenTime: time - 500, completedTime: time },
+      },
+    })
+    renderView([
+      chatNode('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'go' }], source: null,
+      }),
+      at('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }),
+      step('a1', 2000, { kind: 'reasoning', text: 'r1' }, 10),
+      // The process rows a long turn collects: a model retry and an automatic
+      // compaction between two runs.
+      at('r1', 'model-retry', {
+        current: { delayMs: 1000, retry: 1, mode: 'normal', maxRetries: 3, retryState: 'started', failure: null },
+      }),
+      at('k1', 'compaction', { summary: 'compacted', shadowedItemCount: 3, shadowedTokenCount: 120 }),
+      at('t2', 'tool-call', { root: settledCall('c2', 'bash', '{"command":"test"}') }),
+      step('a2', 8000, { kind: 'text', text: 'all done' }, 20),
+    ])
+    // One worked line for the whole turn — a process row no longer breaks the
+    // stretch in two and prints the same wall time twice.
+    expect(screen.getAllByText('工作了 7 秒')).toHaveLength(1)
+    expect(screen.queryByText(/已重试模型请求/)).toBeNull()
+    expect(screen.queryByText('上下文已压缩')).toBeNull()
+    fireEvent.click(screen.getByText('工作了 7 秒'))
+    expect(screen.getByText(/已重试模型请求/)).toBeTruthy()
+    expect(screen.getByText('上下文已压缩')).toBeTruthy()
+  })
+
   it("folds the closing reply's own reasoning into the worked line", () => {
     const turn = {
       turn: 1,
