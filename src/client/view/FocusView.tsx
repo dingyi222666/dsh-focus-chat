@@ -285,33 +285,51 @@ export function FocusView({
   // Cross-build derivation cache: unchanged nodes keep their flow item and
   // tool-row identities, so memoized rows bail out during streaming.
   const flowCacheRef = useRef(createFlowBuildCache())
-  // The Host's completed-turn index (the remote turn folds): one fetch per
-  // session; a rejection — or an absent optional service — degrades to the
-  // window-only flow. The first-frame scroll restore waits for this request
-  // to settle, so the opening frame already carries the folded overview.
+  // The Host's completed-turn index (the remote turn folds, and the durable
+  // thinking-duration fallback for a reloaded window). The first frame's
+  // scroll restore waits for the opening request; a later Turn closing
+  // refreshes the index in place — the fetch does not reset the fold pager or
+  // blank the fold stack, so a live turn completing never jumps the reader.
   const [turnIndexState, setTurnIndexState] = useState<TurnIndexState>({ status: 'pending' })
   // The rendered fold stack is paged: only the newest FOLD_PAGE pre-head turns
   // render at first, and the pager above the stack prepends older ones from
   // the already-fetched index. A turn's process detail loads on expand only.
   const [foldLimit, setFoldLimit] = useState(FOLD_PAGE)
+  // Newest Turn this session's timeline reports closed: the index must cover
+  // it, or the window's completed turns carry no durable step timing (the
+  // live-chunk first token is gone after a reload).
+  const lastClosedTurn = useMemo(() => {
+    let latest = -1
+    for (const turn of chat.timeline.turns.values()) {
+      if (turn.status === 'closed' && turn.turn > latest) latest = turn.turn
+    }
+    return latest
+  }, [chat])
+  const turnIndexSessionRef = useRef<string | null>(null)
   useEffect(() => {
     let cancelled = false
-    setTurnIndexState({ status: 'pending' })
-    setFoldLimit(FOLD_PAGE)
+    const opening = turnIndexSessionRef.current !== sessionId
+    if (opening) {
+      turnIndexSessionRef.current = sessionId
+      setTurnIndexState({ status: 'pending' })
+      setFoldLimit(FOLD_PAGE)
+    }
     if (turnIndex === undefined) {
       setTurnIndexState({ status: 'ready', turns: [] })
       return () => { cancelled = true }
     }
-    turnIndex(sessionId).then(
+    turnIndex(sessionId, lastClosedTurn < 0 ? undefined : lastClosedTurn).then(
       response => { if (!cancelled) setTurnIndexState({ status: 'ready', turns: response.turns }) },
       (cause: unknown) => {
-        if (cancelled) return
+        // A failed refresh keeps the index the view already has; only the
+        // opening request can leave the view without one.
+        if (cancelled || !opening) return
         console.warn('dsh-focus-chat: the turn index failed; rendering the window flow only', cause)
         setTurnIndexState({ status: 'failed' })
       },
     )
     return () => { cancelled = true }
-  }, [turnIndex, sessionId])
+  }, [turnIndex, sessionId, lastClosedTurn])
   // The loaded window's first log position: every turn whose slice starts
   // before it renders as a remote fold. A fully loaded window (no older
   // pages) has no head, so nothing renders remotely.

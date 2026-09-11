@@ -73,11 +73,14 @@ export interface FocusViewInjected {
   fileMentions: (owner: FocusTurnTailOwner) => MarkdownFileMentions | undefined
   /**
    * The Host's completed-turn index for one session (the remote turn folds'
-   * collapsed facts). Optional service: an absent binding — or a rejection —
+   * collapsed facts, and the durable thinking-duration fallback for a
+   * reloaded window). Optional service: an absent binding — or a rejection —
    * degrades to the window-only flow. The apply side caches the index per
-   * session, so tab switches stay free.
+   * session, so tab switches stay free; `throughTurn` is the newest Turn the
+   * caller has seen closed, and a cache that does not reach it is refetched —
+   * a Turn completed after the page loaded must still carry its step timing.
    */
-  turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
+  turnIndex?: (sessionId: SessionId, throughTurn?: number) => Promise<TurnIndexResponse>
   /**
    * One completed turn's raw event slice (the expand-then-load transport).
    * Optional service, same posture as {@link turnIndex}; rejections surface

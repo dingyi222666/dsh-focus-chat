@@ -1174,6 +1174,108 @@ it('renders the empty hint for an empty conversation', () => {
     expect(text.indexOf('test')).toBeLessThan(text.indexOf('lint'))
   })
 
+  it('recovers the thinking metric from the host step timing when the reloaded window carries no live first token', async () => {
+    // A reloaded window's assistant nodes carry no live-chunk first token
+    // (the chat only captures it while streaming), so `finalNode.timing`
+    // reads null and the summary line has to take the Host index's durable
+    // per-step timing instead.
+    const stepLocation = (turn: number, step: number) => ({
+      kind: 'step',
+      turn: { turn, start: undefined, end: undefined, status: 'closed', steps: [], data: { get: () => undefined } },
+      step: { turn, step, start: undefined, end: undefined, status: 'closed', data: { get: () => undefined } },
+    } as never)
+    renderView([
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{"command":"build"}') }, stepLocation(1, 1), 2),
+      chatNode('a1', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 3000,
+        blocks: [{ kind: 'reasoning', text: 'durable think' }],
+        finalNode: {
+          kind: 'assistant', seq: 5, time: 3000, turn: 1, step: 1, blocks: [],
+          timing: { stepStartTime: 1000, firstTokenTime: null, completedTime: 3000 },
+        },
+      }, stepLocation(1, 1), 5),
+    ], {
+      turnIndex: () => Promise.resolve({
+        turns: [{
+          turn: 1, startSeq: 1, endSeq: 9, startTime: 1000, endTime: 3000, stopped: false,
+          closingSeq: 8, closingMessageId: 'm8', closingTime: 3000, closingContent: null,
+          opening: [], steps: [{ step: 1, stepStartTime: 1000, firstTokenTime: 2300 }],
+        }],
+        cursor: 9,
+      }),
+    })
+    await waitFor(() => expect(fullText('思考了 1.3 秒，运行了 1 个命令')).toBeTruthy())
+  })
+
+  it('refetches the turn index once a turn closes after the index was fetched', async () => {
+    const stepLocation = (turn: number, step: number) => ({
+      kind: 'step',
+      turn: { turn, start: undefined, end: undefined, status: 'closed', steps: [], data: { get: () => undefined } },
+      step: { turn, step, start: undefined, end: undefined, status: 'closed', data: { get: () => undefined } },
+    } as never)
+    const turnLocation = (turn: number, status: 'open' | 'closed') => ({
+      turn,
+      start: { seq: turn * 10, time: turn * 1000 },
+      end: status === 'closed' ? { seq: turn * 10 + 6, time: turn * 1000 + 3000 } : undefined,
+      status,
+      steps: [],
+      data: { get: () => undefined },
+    } as never)
+    const runNodes = (turn: number) => [
+      chatNode(`t${turn}`, 'tool-call', { root: settledCall(`c${turn}`, 'bash', '{"command":"build"}') }, stepLocation(turn, 1), turn * 10 + 2),
+      chatNode(`a${turn}`, 'assistant-step', {
+        status: 'settled', turn, step: 1, time: turn * 1000 + 3000,
+        blocks: [{ kind: 'reasoning', text: `think ${turn}` }],
+        finalNode: {
+          kind: 'assistant', seq: turn * 10 + 5, time: turn * 1000 + 3000, turn, step: 1, blocks: [],
+          timing: { stepStartTime: turn * 1000, firstTokenTime: null, completedTime: turn * 1000 + 3000 },
+        },
+      }, stepLocation(turn, 1), turn * 10 + 5),
+    ]
+    const slice = (turns: readonly number[], nodes: ReturnType<typeof chatNode>[]): ChatSnapshot => ({
+      ...chatOf(nodes).chat,
+      timeline: {
+        turnOrder: [...turns],
+        turns: new Map(turns.map(turn => [turn, turnLocation(turn, 'closed')])),
+      },
+    }) as ChatSnapshot
+    const summaryOf = (turn: number) => ({
+      turn, startSeq: turn * 10, endSeq: turn * 10 + 6,
+      startTime: turn * 1000, endTime: turn * 1000 + 3000, stopped: false,
+      closingSeq: turn * 10 + 5, closingMessageId: `m${turn}`, closingTime: turn * 1000 + 3000,
+      closingContent: null, opening: [],
+      steps: [{ step: 1, stepStartTime: turn * 1000, firstTokenTime: turn * 1000 + 1300 }],
+    })
+    const throughTurns: number[] = []
+    // The index a cold page load gets: fetched before turn 1 closed, so it
+    // carries no completed turn at all — the durable step timing only starts
+    // arriving once a later fetch observes a closed turn.
+    let indexReady = false
+    const { source } = renderView(runNodes(1), {
+      chat: { ...chatOf(runNodes(1)), chat: slice([1], runNodes(1)) },
+      turnIndex: (_id: SessionId, through?: number) => {
+        throughTurns.push(through ?? -1)
+        return Promise.resolve(indexReady
+          ? { turns: [summaryOf(1), summaryOf(2)], cursor: 30 }
+          : { turns: [], cursor: 20 })
+      },
+    })
+    // The opening fetch predates the turn: the group reads no thinking time.
+    await waitFor(() => expect(throughTurns).toEqual([1]))
+    expect(screen.queryByText(/思考了/)).toBeNull()
+    // Two turns close: the index is refetched and the durable step timing
+    // reaches the window's summary line.
+    indexReady = true
+    act(() => {
+      source.set({
+        ...chatOf(runNodes(2)),
+        chat: slice([1, 2], runNodes(2)),
+      })
+    })
+    await waitFor(() => expect(throughTurns.at(-1)).toBe(2))
+    await waitFor(() => expect(screen.getAllByText(/思考了 1\.3 秒/).length).toBeGreaterThan(0))
+  })
+
   it('folds a completed turn into one worked line, keeping the closing reply', () => {
     const turn = {
       turn: 1,

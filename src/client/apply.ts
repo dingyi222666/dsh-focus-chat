@@ -104,9 +104,11 @@ export function apply(ctx: Context): void {
   })
 
   // The focus RPC channel: the Host's turn index and per-turn event slices.
-  // The index caches per session for the plugin's lifetime (tab switches stay
-  // free); the slices cache in the view instead — they are render-shaped.
-  const turnIndexCache = new Map<SessionId, TurnIndexResponse>()
+  // The index caches per session (tab switches stay free) with the newest Turn
+  // it covered, so a Turn completed after the page loaded refetches instead of
+  // leaving the window's thinking metric without its durable step timing; the
+  // slices cache in the view instead — they are render-shaped.
+  const turnIndexCache = new Map<SessionId, { response: TurnIndexResponse; through: number }>()
   const focusRpc = async <T,>(endpoint: string, payload: unknown): Promise<T> => {
     const result = await connection.rpc.call(FOCUS_RPC_CHANNEL, endpoint, payload)
     if (!result.ok) throw new Error(result.error.message === '' ? result.error.code : result.error.message)
@@ -203,16 +205,22 @@ export function apply(ctx: Context): void {
             | undefined
           return service?.forClosing(owner, sessionId)
         },
-        // The Host's completed-turn index (the remote turn folds): one RPC
-        // read per session, cached for the plugin's lifetime. The optional
-        // service degrades to the window-only flow when the channel is not
-        // registered (an older host half).
-        turnIndex: (id) => {
+        // The Host's completed-turn index (the remote turn folds, and the
+        // durable thinking-duration fallback for a reloaded window). Cached
+        // per session until the caller reports a newer closed Turn. The
+        // optional service degrades to the window-only flow when the channel
+        // is not registered (an older host half).
+        turnIndex: (id, throughTurn) => {
           const cached = turnIndexCache.get(id)
-          if (cached !== undefined) return Promise.resolve(cached)
+          if (cached !== undefined && (throughTurn === undefined || cached.through >= throughTurn)) {
+            return Promise.resolve(cached.response)
+          }
           return focusRpc<TurnIndexResponse>('focus/turnIndex', { sessionId: id })
             .then(response => {
-              turnIndexCache.set(id, response)
+              turnIndexCache.set(id, {
+                response,
+                through: response.turns.at(-1)?.turn ?? -1,
+              })
               return response
             })
         },
