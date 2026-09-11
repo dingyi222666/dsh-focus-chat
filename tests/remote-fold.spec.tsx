@@ -17,6 +17,7 @@ import { zh } from '../src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -114,6 +115,8 @@ interface RenderOptions {
   turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
   turnEvents?: (sessionId: SessionId, turn: number) => Promise<TurnEventsResponse>
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
+  /** The host `turnOutline` projection value the rail merges. */
+  outline?: readonly unknown[]
 }
 
 function renderView(nodes: ChatConversationViewNode[], opts: RenderOptions = {}) {
@@ -124,7 +127,7 @@ function renderView(nodes: ChatConversationViewNode[], opts: RenderOptions = {})
     useChat: bindSnapshotSelector(viewOf(source, slice => slice.chat)),
     useSessions: bindSnapshotSelector(sessionsStore('/workspace')),
     useWorkspaces: (() => undefined) as never,
-    useProjection: (() => undefined) as never,
+    useProjection: ((key: string) => key === 'turnOutline' ? opts.outline : undefined) as never,
     loadImage: () => Promise.reject(new Error('no loader')),
     openFile: () => Promise.resolve(),
     forkAt: () => {},
@@ -473,5 +476,55 @@ describe('remote turn folds', () => {
     await waitFor(() => expect(screen.getByText('ask 1')).toBeTruthy())
     expect(screen.getByText('ask 3')).toBeTruthy()
     expect(screen.queryByText('加载更早的回合')).toBeNull()
+  })
+
+  it('anchors a rendered remote fold in the rail and follows the active mark into it', async () => {
+    const rect = (top: number, bottom: number) => ({
+      top, bottom, left: 0, right: 400, width: 400, height: bottom - top, x: 0, y: 0, toJSON: () => ({}),
+    })
+    const turns = [summary(1, 10, 50, 'first reply'), summary(3, 52, 61, 'third reply')]
+    // The host outline names every turn of the session, the pre-head ones
+    // included — the rail draws their marks even before anything is loaded.
+    const outline = [
+      { turn: 1, seq: 10, prompt: 'ask 1', response: 'first reply' },
+      { turn: 3, seq: 52, prompt: 'ask 3', response: 'third reply' },
+      { turn: 4, seq: 80, prompt: 'ask 4', response: 'turn 4 reply' },
+    ]
+    renderView(windowNodes(), {
+      outline,
+      turnIndex: () => Promise.resolve({ turns, cursor: 100 }),
+    })
+    await waitFor(() => expect(screen.getByText('ask 1')).toBeTruthy())
+    const nav = screen.getByRole('navigation')
+    // Every known turn has a mark, and a fold the flow already paints is a
+    // loaded anchor: nothing pages raw history for a row on screen.
+    const marks = [...nav.querySelectorAll('button')]
+    expect(marks.map(mark => mark.getAttribute('aria-label'))).toEqual([
+      '跳转到第 1 轮', '跳转到第 3 轮', '跳转到第 4 轮',
+    ])
+    // The remote fold's flow row carries its Turn, so the reading line can
+    // resolve inside a folded stretch.
+    const remoteRow = document.querySelector('[data-focus-turn="1"]') as HTMLElement
+    expect(remoteRow).toBeTruthy()
+    // jsdom does not lay out: fake the ladder the reading line hit-tests.
+    const el = document.querySelector('[data-focus-scroll]') as HTMLElement
+    Object.defineProperty(el, 'getBoundingClientRect', { value: () => rect(0, 600), configurable: true })
+    Object.defineProperty(el, 'scrollHeight', { value: 3000, configurable: true })
+    Object.defineProperty(el, 'clientHeight', { value: 600, configurable: true })
+    const tops: Record<string, number> = { '1': 80, '3': 300, '4': 700 }
+    for (const row of document.querySelectorAll<HTMLElement>('[data-focus-turn]')) {
+      const top = tops[row.dataset.focusTurn ?? ''] ?? 0
+      Object.defineProperty(row, 'getBoundingClientRect', { value: () => rect(top, top + 40), configurable: true })
+    }
+    act(() => {
+      el.scrollTop = 800
+      fireEvent.scroll(el)
+    })
+    // Reading line sits at 96px: the first remote fold owns the mark.
+    await waitFor(() => {
+      const current = [...nav.querySelectorAll('button')]
+        .filter(mark => mark.getAttribute('aria-current') === 'true')
+      expect(current.map(mark => mark.getAttribute('aria-label'))).toEqual(['跳转到第 1 轮'])
+    })
   })
 })

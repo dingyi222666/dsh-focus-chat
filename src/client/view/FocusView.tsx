@@ -51,10 +51,11 @@ const FOLLOW_THRESHOLD = 24
 /** Where a nav jump places the entry row: a small gap under the scrollport top. */
 const NAV_JUMP_OFFSET = 12
 
-/** The Turn one flow row belongs to (the official rail's mark anchor). */
+/** The Turn one flow row belongs to (the official rail's mark anchor and the
+ *  reading-line resolution). Remote folds carry their Turn like every other
+ *  row: the rail lists them, so the active mark must be able to land on one. */
 function flowTurnOf(item: FocusFlowItem, chat: ChatSnapshot): number | null {
-  // Remote turns carry no rail anchor (the rail lists window turns only).
-  if (item.kind === 'remote-turn') return null
+  if (item.kind === 'remote-turn') return item.turn
   if (item.kind === 'turn-fold' || item.kind === 'turn-tail') return item.turn
   if (item.kind === 'tools') {
     const nodeKey = item.group.nodeKeys[0]
@@ -422,14 +423,12 @@ export function FocusView({
   }, [chat, cwd, home, hideFrom, remoteTurns, sliceVersion, stepTiming])
   // The official turn-navigation rail's items, accumulated in the Chat
   // snapshot: the array identity moves only when a Turn enters, leaves, or
-  // changes its preview. The rail chrome is the alpha.5 fixed-pitch ladder;
-  // every loaded-window item carries its row anchor (unloaded outline marks
-  // need the host turnOutline projection the focus view's own index does not
-  // expose — remote folds stay behind the fold pager instead).
+  // changes its preview. The rail chrome is the alpha.5 fixed-pitch ladder.
   const turnNavigationItems = chat.navigation.items()
   // The host turn outline names every turn of the session, including those
-  // outside the loaded window; the loaded items supply the anchors and richer
-  // previews for the turns the window holds (the official mergeTurnRailItems).
+  // outside the loaded window; the rows already on screen supply the anchors,
+  // and the loaded chat items the richer previews (the official
+  // mergeTurnRailItems, extended with the focus view's own remote folds).
   const turnOutline = useProjection('turnOutline')
   const railItems = useMemo<readonly FocusTurnRailItem[]>(() => {
     const byTurn = new Map<number, FocusTurnRailItem>()
@@ -444,6 +443,23 @@ export function FocusView({
         anchor: { kind: 'unloaded', seq: entry.seq },
       })
     }
+    // A Turn the focus flow already paints — a window row or a remote fold the
+    // fold stack has revealed — anchors its own first row: the mark jumps to
+    // the row on screen instead of paging the raw window past a fold the
+    // reader can already see. Document order makes the first row win.
+    const rendered = new Set<number>()
+    for (const item of flow) {
+      const turn = flowTurnOf(item, chat)
+      if (turn === null || rendered.has(turn)) continue
+      rendered.add(turn)
+      const preview = byTurn.get(turn)
+      byTurn.set(turn, {
+        turn,
+        prompt: preview?.prompt ?? '',
+        response: preview?.response ?? '',
+        anchor: { kind: 'loaded', key: flowKey(item) },
+      })
+    }
     for (const item of turnNavigationItems) {
       const outline = byTurn.get(item.turn)
       byTurn.set(item.turn, {
@@ -454,7 +470,7 @@ export function FocusView({
       })
     }
     return [...byTurn.values()].sort((a, b) => a.turn - b.turn)
-  }, [turnNavigationItems, turnOutline])
+  }, [turnNavigationItems, turnOutline, flow, chat])
   // The live-row debounce: a running call paints nothing until it has run
   // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
   // that settles into the summary a moment later (the flicker fix). The
@@ -608,7 +624,7 @@ export function FocusView({
   const [atBottom, setAtBottom] = useState(true)
   /** The official turn rail's active mark (the Turn owning the reading line). */
   const [activeTurn, setActiveTurn] = useState<number | null>(
-    () => turnNavigationItems.at(-1)?.turn ?? null,
+    () => railItems.at(-1)?.turn ?? null,
   )
   /** Last position delivered or written on the main thread. */
   const observedTopRef = useRef(0)
@@ -633,7 +649,7 @@ export function FocusView({
     observedTopRef.current = el.scrollTop
     atBottomRef.current = true
     setAtBottom(true)
-    setActiveTurn(turnNavigationItems.at(-1)?.turn ?? null)
+    setActiveTurn(railItems.at(-1)?.turn ?? null)
     scroll.save(null)
   }
 
@@ -698,7 +714,7 @@ export function FocusView({
   const syncActiveTurnRef = useRef<() => void>(() => {})
   syncActiveTurnRef.current = () => {
     const local = listRef.current
-    const first = turnNavigationItems[0]
+    const first = railItems[0]
     if (local === null || first === undefined) {
       setActiveTurn(null)
       return
@@ -708,13 +724,17 @@ export function FocusView({
     const reading = turnAtLine(local, readingLine)
     let next = first.turn
     if (reading !== null) {
-      for (const item of turnNavigationItems) {
+      // The ladder the rail paints is the merge of the window's rows and the
+      // host outline, remote folds included — the active mark is chosen from
+      // that same ladder, or a reader inside a folded stretch would leave the
+      // highlight parked on the window's first Turn.
+      for (const item of railItems) {
         if (item.turn > reading) break
         next = item.turn
       }
     }
     if (el.scrollHeight - el.scrollTop - el.clientHeight <= FOLLOW_THRESHOLD + 1) {
-      next = turnNavigationItems.at(-1)?.turn ?? next
+      next = railItems.at(-1)?.turn ?? next
     }
     setActiveTurn(current => current === next ? current : next)
   }
@@ -732,7 +752,7 @@ export function FocusView({
   }, [])
   useLayoutEffect(() => {
     scheduleActiveTurn()
-  }, [scheduleActiveTurn, turnNavigationItems])
+  }, [scheduleActiveTurn, railItems])
 
   const onScrollRef = useRef(() => {})
   onScrollRef.current = () => {
