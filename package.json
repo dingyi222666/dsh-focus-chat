@@ -1,6 +1,6 @@
 {
   "name": "@dingyi222666/dsh-focus-chat",
-  "version": "0.7.19",
+  "version": "0.7.20",
   "description": "Claude Code-style focus view for the dsh web GUI: the conversation's condensed reading surface \u2014 tool calls folded into expandable metric summaries, chat 1:1 row chrome, and streaming think rows",
   "author": "dingyi222666",
   "repository": {

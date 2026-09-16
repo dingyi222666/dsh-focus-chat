@@ -107,14 +107,18 @@ export function apply(ctx: Context): void {
   // optional: a profile without the Cordis extension composes neither, so both
   // lookups degrade to an empty inventory and an empty live set rather than
   // throwing at plugin load (the chatFileMentions / inputTriggers posture).
-  const cordisRemote = (ctx.remote as unknown as {
-    dynamicCordisRunner?: {
-      inventory(): Promise<
-        | { ok: true; value: readonly FocusCordisInventoryRow[] }
-        | { ok: false; error: { code: string; message: string } }
-      >
-    }
-  }).dynamicCordisRunner
+  //
+  // Both reads MUST go through `ctx.get`: a nested namespace is a declared
+  // Cordis service, and the traceable `ctx.remote` proxy forwards an unknown
+  // member to `ctx.remote.<name>` — which throws `cannot get property …
+  // without inject` for a namespace this plugin does not require. `ctx.get`
+  // is the inject-free read, so an absent namespace is `undefined`.
+  const cordisRemote = ctx.get('remote.dynamicCordisRunner') as {
+    inventory(): Promise<
+      | { ok: true; value: readonly FocusCordisInventoryRow[] }
+      | { ok: false; error: { code: string; message: string } }
+    >
+  } | undefined
   const cordisInventory = createFocusCordisInventory({
     inventory: async () => {
       if (cordisRemote === undefined) return []

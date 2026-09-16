@@ -445,6 +445,14 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **其它细节**: 压缩行图标跟随字号轴、检查按钮悬停加深文字色、展开的系统提示词补 4px 下边距、折叠内容顶部间距对齐 16px、思考摘要的省略机制对齐官方、错误行不再同时显示 +A -R 徽标、反馈对话框的错误行按块级排版;清理未使用的样式与文件',
     ],
   },
+  '0.7.20': {
+    features: [],
+    fixes: [
+      '- **启动修复**: 0.7.19 引入的 Cordis 卡片会让**装了 Cordis 扩展的 profile 启动失败**——`dsh web` 报 `Failed to load plugins / web boot: 1 entry did not activate`,聚焦视图整个插件的 client 半无法激活。原因是注册册那一处用了 `ctx.remote.dynamicCordisRunner` 属性读取:这是一个**故意的可选依赖**(没 inject 它),而 Cordis 的 `ctx.remote` 是 traceable 代理,遇到未 inject 的成员会转发成服务查找并直接抛 `cannot get property "remote.dynamicCordisRunner" without inject`,于是 apply 抛错、fiber 进入 failed',
+      '- **改法**: 与同一段代码里读 `dynamicCordisRunner` 的写法对齐,改用免 inject 的 `ctx.get(\'remote.dynamicCordisRunner\')`——服务缺失时得到 `undefined` 并降级为空登记册,这才是这段注释一直声明的「两个 Cordis 服务都可选」的真正语义。0.7.19 说明里那条「不会抛错」现在才成立',
+      '- **回归验证**: 用真实 chromium 对着运行中的 `dsh web` 复现了故障与修复(注入该插件行 → 拿到上述真实堆栈;修复后 boot 正常、`Focus Chat / 聚焦对话` 视图签正常注册渲染);`yarn typecheck` 与 176 条用例全部通过',
+    ],
+  },
   '0.7.19': {
     features: [
       '- **Cordis 卡片**: `cordis_define` / `cordis_run` / `cordis_stop` / `cordis_undefine` 四个工具调用以前在焦点视图里是通用行,现在按官方 `ui-cordis` 的三张卡完整复刻——`cordis_define` 是带 Host/Client 源码页签的注册卡(名称/用途/状态读数/结果),`cordis_run` 带运行/更新标题、`pluginId · packageId` 摘要、实时状态词(待激活 / Client 待激活 / 运行中 / 待审批 / 运行失败 / 已移除 / 已有更新)与输出,`cordis_stop` / `cordis_undefine` 是停止/移除动作卡(含 inspect)',
