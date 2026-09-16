@@ -160,7 +160,7 @@ function flowItemOf(
       const context = message as ContextMessageNode
       return {
         ...base,
-        context: { source: context.source, provenance: context.provenance, form: context.form },
+        context: { source: context.source, producer: context.producer, form: context.form },
       }
     }
     case 'assistant-step': {

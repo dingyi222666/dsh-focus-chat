@@ -12,8 +12,11 @@
   padding-right: 12px;
 }
 
-/* The turn-tail footer's optical offset (the chat turn-tail rule). */
+/* The turn-tail footer's optical offset (the chat turn-tail rule). With tail
+   content this margin adds to the column's 16px gap; without it, the flow's
+   preceding-item offset supplies the other 16px. */
 .messageActions[data-clock='end'] {
+  margin-top: 4px;
   margin-left: -6px;
 }
 

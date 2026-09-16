@@ -213,10 +213,10 @@ function FileOpenErrorDialog({ path, message, busy, onClose, onRetry, t }: {
  */
 
 export function FocusView({
-  useSession, useChat, useProjection, sessionId, useSessions, loadImage, openFile, loadOlder, loadThrough, openView, forkAt, fileMentions,
+  useSession, useChat, useProjection, sessionId, useSessions, loadImage, openFile, openSkill, loadOlder, loadThrough, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
   useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
-  ensureFeedback, rateFeedback, toggleFeedback, currentFeedback,
+  ensureFeedback, rateFeedback, retractFeedback, currentFeedback,
   reloadPresentedHost, openPresented, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
@@ -542,9 +542,9 @@ export function FocusView({
     useFeedback,
     ensure: ensureFeedback,
     rate: rateFeedback,
-    toggle: toggleFeedback,
+    retract: retractFeedback,
     current: currentFeedback,
-  }), [useFeedback, ensureFeedback, rateFeedback, toggleFeedback, currentFeedback])
+  }), [useFeedback, ensureFeedback, rateFeedback, retractFeedback, currentFeedback])
   const [fileOpenError, setFileOpenError] = useState<{ path: string; message: string } | null>(null)
   const [fileOpenBusy, setFileOpenBusy] = useState(false)
   const fileOpenRequest = useRef(0)
@@ -945,6 +945,7 @@ export function FocusView({
             pathImages={pathImages}
             presented={presented}
             openFile={requestOpenFile}
+            openSkill={openSkill}
             inspect={inspectCall}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
@@ -960,6 +961,7 @@ export function FocusView({
             pathImages={pathImages}
             presented={presented}
             openFile={requestOpenFile}
+            openSkill={openSkill}
             inspect={inspectCall}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
@@ -970,7 +972,7 @@ export function FocusView({
         )}
       </div>
     )),
-    [flow, chat, t, mdLabels, pathImages, presented, requestOpenFile, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
+    [flow, chat, t, mdLabels, pathImages, presented, requestOpenFile, openSkill, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
   )
 
   return (
@@ -1026,7 +1028,13 @@ export function FocusView({
         )}
         {running && <RunningStatus startTime={runningTurnStart} t={t} />}
         {pendingSteering.map(item => (
-          <PendingSteeringBubble key={item.id} content={item.content} t={t} loadImage={loadImage} />
+          <PendingSteeringBubble
+            key={item.id}
+            content={item.content}
+            t={t}
+            loadImage={loadImage}
+            references={{ openFile: path => { void requestOpenFile(path) }, openSkill }}
+          />
         ))}
         {visibleSubmissions.map(submission => (
           <PendingSubmissionBubble key={submission.requestId} submission={submission} t={t} loadImage={loadImage} />

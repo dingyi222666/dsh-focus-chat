@@ -127,7 +127,10 @@ export const TurnTailRow = memo(function TurnTailRow({ item, presented, openFile
         </div>
       )}
       {delivered.length > 0 && (
-        <div className={presentedCss.root}>
+        <div
+          className={presentedCss.root}
+          data-after-produced-files={paths.length > 0 || undefined}
+        >
           {host === 'error' && (
             <div className={presentedCss.hostStatus}>
               <span>{t('presented.hostError')}</span>
@@ -182,7 +185,7 @@ export const TurnTailRow = memo(function TurnTailRow({ item, presented, openFile
               useFeedback={feedback.useFeedback}
               ensure={feedback.ensure}
               rate={feedback.rate}
-              toggle={feedback.toggle}
+              retract={feedback.retract}
               current={feedback.current}
               t={t}
             />

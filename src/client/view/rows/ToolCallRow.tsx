@@ -107,6 +107,14 @@ function CardBody({ card, t, diffStyle, loadImage }: {
   }
 }
 
+/** Normalize the reviewer's persisted reason into one display line; null when
+ *  it carries no displayable text (the official normalizeAutoReviewReason). */
+function autoReviewReason(reason: string | null): string | null {
+  if (reason === null) return null
+  const normalized = reason.trim().replace(/[\r\n\u2028\u2029]+/gu, ' ')
+  return normalized === '' ? null : normalized
+}
+
 /** One parsed answer entry, shape-checked (result JSON crosses the wire). */
 interface AnswerEntry { selected?: unknown; custom?: unknown }
 
@@ -209,11 +217,22 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
   loadImage?: ImageLoader
 }) {
   const [expanded, setExpanded] = useState(false)
-  const card = row.card
+  // An Auto-review denial replaces the ordinary failed-call reading: the card
+  // and the args body drop, the row says what was refused and why (the
+  // official GenericToolCard rule).
+  const autoReview = row.autoReviewDenial === null ? null : {
+    summary: t('tool.autoReviewRejected'),
+    output: t('tool.autoReviewNotExecuted', {
+      reason: autoReviewReason(row.autoReviewDenial.reason) ?? t('tool.autoReviewReasonFallback'),
+    }),
+  }
+  const card = autoReview === null ? row.card : null
+  const output = autoReview?.output ?? row.output
+  const argsBody = autoReview === null ? row.body : null
   // A card replaces the text body; any of them, or a text body/output, makes
   // the row expandable (the chat row's rule). The running call stays
   // collapsed by default — expand on click only.
-  const expandable = row.body !== null || row.output !== null || card !== null
+  const expandable = argsBody !== null || output !== null || card !== null
   const open = expanded && expandable
   // The ask-question row reads its own interaction summary (waiting /
   // answered count / cancelled / interrupted), the todo_write row its
@@ -225,7 +244,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
   const agents = row.name === 'list_agents'
   // Every row kind surfaces its own failure line (the official ToolRow rule);
   // a failed todo/ask/agents call must not keep painting its normal summary.
-  const failureLine = row.state === 'error' ? row.errorSummary : null
+  const failureLine = autoReview?.summary ?? (row.state === 'error' ? row.errorSummary : null)
   // The failure line outranks every derived summary (the official ToolRow
   // rule); the present row prefixes its delivery status word.
   const summaryText = failureLine
@@ -241,7 +260,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
       : row.state === 'stopped' ? t('row.stopped') : null
   // The code variant's program renders through CodeBlock, so only its output
   // joins the IN/OUT card; every other variant's input does too.
-  const cardBody = row.variant === 'code' ? null : row.body
+  const cardBody = row.variant === 'code' ? null : argsBody
   return (
     <div
       className={css.callRow}
@@ -312,12 +331,12 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
             <CardBody card={card} t={t} diffStyle={diffStyle} loadImage={loadImage} />
           ) : (
             <>
-              {row.variant === 'code' && row.body !== null && (
+              {row.variant === 'code' && argsBody !== null && (
                 <div className={css.bodyScroll}>
-                  <CodeBlock code={row.body} lang="typescript" copyLabel={t('copy')} copiedLabel={t('copied')} className={css.codeBody} />
+                  <CodeBlock code={argsBody} lang="typescript" copyLabel={t('copy')} copiedLabel={t('copied')} className={css.codeBody} />
                 </div>
               )}
-              {(cardBody !== null || row.output !== null) && (
+              {(cardBody !== null || output !== null) && (
                 <div className={css.ioCard}>
                   {cardBody !== null && (
                     <div className={css.ioSection}>
@@ -325,13 +344,13 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
                       <span className={css.ioText}>{cardBody}</span>
                     </div>
                   )}
-                  {cardBody !== null && row.output !== null && (
+                  {cardBody !== null && output !== null && (
                     <span className={css.ioDivider} aria-hidden />
                   )}
-                  {row.output !== null && (
+                  {output !== null && (
                     <div className={css.ioSection}>
                       <span className={css.ioLabel}>{t('tool.output')}</span>
-                      <span className={css.ioText} data-error={row.state === 'error' || undefined}>{row.output}</span>
+                      <span className={css.ioText} data-error={row.state === 'error' || undefined}>{output}</span>
                     </div>
                   )}
                 </div>

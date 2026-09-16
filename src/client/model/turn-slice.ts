@@ -27,7 +27,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 // base session vocabulary.
 import type {} from '@deepseek-ai/dsh-commands/types'
 import type {
-  AssistantBlock, ContextProvenanceView, KnownContextForm, ToolCallBlock, ToolResultNode,
+  AssistantBlock, ContextProducerView, KnownContextForm, ToolCallBlock, ToolResultNode,
 } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { toolGroup } from './tools.ts'
 import type { FocusContextItem, FocusFlowItem, FocusGroupThink, TurnTokenUsage } from './types.ts'
@@ -50,7 +50,7 @@ interface ProtoItem {
   /** Message protos: the classified role and content. */
   role?: 'steering' | 'context' | 'user'
   content?: readonly ContentBlock[]
-  context?: { source: unknown; provenance: ContextProvenanceView; form: KnownContextForm | null }
+  context?: { source: unknown; producer: ContextProducerView; form: KnownContextForm | null }
   /** Assistant protos: the classified blocks and settled facts. */
   blocks?: readonly AssistantBlock[]
   interrupted?: boolean
@@ -141,7 +141,7 @@ function collectLabels(source: Record<string, unknown> | null, member: string, f
   return seen
 }
 
-function contextProvenance(source: unknown): ContextProvenanceView {
+function contextProducer(source: unknown): ContextProducerView {
   const record = asRecord(source)
   const kind = readString(record, 'kind')
   if (record === null || kind === null) return { role: 'inject', label: null }
@@ -397,7 +397,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
           protos.push({
             kind: 'message', seq: event.seq, time: event.time, role: 'context',
             content: event.data.content,
-            context: { source: event.data.source, provenance: contextProvenance(event.data.source), form: contextForm(event.data.source) },
+            context: { source: event.data.source, producer: contextProducer(event.data.source), form: contextForm(event.data.source) },
           })
           continue
         }
@@ -851,7 +851,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
             const item: FocusContextItem = {
               kind: 'message', nodeKey: keyOf('m', proto.seq), role: 'context',
               content: proto.content ?? [], time: proto.time,
-              context: proto.context ?? { source: undefined, provenance: { role: 'inject', label: null }, form: null },
+              context: proto.context ?? { source: undefined, producer: { role: 'inject', label: null }, form: null },
             }
             pendingContext.push(item)
             continue
@@ -860,7 +860,7 @@ export function projectTurnSlice(events: readonly SessionEvent[], cwd?: string, 
           work.push({
             kind: 'message', nodeKey: keyOf('m', proto.seq), role: 'context',
             content: proto.content ?? [], time: proto.time,
-            context: proto.context ?? { source: undefined, provenance: { role: 'inject', label: null }, form: null },
+            context: proto.context ?? { source: undefined, producer: { role: 'inject', label: null }, form: null },
           })
           continue
         }

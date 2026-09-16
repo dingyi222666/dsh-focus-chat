@@ -1,5 +1,6 @@
 /** Tool classification and row/group derivation (React-free). */
 import { abbreviateHomePath, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
+import { diffTotals } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { DiffHunk, ReadBlockLine } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AttachmentId as AttachmentIdType, ImageAttachmentRef, ImageMediaType } from '@deepseek-ai/dsh-attachment'
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
@@ -433,49 +434,6 @@ function narrowDiffs(diffs: unknown): DiffHunk[] | null {
     out.push({ path, oldText, newText })
   }
   return out
-}
-
-/** Content lines of one diff side (the official DiffBlock contentLines
- *  rule): every line including blanks, without the terminating newline. */
-function contentLineCount(text: string): number {
-  if (text === '') return 0
-  const body = text.endsWith('\n') ? text.slice(0, -1) : text
-  return body.split('\n').length
-}
-
-/**
- * Git-style line-change tally over a settled mutation call's diff meta:
- * added lines across the hunks' new text, removed across the old text —
- * the same counts the official diffTotals reads (the official diff card's
- * footer rule), so the row and the card never disagree. Null when the call
- * is not a diff-bearing file mutation.
- *
- * A write call whose meta never persisted diff hunks falls back to the
- * intended content diff, exactly like the diff card — the badge then never
- * disagrees with the card.
- * @param block - the settled call block (for the intended-diff fallback).
- * @param meta - the persisted result meta (the host's diff hunks).
- * @returns the tally, or null when there is nothing to count.
- */
-function diffChangeStat(block: ToolCallBlock, meta: unknown): { added: number; removed: number } | null {
-  const diffs = narrowDiffs((meta as Record<string, unknown> | null)?.diffs)
-  if (diffs === null) {
-    // The card renders an errored write call without a diff; the badge must
-    // not contradict it.
-    if (!('kind' in block) || block.isError) return null
-    const intended = intendedDiff(block)
-    if (intended === null || intended.tool !== 'write') return null
-    const added = contentLineCount(intended.diff.newText)
-    const removed = contentLineCount(intended.diff.oldText ?? '')
-    return added === 0 && removed === 0 ? null : { added, removed }
-  }
-  let added = 0
-  let removed = 0
-  for (const hunk of diffs) {
-    added += contentLineCount(hunk.newText)
-    removed += contentLineCount(hunk.oldText ?? '')
-  }
-  return added === 0 && removed === 0 ? null : { added, removed }
 }
 
 type IntendedDiff = { tool: 'write' | 'edit' | 'str_replace_editor'; diff: DiffHunk }
@@ -999,6 +957,16 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
   // would erase the collapsed error row's summary slot.
   const output = done ? (resultText(block) || null) : null
   const errorSummary = state === 'error' && output !== null ? firstLine(output) : null
+  // An Auto-review denial is a structured refusal, not a tool failure: the
+  // row drops the args body and reads the reviewer's own reason (the official
+  // GenericToolCard rule). A non-string durable reason degrades to the
+  // no-reason copy exactly as a missing one.
+  const autoReviewDenial = done && block.isError
+    && block.error?.name === 'AutoReviewDeniedError' && block.error.code === 'AUTO_REVIEW_DENIED'
+    ? { reason: typeof (block.error as { reason?: unknown }).reason === 'string'
+      ? (block.error as { reason: string }).reason
+      : null }
+    : null
   const base = argsRaw === ''
     ? block.callId
     : abbreviateHomePath(relativizeToCwd(deriveSummary(variant, argsRaw), cwd), home)
@@ -1030,12 +998,15 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     state: rowState,
     output,
     errorSummary,
+    autoReviewDenial,
     errorCode,
     time: done ? null : block.time,
     body: deriveBody(variant, argsRaw),
     card,
     subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home, cache)),
-    changeStat: done ? diffChangeStat(block, block.meta) : null,
+    // The row badge reads the very same totals the card's footer prints
+    // (the official diffTotals), so the two can never disagree.
+    changeStat: done && card?.kind === 'diff' ? diffTotals(card.diffs) : null,
   }
 }
 

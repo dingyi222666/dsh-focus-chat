@@ -42,11 +42,6 @@ export type MessageFeedbackActionResult =
   | { ok: true }
   | { ok: false; error: { code: string; message: string } }
 
-/** Settled toggle: the rating now recorded, or null when the toggle retracted. */
-export type MessageFeedbackToggleResult =
-  | { ok: true; rating: MessageFeedbackRating | null }
-  | { ok: false; error: { code: string; message: string } }
-
 // `Object.freeze` does not protect a Map: `set`/`delete` write internal slots,
 // not properties. Immutability here is by discipline instead — the view type is
 // ReadonlyMap and every publish hands over a freshly built Map that this class
@@ -187,23 +182,20 @@ export class MessageFeedbackController implements HostObservable<MessageFeedback
   }
 
   /**
-   * Replace one message's rating with the opposite judgment, or retract it when
-   * the committed rating already matches. The decision reads the committed item
-   * inside the serialized mutation, so a click that lands before the first list
-   * read still toggles against the stored value rather than the empty view a
-   * cold control rendered.
+   * Retract one message's matching committed rating. The serialized operation
+   * rechecks the current item and becomes a no-op if another operation already
+   * changed or removed it, so a stale retraction can never record a bare
+   * rating.
    * @param messageId - target assistant message.
-   * @param rating - the judgment the human asked for.
+   * @param rating - the judgment the human asked to retract.
    * @returns the settled mutation result.
    */
-  toggle(messageId: MessageId, rating: MessageFeedbackRating): Promise<MessageFeedbackToggleResult> {
+  retract(messageId: MessageId, rating: MessageFeedbackRating): Promise<MessageFeedbackActionResult> {
     return this.mutate(async () => {
       const observed = this.view.items.get(messageId)
-      const retract = observed?.rating === rating
-      const result = retract
+      return observed?.rating === rating
         ? await this.deleteCommitted(messageId, observed)
-        : await this.putCommitted(messageId, rating, {}, observed)
-      return result.ok ? { ok: true, rating: retract ? null : rating } : result
+        : OK
     })
   }
 

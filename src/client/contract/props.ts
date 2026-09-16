@@ -7,7 +7,7 @@ import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConvViewProps, TurnLocation } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {
-  MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackToggleResult, MessageFeedbackView,
+  MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackView,
 } from '../model/feedback-controller.ts'
 import type { MessageFeedbackItem, MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -62,6 +62,9 @@ export interface FocusViewInjected {
    *  back to the desktop opener); refusals reject so the view can surface its
    *  dialog. `line` lands the preview on that 1-based line. */
   openFile: (path: string, options?: { line?: number }) => Promise<void>
+  /** Open the current source file of a skill a sent message referenced (the
+   *  chat `openSkill`: a `/name` chip in a user bubble becomes a button). */
+  openSkill: (name: string) => void
   /** Page one window of older raw history (the fallback when the Host turn
    *  index is unavailable). */
   loadOlder: () => void
@@ -124,8 +127,9 @@ export interface FocusHooksInjected {
   ensureFeedback: () => Promise<MessageFeedbackActionResult>
   /** Create or replace feedback for one message. */
   rateFeedback: (messageId: MessageId, rating: MessageFeedbackRating, entry?: MessageFeedbackEntry) => Promise<MessageFeedbackActionResult>
-  /** Toggle or retract one message's rating. */
-  toggleFeedback: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackToggleResult>
+  /** Retract one message's matching committed rating (a re-click on the
+   *  filled glyph); recording now always goes through the dialog. */
+  retractFeedback: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackActionResult>
   /** The committed item this Session's controller last observed. */
   currentFeedback: (messageId: MessageId) => MessageFeedbackItem | undefined
 }

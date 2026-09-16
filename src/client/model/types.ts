@@ -65,6 +65,9 @@ export interface FocusToolRow {
   output: string | null
   /** First result line on an error row; null otherwise. */
   errorSummary: string | null
+  /** Structured Auto-review denial identity (the official AutoReviewDenial);
+   *  null for every ordinary result. The view localizes its copy. */
+  autoReviewDenial: { reason: string | null } | null
   /** Settled call's structured error code; null while running or when the
    *  result carries no error (the ask-question row's verdict codes). */
   errorCode: string | null
@@ -177,7 +180,7 @@ export type FocusFlowItem =
     content: readonly ContentBlock[]
     time: number
     /** Context-injection chrome (the chat ContextInjectionRow); absent for user/steering. */
-    context?: { source: ContextMessageNode['source']; provenance: ContextMessageNode['provenance']; form: ContextMessageNode['form'] }
+    context?: { source: ContextMessageNode['source']; producer: ContextMessageNode['producer']; form: ContextMessageNode['form'] }
     /** Session labels the bubble decorates (the chat referenceLabels). */
     referenceLabels?: readonly string[]
     /** Skill/command names the bubble decorates (the chat skillNames). */

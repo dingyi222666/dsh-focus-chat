@@ -1,24 +1,24 @@
 /**
  * Per-message feedback controls: the Like/Dislike pair inside the assistant
- * message's actions row, between copy and branch, mirroring the official
- * 0.1.5 behavior. Like records at once and raises the acknowledgement toast;
- * Dislike opens the feedback dialog, whose submission records the negative
- * judgment with its category and text. Clicking the recorded rating retracts
- * it, and a recorded rating shows the filled glyph.
+ * message's actions row, between copy and branch. Either rating opens the
+ * feedback dialog, whose submission records that judgment with its category
+ * and text; clicking the recorded rating retracts it, and a recorded rating
+ * shows the filled glyph. A failed submission raises the Session's failure
+ * toast instead of an inline line.
  * @module dsh-focus-chat/client/view/chrome/MessageFeedbackActions
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Button, IconCheckOutline16, IconDislikeFill16, IconDislikeOutline16,
-  IconLikeFill16, IconLikeOutline16, Modal, Toast, Tooltip,
+  IconLikeFill16, IconLikeOutline16, IconWarningOutline16, Modal, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MessageId } from '@deepseek-ai/dsh-client-connection/client'
 import type { FeedbackCategory } from '@deepseek-ai/dsh-command-feedback/types'
 import type { MessageFeedbackItem, MessageFeedbackRating } from '@deepseek-ai/dsh-message-feedback/types'
 import type {
-  MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackToggleResult, MessageFeedbackView,
+  MessageFeedbackActionResult, MessageFeedbackEntry, MessageFeedbackView,
 } from '../../model/feedback-controller.ts'
 import type { FocusTranslate } from '../../contract/props.ts'
 import css from './MessageFeedbackActions.module.css'
@@ -33,8 +33,9 @@ export interface FocusFeedbackActions {
   ensure: () => Promise<MessageFeedbackActionResult>
   /** Create or replace this Session's feedback for one message. */
   rate: (messageId: MessageId, rating: MessageFeedbackRating, entry?: MessageFeedbackEntry) => Promise<MessageFeedbackActionResult>
-  /** Toggle or retract one message's rating. */
-  toggle: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackToggleResult>
+  /** Retract one message's matching committed rating (a re-click on the
+   *  filled glyph); recording now always goes through the dialog. */
+  retract: (messageId: MessageId, rating: MessageFeedbackRating) => Promise<MessageFeedbackActionResult>
   /** The committed item this Session's controller last observed. */
   current: (messageId: MessageId) => MessageFeedbackItem | undefined
 }
@@ -76,7 +77,7 @@ const FAILURE_COPY: Partial<Record<string, 'feedback.error.conflict' | 'feedback
  *  shared feedback hook.
  * @returns the rating buttons, with the dialog while open.
  */
-export function MessageFeedbackActions({ messageId, ensure, rate, toggle, current, useFeedback, t }: FocusMessageFeedbackProps) {
+export function MessageFeedbackActions({ messageId, ensure, rate, retract, current, useFeedback, t }: FocusMessageFeedbackProps) {
   const item = useFeedback(view => view.items.get(messageId))
   const loadFailed = useFeedback(view => view.status === 'error')
   const rating = item?.rating
@@ -85,6 +86,10 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, curren
   const [rowFailure, setRowFailure] = useState<string | null>(null)
   // The dialog draft: category chips and the detail textarea.
   const [dialogOpen, setDialogOpen] = useState(false)
+  // The rating the open dialog will record (either button opens it now).
+  const [dialogRating, setDialogRating] = useState<MessageFeedbackRating>('negative')
+  // The failure toast anchors over the composer card, like the chat entry's.
+  const [toastAnchor, setToastAnchor] = useState<HTMLElement | null>(null)
   const [category, setCategory] = useState<FeedbackCategory | null>(null)
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -107,53 +112,47 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, curren
     return result.error?.code === 'version-conflict' ? t('feedback.error.conflict') : t('feedback.error.generic')
   }, [t])
 
-  // Like records at once; a recording is acknowledged, a retraction is not.
-  const onLike = useCallback(() => {
-    setPending(true)
-    setRowFailure(null)
-    void toggle(messageId, 'positive').then((result) => {
-      if (!alive.current) return
-      setPending(false)
-      if (!result.ok) {
-        setRowFailure(errorCopy(result))
-        return
-      }
-      // Only a recording is acknowledged; a retraction is not.
-      if (result.rating === 'positive') setToast(value => value + 1)
-    })
-  }, [errorCopy, messageId, toggle])
-
-  // A recorded Dislike retracts on click; otherwise the dialog collects the
-  // reason and records the judgment on submit. The decision waits for the
+  // A recorded rating retracts on click; either unrecorded rating opens the
+  // dialog and records only after submission. The decision waits for the
   // seeding read, so a click on a cold row still sees the stored judgment.
-  const onDislike = useCallback(() => {
+  const choose = useCallback((nextRating: MessageFeedbackRating) => {
     setPending(true)
     setRowFailure(null)
     void ensure().then((loaded) => {
       if (!alive.current) return
       // The committed item decides record-vs-retract (the official
       // current(messageId) rule): a cold row's render-time rating is stale.
-      if (!loaded.ok || current(messageId)?.rating !== 'negative') {
+      if (!loaded.ok || current(messageId)?.rating !== nextRating) {
         setPending(false)
+        setDialogRating(nextRating)
         setCategory(null)
         setText('')
         setDialogFailure(null)
         setDialogOpen(true)
         return
       }
-      void toggle(messageId, 'negative').then((result) => {
+      void retract(messageId, nextRating).then((result) => {
         if (!alive.current) return
         setPending(false)
         if (!result.ok) setRowFailure(errorCopy(result))
       })
     })
-  }, [current, ensure, errorCopy, messageId, toggle])
+  }, [current, ensure, errorCopy, messageId, retract])
+  const onLike = useCallback(() => { choose('positive') }, [choose])
+  const onDislike = useCallback(() => { choose('negative') }, [choose])
+
+  // The failure toast reads its anchor from the document once a submission
+  // fails (the chat's overlay entry probes the composer card the same way).
+  useEffect(() => {
+    if (dialogFailure === null) return
+    setToastAnchor(document.querySelector<HTMLElement>('[data-composer-card]'))
+  }, [dialogFailure])
 
   const submit = useCallback(() => {
     setSubmitting(true)
     setDialogFailure(null)
     const note = text.trim()
-    void rate(messageId, 'negative', {
+    void rate(messageId, dialogRating, {
       ...(note.length === 0 ? {} : { note }),
       ...(category === null ? {} : { category }),
     }).then((result) => {
@@ -166,7 +165,7 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, curren
       }
       setDialogFailure(t(FAILURE_COPY[result.error.code] ?? 'feedback.error.generic'))
     })
-  }, [category, messageId, rate, t, text])
+  }, [category, dialogRating, messageId, rate, t, text])
 
   const likeLabel = rating === 'positive' ? t('feedback.likeActive') : t('feedback.like')
   const dislikeLabel = rating === 'negative' ? t('feedback.dislikeActive') : t('feedback.dislike')
@@ -246,14 +245,26 @@ export function MessageFeedbackActions({ messageId, ensure, rate, toggle, curren
           readOnly={submitting}
           onChange={(event) => { setText(event.target.value) }}
         />
-        {dialogFailure !== null && <span className={css.dialogFailure} role="status">{dialogFailure}</span>}
       </Modal>
-      {toast > 0 && (
+      {toast > 0 && dialogFailure === null && (
         <Toast
           key={toast}
           text={t('feedback.toast.recorded')}
           icon={<span className={css.toastIcon}><IconCheckOutline16 size={12} /></span>}
           onDone={() => { setToast(0) }}
+        />
+      )}
+      {/* A failed submission reads as the Session's failure toast (the chat
+          dialog rule): a warning icon, the composer-card anchor, and a longer
+          hold — it suppresses the acknowledgement while it shows. */}
+      {dialogFailure !== null && (
+        <Toast
+          key={`failure-${dialogFailure}`}
+          text={dialogFailure}
+          icon={<IconWarningOutline16 />}
+          anchor={toastAnchor}
+          holdMs={6000}
+          onDone={() => { setDialogFailure(null) }}
         />
       )}
     </>

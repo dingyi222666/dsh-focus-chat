@@ -451,16 +451,16 @@ export const ContextRow = memo(function ContextRow({ item, t, mdLabels }: {
 }) {
   const [open, setOpen] = useState(false)
   const context = item.context
-  const provenance = context?.provenance
-  const label = provenance === undefined ? null : provenance.label
+  const producer = context?.producer
+  const label = producer === undefined ? null : producer.label
   const form = context?.form ?? null
   const { rendered, summary, body } = contextBody(form, {
     content: item.content,
     source: context?.source,
     t,
   })
-  const title = provenance?.role === 'recall' ? t('contextRecall') : t('contextInjection')
-  const recall = provenance?.role === 'recall'
+  const title = producer?.role === 'recall' ? t('contextRecall') : t('contextInjection')
+  const recall = producer?.role === 'recall'
   return (
     <DisclosureRow
       className={css.contextRow}

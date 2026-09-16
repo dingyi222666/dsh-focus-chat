@@ -67,7 +67,7 @@ export function PresentedFileCard({ file, cwd, phase, host, onPreview, onAction,
         aria-label={t('presented.previewCard', { name: file.path })}
         onClick={onPreview}
       />
-      <span className={css.fileIcon}><FileTypeIcon path={file.path} /></span>
+      <span className={css.fileIcon}><FileTypeIcon path={file.path} size={20} /></span>
       <div className={css.fileBody}>
         <div className={css.details}>
           <span className={css.fileName}>{name}</span>

@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react'
 import { fileExtension, fileSizeText, FileTypeIcon, JsonBlock, projectUserText } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownLabels, UserTextReferences } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FileAttachmentRef, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { PendingSubmission } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
@@ -58,12 +58,14 @@ function contentParts(content: readonly ContentBlock[]): {
 /** The message body: the attachment lane above the bubble (the chat row shape).
  *  One message renders either the caption bubble, the attachment lane, or
  *  both; an attachment-only message shows the lane without a bubble shell. */
-function MessageBody({ text, attachments, others, referenceLabels, skillNames, t, loadImage, align }: {
+function MessageBody({ text, attachments, others, referenceLabels, skillNames, references, t, loadImage, align }: {
   text: string
   attachments: readonly PresentedAttachment[]
   others: readonly ContentBlock[]
   referenceLabels: readonly string[]
   skillNames: readonly string[]
+  /** File and skill preview actions: the chip arms the chat turns into buttons. */
+  references: UserTextReferences
   t: FocusTranslate
   loadImage: ImageLoader
   align: 'start' | 'end'
@@ -92,7 +94,7 @@ function MessageBody({ text, attachments, others, referenceLabels, skillNames, t
       )}
       {showBubble && (
         <div className={css.bubble}>
-          {projectUserText(text, referenceLabels, skillNames)}
+          {projectUserText(text, referenceLabels, skillNames, 'skill', references)}
           {others.map((block, index) => (
             <JsonBlock
               key={index}
@@ -114,11 +116,13 @@ function MessageBody({ text, attachments, others, referenceLabels, skillNames, t
   )
 }
 
-export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImage }: {
+export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImage, references }: {
   item: Extract<FocusFlowItem, { kind: 'message' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
   loadImage: ImageLoader
+  /** File and skill preview actions for the bubble's reference chips. */
+  references: UserTextReferences
 }) {
   const { text, attachments, others } = useMemo(() => contentParts(item.content), [item.content])
   const referenceLabels = item.referenceLabels ?? EMPTY_LABELS
@@ -132,6 +136,7 @@ export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImag
           others={others}
           referenceLabels={referenceLabels}
           skillNames={skillNames}
+          references={references}
           t={t}
           loadImage={loadImage}
           align="end"
@@ -148,10 +153,12 @@ export const MessageRow = memo(function MessageRow({ item, t, mdLabels, loadImag
 })
 
 
-export const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t, loadImage }: {
+export const PendingSteeringBubble = memo(function PendingSteeringBubble({ content, t, loadImage, references }: {
   content: readonly ContentBlock[]
   t: FocusTranslate
   loadImage: ImageLoader
+  /** File and skill preview actions for the bubble's reference chips. */
+  references: UserTextReferences
 }) {
   const { text, attachments, others } = useMemo(() => contentParts(content), [content])
   return (
@@ -163,6 +170,7 @@ export const PendingSteeringBubble = memo(function PendingSteeringBubble({ conte
           others={others}
           referenceLabels={EMPTY_LABELS}
           skillNames={EMPTY_LABELS}
+          references={references}
           t={t}
           loadImage={loadImage}
           align="end"

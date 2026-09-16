@@ -58,7 +58,7 @@ function closingItem(nodeKey: string, summary: TurnSummary): FocusFlowItem | nul
  * fetch surfaces inline with a retry.
  */
 export const RemoteTurnRow = memo(function RemoteTurnRow({
-  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
+  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
 }: {
   item: Extract<FocusFlowItem, { kind: 'remote-turn' }>
   /** The cached projection for this turn; absent until first expansion. */
@@ -72,6 +72,8 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   /** Presented-delivery face for the turn-tail cards. */
   presented: FocusPresentedActions
   openFile: (path: string, options?: { line?: number }) => void
+  /** Open the source of a skill a sent message referenced (the chat openSkill). */
+  openSkill: (name: string) => void
   /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
   inspect: (callId: string) => void
   forkAt: (seq: number) => void
@@ -115,7 +117,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   }
 
   const rowProps = {
-    t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
+    t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
   } as const
 
   return (

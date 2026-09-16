@@ -226,11 +226,13 @@ export function formatElapsed(ms: number, t: FocusTranslate): string {
   const hours = Math.floor((total % 86_400) / 3_600)
   const minutes = Math.floor((total % 3_600) / 60)
   const seconds = total % 60
-  // Long-running turns read compact: "1h 23m", "1day 3h 20m" — a pure
-  // minute reading (123m) is unreadable once the clock passes an hour.
-  if (days > 0) return t('duration.days', { days, hours, minutes })
-  if (hours > 0) return t('duration.hours', { hours, minutes })
-  if (minutes > 0) return t('duration.minutes', { minutes, seconds: String(seconds).padStart(2, '0') })
+  // Long-running turns keep the full ladder: "1 小时 23 分 05 秒",
+  // "1 天 3 小时 20 分 07 秒". Every unit above the seconds tier zero-pads the
+  // smaller ones, so the reading never jitters between widths (the chat
+  // formatRunDuration rule, extended with the day tier).
+  if (days > 0) return t('duration.days', { days, hours, minutes, seconds: pad2(seconds) })
+  if (hours > 0) return t('duration.hours', { hours, minutes: pad2(minutes), seconds: pad2(seconds) })
+  if (minutes > 0) return t('duration.minutes', { minutes, seconds: pad2(seconds) })
   return t('duration.seconds', { seconds })
 }
 

@@ -1,6 +1,6 @@
 import { Fragment, memo } from 'react'
 import { JsonBlock, MarkdownText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages, UserTextReferences } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusFlowItem } from '../../model/types.ts'
@@ -22,7 +22,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
+export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
   item: FocusFlowItem
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -31,6 +31,8 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
   /** Presented-delivery face for the turn-tail cards. */
   presented: FocusPresentedActions
   openFile: (path: string, options?: { line?: number }) => void
+  /** Open the source of a skill a sent message referenced (the chat openSkill). */
+  openSkill: (name: string) => void
   /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
   inspect: (callId: string) => void
   forkAt: (seq: number) => void
@@ -46,7 +48,15 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
     case 'message':
       return item.role === 'context'
         ? <ContextRow item={item} t={t} mdLabels={mdLabels} />
-        : <MessageRow item={item} t={t} mdLabels={mdLabels} loadImage={loadImage} />
+        : (
+          <MessageRow
+            item={item}
+            t={t}
+            mdLabels={mdLabels}
+            loadImage={loadImage}
+            references={{ openFile: path => { void openFile(path) }, openSkill }}
+          />
+        )
     case 'context-fold':
       return <ContextFoldRow item={item} t={t} mdLabels={mdLabels} />
     case 'system-prompt':
@@ -152,6 +162,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
           pathImages={pathImages}
           presented={presented}
           openFile={openFile}
+          openSkill={openSkill}
           inspect={inspect}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}

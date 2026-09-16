@@ -11,6 +11,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-chat/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+// Type-only: the slash-trigger service's Context merge (ctx.inputTriggers),
+// read optionally for the bubble's skill reference chips.
+import type {} from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 // Type-only: the right-sidebar service's Context merge (ctx.sidebarRight).
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
@@ -178,6 +181,16 @@ export function apply(ctx: Context): void {
           })
           if (!result.ok) throw new Error(`path open failed: ${result.error.message}`)
         },
+        // A `/name` chip in a sent bubble opens the skill's own source file:
+        // the chat hands the reference to the skill input-trigger source,
+        // which resolves the loaded skill's SKILL.md and opens it in the
+        // right sidebar. Both services are optional — a host without the
+        // input-trigger roster just leaves the chip inert.
+        openSkill: (name) => {
+          const scope = ctx.sessions.scope(sessionId)
+          if (scope === undefined) return
+          ctx.get('inputTriggers')?.sessionOf(scope).openReference('skill', { ref: `/${name}` })
+        },
         // Raw history paging: the fallback when the Host turn index is absent
         // (the chat view's own loadOlder).
         loadOlder: () => { ctx.sessions.binding(sessionId)?.session.loadOlder() },
@@ -235,7 +248,7 @@ export function apply(ctx: Context): void {
         // face, re-declared for the focus view).
         ensureFeedback: () => feedback.ensure(),
         rateFeedback: (messageId, rating, entry) => feedback.rate(messageId, rating, entry),
-        toggleFeedback: (messageId, rating) => feedback.toggle(messageId, rating),
+        retractFeedback: (messageId, rating) => feedback.retract(messageId, rating),
         currentFeedback: messageId => feedback.current(messageId),
         // Presented-delivery verbs and desktop metadata (the ui-deliverables
         // controller, re-declared for the focus view's delivery cards).

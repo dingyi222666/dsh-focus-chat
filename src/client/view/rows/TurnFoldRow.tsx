@@ -48,7 +48,7 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
  * stays the focus view's reading; the turn-process node's counts ride the
  * model.
  */
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -57,6 +57,8 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
   /** Presented-delivery face for the turn-tail cards. */
   presented: FocusPresentedActions
   openFile: (path: string, options?: { line?: number }) => void
+  /** Open the source of a skill a sent message referenced (the chat openSkill). */
+  openSkill: (name: string) => void
   /** Reveal a tool call in the trajectory view (the chat's Inspect action). */
   inspect: (callId: string) => void
   forkAt: (seq: number) => void
@@ -93,6 +95,7 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
               pathImages={pathImages}
               presented={presented}
               openFile={openFile}
+              openSkill={openSkill}
               inspect={inspect}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}

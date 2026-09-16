@@ -121,13 +121,15 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   t?: FocusViewProps['t']
   home?: string
   feedback?: {
-    rate?: (messageId: string, rating: string) => Promise<unknown>
-    toggle?: (messageId: string, rating: string) => Promise<unknown>
+    rate?: (messageId: string, rating: string, entry?: unknown) => Promise<unknown>
+    retract?: (messageId: string, rating: string) => Promise<unknown>
+    current?: (messageId: string) => { rating: string } | undefined
   }
   scroll?: { save: (position: FocusScrollPosition | null) => void; read: () => FocusScrollPosition | null }
   diffStyle?: 'default' | 'codex-bar'
   mdStyle?: 'default' | 'highlight'
   turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
+  openSkill?: (name: string) => void
 } = {}): {
   result: ReturnType<typeof render>
   source: ReturnType<typeof createSnapshotStore<ViewSlice>>
@@ -144,6 +146,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     turnIndex: opts.turnIndex,
     loadImage,
     openFile: opts.openFile ?? (() => Promise.resolve()),
+    openSkill: opts.openSkill ?? (() => {}),
     forkAt: opts.forkAt ?? (() => {}),
     fileMentions: opts.fileMentions ?? (() => undefined),
     isLoopback: opts.isLoopback ?? true,
@@ -158,8 +161,9 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     reloadPresentedHost: () => {},
     openPresented: () => {},
     ensureFeedback: () => Promise.resolve({ ok: true as const }),
+    currentFeedback: opts.feedback?.current ?? (() => undefined),
     rateFeedback: opts.feedback?.rate ?? (() => Promise.resolve({ ok: true as const })),
-    toggleFeedback: opts.feedback?.toggle ?? (() => Promise.resolve({ ok: true as const })),
+    retractFeedback: opts.feedback?.retract ?? (() => Promise.resolve({ ok: true as const })),
     clearFeedbackNote: () => Promise.resolve({ ok: true as const }),
     t: opts.t ?? t,
   } as unknown as FocusViewProps
@@ -738,21 +742,22 @@ it('renders the empty hint for an empty conversation', () => {
 
   it('shows the git-style change tally on edit rows and the group total', () => {
     renderView([
-      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"/ws/a.ts"}', {
+      chatNode('t1', 'tool-call', { root: settledCall('c1', 'edit', '{"file_path":"/ws/a.ts","old_string":"b","new_string":"b\\nc"}', {
         meta: { diffs: [{ path: '/ws/a.ts', oldText: 'a\nb', newText: 'a\nb\nc' }] },
       }) }),
-      chatNode('t2', 'tool-call', { root: settledCall('c2', 'write', '{"path":"/ws/b.ts"}', {
+      chatNode('t2', 'tool-call', { root: settledCall('c2', 'write', '{"file_path":"/ws/b.ts","content":"x\\ny\\nz\\n"}', {
         meta: { diffs: [{ path: '/ws/b.ts', oldText: '', newText: 'x\ny\nz\n' }] },
       }) }),
     ])
-    // The folded group's total: +6 -2 (3+3 added lines, 2 removed).
-    expect(fullText('编辑了 2 个文件+6-2')).toBeTruthy()
-    // Expanding reveals each call's own tally: the edit row +3-2, the new
-    // write +3 with no removal side — both sides always read (the official
-    // diff-row stat; the badge's text lives in child spans).
-    fireEvent.click(fullText('编辑了 2 个文件+6-2'))
+    // The folded group's total reads the official diffTotals: the edit's
+    // shared `a`/`b` context lines are not changes, so it counts +1, and the
+    // new write +3 — +4 -0 together (the expanded card footer's own numbers).
+    expect(fullText('编辑了 2 个文件+4-0')).toBeTruthy()
+    // Expanding reveals each call's own tally, word for word the numbers its
+    // card footer prints (the badge's text lives in child spans).
+    fireEvent.click(fullText('编辑了 2 个文件+4-0'))
     const badges = [...document.querySelectorAll('[data-change-stat]')].map(el => el.textContent)
-    expect(badges).toEqual(expect.arrayContaining(['+3-2', '+3-0']))
+    expect(badges).toEqual(expect.arrayContaining(['+1-0', '+3-0']))
   })
 
   it('falls back to the intended content diff for a write call without persisted hunks', () => {
@@ -1048,6 +1053,37 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getByText('This operation was aborted').closest('[data-error]')).toBeTruthy()
   })
 
+  it('reads an Auto-review denial instead of the ordinary failed-call body', () => {
+    renderView([
+      chatNode('t1', 'tool-call', {
+        root: settledCall('c1', 'bash', '{"command":"rm -rf /"}', {
+          isError: true,
+          error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED', reason: 'blocked\nby policy' },
+        }),
+      }),
+    ])
+    // The collapsed row reads the denial, not the raw error line.
+    expect(screen.getByText('Auto review 已拒绝')).toBeTruthy()
+    fireEvent.click(screen.getByText('Auto review 已拒绝'))
+    // The expanded row drops the args body and carries the reviewer's own
+    // reason on one line (newlines normalized).
+    expect(screen.getByText('工具未执行。原因：blocked by policy')).toBeTruthy()
+    expect(screen.queryByText(/rm -rf/)).toBeNull()
+  })
+
+  it('falls back to the no-reason copy when a denial carries no usable reason', () => {
+    renderView([
+      chatNode('t1', 'tool-call', {
+        root: settledCall('c1', 'bash', '{"command":"ls"}', {
+          isError: true,
+          error: { name: 'AutoReviewDeniedError', code: 'AUTO_REVIEW_DENIED' },
+        }),
+      }),
+    ])
+    fireEvent.click(screen.getByText('Auto review 已拒绝'))
+    expect(screen.getByText('工具未执行。原因：Auto review 未授权此次操作')).toBeTruthy()
+  })
+
   it('renders the user message as a bubble with ref chips, clock, and copy', () => {
     renderView([
       chatNode('u1', 'user', {
@@ -1064,6 +1100,25 @@ it('renders the empty hint for an empty conversation', () => {
     // A session reference renders its ReferenceIcon plus the bare label.
     expect(screen.getByText('sub1')).toBeTruthy()
     expect(screen.getByRole('button', { name: '复制' })).toBeTruthy()
+  })
+
+  it('opens the referenced skill from its bubble chip (the chat openSkill button)', () => {
+    const openSkill = vi.fn()
+    renderView([
+      chatNode('u1', 'user', {
+        kind: 'user', seq: 1, time: 1,
+        content: [{ type: 'text', text: 'run /compact now' }], source: null,
+        skillNames: ['compact'],
+      }),
+    ], { openSkill })
+    // The skill token renders as a chip button, not inert text.
+    const chip = screen.getByRole('button', { name: '/compact' })
+    fireEvent.click(chip)
+    expect(openSkill).toHaveBeenCalledWith('compact')
+    // A second click of a double click (word selection) must not navigate.
+    openSkill.mockClear()
+    fireEvent.click(chip, { detail: 2 })
+    expect(openSkill).not.toHaveBeenCalled()
   })
 
   it('renders user and assistant image blocks through the gallery', async () => {
@@ -1303,7 +1358,7 @@ it('renders the empty hint for an empty conversation', () => {
       at('c1', 'context', {
         kind: 'context', seq: 5, time: 5000,
         content: [{ type: 'text', text: 'injected rules' }],
-        source: { kind: 'file' }, provenance: { role: 'inject', label: 'AGENTS.md' }, form: null,
+        source: { kind: 'file' }, producer: { role: 'inject', label: 'AGENTS.md' }, form: null,
       }),
       at('a2', 'assistant-step', {
         status: 'settled', turn: 1, step: 1, time: 8000,
@@ -1760,7 +1815,7 @@ it('renders the empty hint for an empty conversation', () => {
     const context = (key: string, label: string, text: string) => at(key, 'context', {
       kind: 'context', seq: 5, time: 1500,
       content: [{ type: 'text', text }],
-      source: { kind: 'file' }, provenance: { role: 'inject', label }, form: null,
+      source: { kind: 'file' }, producer: { role: 'inject', label }, form: null,
     })
     renderView([
       context('c1', 'AGENTS.md', 'rules text'),
@@ -1796,7 +1851,7 @@ it('renders the empty hint for an empty conversation', () => {
     const context = (key: string, label: string, text: string) => at(key, 'context', {
       kind: 'context', seq: 5, time: 1500,
       content: [{ type: 'text', text }],
-      source: { kind: 'file' }, provenance: { role: 'inject', label }, form: null,
+      source: { kind: 'file' }, producer: { role: 'inject', label }, form: null,
     })
     renderView([
       context('c1', 'AGENTS.md', 'rules text'),
@@ -1845,7 +1900,7 @@ it('renders the empty hint for an empty conversation', () => {
       at('c1', 'context', {
         kind: 'context', seq: 5, time: 1500,
         content: [{ type: 'text', text: 'rules text' }],
-        source: { kind: 'file' }, provenance: { role: 'inject', label: 'AGENTS.md' }, form: null,
+        source: { kind: 'file' }, producer: { role: 'inject', label: 'AGENTS.md' }, form: null,
       }),
       at('p1', 'turn-process', {
         turn: 1, controlAnchorSeq: 2, processStartSeq: 3, answerAnchorSeq: null,
@@ -1878,7 +1933,7 @@ it('renders the empty hint for an empty conversation', () => {
         kind: 'context', seq: 5, time: 1500,
         content: [{ type: 'text', text: 'background task t1 (bash: pnpm install) finished [status: completed]. Read its output with task_output.' }],
         source: { kind: 'plugin', plugin: 'tool-tasks', form: 'notice', summary: 'bash pnpm install [status: completed]' },
-        provenance: { role: 'inject', label: 'tool-tasks' },
+        producer: { role: 'inject', label: 'tool-tasks' },
         form: 'notice',
       }),
       at('a1', 'assistant-step', {
@@ -1910,7 +1965,7 @@ it('renders the empty hint for an empty conversation', () => {
         kind: 'context', seq: 1, time: 1,
         content: [{ type: 'text', text: 'Background subagent 79df55e1 finished and will do no further work unless you send it more.' }],
         source: { kind: 'plugin', plugin: 'subagent', form: 'notice', summary: 'subagent-settled' },
-        provenance: { role: 'inject', label: 'subagent' },
+        producer: { role: 'inject', label: 'subagent' },
         form: 'notice',
       }),
       chatNode('t1', 'tool-call', { root: settledCall('c1', 'bash', '{}') }),
@@ -2153,7 +2208,8 @@ it('renders the empty hint for an empty conversation', () => {
   })
 
   it('renders the like/dislike pair on a closing assistant and routes it to the feedback controller', async () => {
-    const toggle = vi.fn(() => Promise.resolve({ ok: true as const }))
+    const rate = vi.fn(() => Promise.resolve({ ok: true as const }))
+    const retract = vi.fn(() => Promise.resolve({ ok: true as const }))
     const turn = {
       turn: 1,
       start: { time: 1000 },
@@ -2174,16 +2230,55 @@ it('renders the empty hint for an empty conversation', () => {
         ttftMs: null,
         tokensPerSecond: null,
       }, { kind: 'turn', turn } as never),
-    ], { feedback: { toggle } })
+    ], { feedback: { rate, retract } })
     // The assistant-actions strip sits between copy and branch (the chat row).
     const like = screen.getByRole('button', { name: '好的回答' })
     const dislike = screen.getByRole('button', { name: '有问题的回答' })
     expect(like).toBeTruthy()
     expect(dislike).toBeTruthy()
-    // A rating routes through the Session feedback controller for this message.
+    // Either rating opens the dialog; nothing is recorded before submission
+    // (the 0.1.6 rule), and the submission carries that rating.
     fireEvent.click(like)
     await act(async () => {})
-    expect(toggle).toHaveBeenCalledWith('msg-1', 'positive')
+    expect(rate).not.toHaveBeenCalled()
+    expect(retract).not.toHaveBeenCalled()
+    const submit = screen.getByRole('button', { name: '提交' })
+    fireEvent.click(submit)
+    await act(async () => {})
+    expect(rate).toHaveBeenCalledWith('msg-1', 'positive', expect.anything())
+  })
+
+  it('raises the failure toast, not an inline line, when a feedback submission fails', async () => {
+    const rate = vi.fn(() => Promise.resolve({ ok: false as const, error: { code: 'version-conflict', message: 'conflict' } }))
+    const turn = {
+      turn: 1,
+      start: { time: 1000 },
+      end: { time: 9000 },
+      status: 'closed',
+      steps: [],
+      data: { get: () => undefined },
+    }
+    renderView([
+      chatNode('tail', 'turn-tail', {
+        turn: 1, seq: 30, time: 9000,
+        closing: {
+          finalNode: { seq: 20, time: 8000, messageId: 'msg-1' },
+          blocks: [{ kind: 'text', text: 'done text' }],
+          time: 8000,
+        },
+        branchUnavailable: false,
+        ttftMs: null,
+        tokensPerSecond: null,
+      }, { kind: 'turn', turn } as never),
+    ], { feedback: { rate } })
+    fireEvent.click(screen.getByRole('button', { name: '有问题的回答' }))
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: '提交' }))
+    await act(async () => {})
+    // The conflict copy rides its own toast (the chat dialog rule), and the
+    // inline failure notice is gone.
+    expect(screen.getByText('这条反馈已在别处改动，已显示最新状态')).toBeTruthy()
+    expect(document.querySelector('[role="status"]')?.className ?? '').not.toContain('dialogFailure')
   })
 
   it('omits the like/dislike pair when the closing assistant carries no durable message', () => {
@@ -2764,7 +2859,7 @@ describe('buildFocusFlow hideFrom', () => {
     const nodes = [
       at('c1', 'context', {
         kind: 'context', seq: 5, time: 1500, content: [{ type: 'text', text: 'injected' }],
-        source: { kind: 'plugin', plugin: 'watcher' }, provenance: { role: 'inject', label: 'watcher' }, form: null,
+        source: { kind: 'plugin', plugin: 'watcher' }, producer: { role: 'inject', label: 'watcher' }, form: null,
       }, 3),
       at('a3', 'assistant-step', {
         status: 'settled', turn: 3, step: 1, time: 2000,
@@ -2793,7 +2888,7 @@ describe('buildFocusFlow hideFrom', () => {
     const nodes = [
       at('c1', 'context', {
         kind: 'context', seq: 5, time: 1500, content: [{ type: 'text', text: 'injected' }],
-        source: { kind: 'plugin', plugin: 'watcher' }, provenance: { role: 'inject', label: 'watcher' }, form: null,
+        source: { kind: 'plugin', plugin: 'watcher' }, producer: { role: 'inject', label: 'watcher' }, form: null,
       }, 3),
       at('a3', 'assistant-step', {
         status: 'settled', turn: 3, step: 1, time: 2000,

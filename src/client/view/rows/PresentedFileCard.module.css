@@ -1,6 +1,6 @@
-/* Delivered-file cards: the official 0.1.5 presented chrome (one full-width
-   row or a two-column summary, a 72px card with a preview overlay and an
-   action split). The fill tokens mirror ui-deliverables' own card vars. */
+/* Delivered-file cards: the official presented chrome (one full-width row or
+   a two-column summary, a 60px card with a preview overlay and an action
+   split). The fill tokens mirror ui-deliverables' own card vars. */
 
 .root {
   --deliverable-fill: var(--dsw-static-neutral-50);
@@ -9,8 +9,14 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-  margin-top: 16px;
+  margin-top: 4px;
   container-type: inline-size;
+}
+
+/* The turn-tail gap alone separates adjacent file sections. The default top
+   margin remains when deliveries are the first file section after prose. */
+.root[data-after-produced-files='true'] {
+  margin-top: 0;
 }
 
 :global(body[data-ds-dark-theme]) .root {
@@ -30,7 +36,7 @@
 .presented {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 12px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -45,8 +51,8 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
-  height: 72px;
-  padding: 12px;
+  height: 60px;
+  padding: 8px 10px;
   overflow: hidden;
   border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: 18px;
@@ -82,12 +88,13 @@
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
   overflow: hidden;
   pointer-events: none;
-  border: 0.5px solid var(--dsw-alias-border-l2);
-  border-radius: 12px;
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
   background: var(--deliverable-fill);
   color: var(--dsw-alias-link);
 }
@@ -117,17 +124,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  line-height: 22px;
+  line-height: 20px;
 }
 
 .description {
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 400;
-  line-height: 18px;
+  line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -153,11 +160,11 @@
   flex: none;
   align-items: stretch;
   box-sizing: border-box;
-  height: 32px;
+  height: 28px;
   overflow: hidden;
   pointer-events: auto;
   border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--dsw-alias-button-floating-fill);
 }
 
@@ -178,13 +185,13 @@
 }
 
 .open {
-  padding: 5px 10px;
-  font-size: 14px;
-  line-height: 22px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .chevron {
-  padding: 5px 6px;
+  padding: 4px 5px;
   border-left: 0.5px solid var(--dsw-alias-border-l3);
   color: var(--dsw-alias-label-secondary);
 }
