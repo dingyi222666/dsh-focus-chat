@@ -445,6 +445,17 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **其它细节**: 压缩行图标跟随字号轴、检查按钮悬停加深文字色、展开的系统提示词补 4px 下边距、折叠内容顶部间距对齐 16px、思考摘要的省略机制对齐官方、错误行不再同时显示 +A -R 徽标、反馈对话框的错误行按块级排版;清理未使用的样式与文件',
     ],
   },
+  '0.7.19': {
+    features: [
+      '- **Cordis 卡片**: `cordis_define` / `cordis_run` / `cordis_stop` / `cordis_undefine` 四个工具调用以前在焦点视图里是通用行,现在按官方 `ui-cordis` 的三张卡完整复刻——`cordis_define` 是带 Host/Client 源码页签的注册卡(名称/用途/状态读数/结果),`cordis_run` 带运行/更新标题、`pluginId · packageId` 摘要、实时状态词(待激活 / Client 待激活 / 运行中 / 待审批 / 运行失败 / 已移除 / 已有更新)与输出,`cordis_stop` / `cordis_undefine` 是停止/移除动作卡(含 inspect)',
+      '- **实时事实照搬官方来源**: 状态读数取自与 ui-cordis 相同的两处公开来源——页面级的动态运行服务(`dynamicCordisRunner`)与宿主的定义登记册(`remote.dynamicCordisRunner.inventory()`);登记册在 `cordis/dynamic-package` / `cordis/dynamic-retract` 两条广播与重连时重读,并保留「已读 / 读失败原因 / 已移除」三态',
+      '- **CSS 与文案逐字节对齐**: 两张卡的 CSS 与官方文件逐字节相同,`cordis.*` 的 48 条中英文案逐条比对通过(面板自身的 `panel.*` / `action.*` / `render.*` 键不属于卡片,未搬)',
+    ],
+    fixes: [
+      '- **一处结构性差异(已在代码注释写明)**: 官方 `cordis_run` 卡同时是「动态包自有交互视图」的宿主(它声明并派发 `tool.view.cordis` 子槽)。按照插槽契约,只有声明该槽的组件才有权派发它,焦点视图作为另一个 view 拿不到,所以这里渲染官方在「没有注册视图」时的那一支(直接输出 `<pre>`)。除这一支外 DOM、aria、属性与度量都一致',
+      '- 两个 Cordis 服务都是可选的:profile 里没有 Cordis 扩展时,卡片读数为空且不会抛错(与插件既有的可选服务姿态一致)',
+    ],
+  },
   '0.7.18': {
     features: [
       '- **workflow 面板**: 官方 chat 的 `workflow-run` 节点(工作流运行卡片)以前在焦点视图里落进「未知节点」——只画了一坨 JSON。现在按官方 `WorkflowRunPanel` 完整实现:运行头(名称 / 成员数 / 状态点+状态词)、按阶段分组、每个成员一行(状态点 / 可点击打开子会话 / 状态词);状态驱动展开——运行中或异常自动展开,收敛成完成态时自动收起,但焦点还在里面时会延迟到失焦再收',

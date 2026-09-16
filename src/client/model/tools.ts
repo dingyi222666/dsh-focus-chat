@@ -6,6 +6,7 @@ import type { AttachmentId as AttachmentIdType, ImageAttachmentRef, ImageMediaTy
 import type { ToolCallBlock, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { FocusCard, FocusGroupMetrics, FocusGroupThink, FocusMetricKey, FocusToolGroup, FocusToolRow, FocusToolState, FocusToolVariant } from './types.ts'
 import { hasSpillNotice } from '@deepseek-ai/dsh-spill-policy/notice'
+import { cordisCardOf } from './cordis.ts'
 import { flattenText, relativizeToCwd } from './text.ts'
 
 export const METRIC_BY_TOOL: Readonly<Record<string, FocusMetricKey>> = {
@@ -141,8 +142,10 @@ const VARIANT_TITLE_KEYS: Readonly<Record<FocusToolVariant, string>> = {
  * Known tool name → row variant (the chat row's classification, rc.7).
  *
  * `cordis_define` stays absent from the table exactly as in the official
- * chat: ui-cordis owns a keyed toolview for it, and a second title here
- * would be a second answer to the same call.
+ * chat's generic table. All four Cordis lifecycle tools paint their own
+ * derived card (see `cordisCardOf`), so the generic variant/title/summary
+ * fields are never rendered for them; the entries below stay only so the
+ * generic tables match the official chat's classification.
  */
 const TOOL_VARIANTS: Readonly<Record<string, FocusToolVariant>> = {
   bash: 'bash',
@@ -1003,6 +1006,10 @@ function toolRowModelUncached(block: ToolCallBlock, cwd?: string, home?: string,
     time: done ? null : block.time,
     body: deriveBody(variant, argsRaw),
     card,
+    // The four lifecycle tools carry their own derived card; the view paints
+    // it in place of the generic chrome (the official keyed `tool.call.toolview`
+    // registration). Every other call stays null.
+    cordis: cordisCardOf(name, block),
     subcalls: block.subCalls.map(child => toolRowModel(child, cwd, home, cache)),
     // The row badge reads the very same totals the card's footer prints
     // (the official diffTotals), so the two can never disagree.

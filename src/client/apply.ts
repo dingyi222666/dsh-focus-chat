@@ -22,6 +22,7 @@ import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import type { MarkdownFileMentions } from '@deepseek-ai/dsh-client-ui-primitives'
 import { FOCUS_RPC_CHANNEL } from '../protocol.ts'
 import type { TurnEventsResponse, TurnIndexResponse } from '../protocol.ts'
@@ -31,6 +32,11 @@ import { FOCUS_SETTINGS_NS, type FocusSettings } from '../settings.ts'
 import { FocusSettingsPolicy } from './focus-settings.ts'
 import { FocusSettingsSection, type FocusSettingsSectionInjected } from './settings/FocusSettingsSection.tsx'
 import type { FocusHooksInjected, FocusScrollPosition, FocusTurnTailOwner, FocusViewInjected } from './contract/props.ts'
+import { CordisRunCardRegistry } from './model/cordis.ts'
+import { createFocusCordisInventory } from './model/cordis-inventory.ts'
+import type {
+  FocusCordisInventoryRow, FocusCordisLivePackage, FocusCordisRunActivity,
+} from './model/types.ts'
 import { MessageFeedbackController } from './model/feedback-controller.ts'
 import { PresentedOpenController } from './model/presented-open.ts'
 import { en, zh, type FocusKey } from './locales.ts'
@@ -95,8 +101,63 @@ export function apply(ctx: Context): void {
   // one read per connection generation).
   const presentedOpen = new PresentedOpenController()
   ctx.effect(() => () => { void presentedOpen.dispose() }, 'dsh-focus-chat: presented open controller')
+
+  // ---- Cordis lifecycle cards (define / run / stop / remove) ----------------
+  // The dynamic runner's Remote namespace and its page-local service are both
+  // optional: a profile without the Cordis extension composes neither, so both
+  // lookups degrade to an empty inventory and an empty live set rather than
+  // throwing at plugin load (the chatFileMentions / inputTriggers posture).
+  const cordisRemote = (ctx.remote as unknown as {
+    dynamicCordisRunner?: {
+      inventory(): Promise<
+        | { ok: true; value: readonly FocusCordisInventoryRow[] }
+        | { ok: false; error: { code: string; message: string } }
+      >
+    }
+  }).dynamicCordisRunner
+  const cordisInventory = createFocusCordisInventory({
+    inventory: async () => {
+      if (cordisRemote === undefined) return []
+      const answered = await cordisRemote.inventory()
+      if (!answered.ok) throw new Error(`${answered.error.code}: ${answered.error.message}`)
+      return answered.value
+    },
+  }, (error) => {
+    console.warn('dsh-focus-chat: reading the Cordis inventory failed:', error)
+  })
+  const cordisRunner = ctx.get('dynamicCordisRunner') as {
+    getSnapshot(): readonly FocusCordisLivePackage[]
+    subscribe(listener: () => void): () => void
+    activeRuns: HostObservable<ReadonlyMap<string, FocusCordisRunActivity>>
+  } | undefined
+  // The live Client activations of this page: the runner service's own store,
+  // or one immutable empty store when the service is absent. The absent arms
+  // return the same frozen snapshots on every read — `useSyncExternalStore`
+  // requires a cached snapshot, so a fresh array/map per call would loop.
+  const noCordisLoaded: readonly FocusCordisLivePackage[] = []
+  const cordisLoaded: HostObservable<readonly FocusCordisLivePackage[]> = {
+    getSnapshot: () => cordisRunner?.getSnapshot() ?? noCordisLoaded,
+    subscribe: listener => cordisRunner?.subscribe(listener) ?? (() => {}),
+  }
+  const noCordisRuns: ReadonlyMap<string, FocusCordisRunActivity> = new Map()
+  const noCordisActiveRuns: HostObservable<ReadonlyMap<string, FocusCordisRunActivity>> = {
+    getSnapshot: () => noCordisRuns,
+    subscribe: () => () => {},
+  }
+  // One run-card index per Session: a Run card publishes its successful result
+  // so older cards of the same Package read "superseded".
+  const cordisRunCards = new CordisRunCardRegistry()
+  // The two wire announcements that invalidate the definition registry; the
+  // rows are re-read (they carry no labels, and a definition can appear or
+  // disappear between two announcements).
+  ctx.remote.$on('cordis/dynamic-package', () => { cordisInventory.refresh() })
+  ctx.remote.$on('cordis/dynamic-retract', () => { cordisInventory.refresh() })
+
   ctx.on('connection/reset', () => {
     presentedOpen.resetHost()
+    // A reconnect may be a new host: drop what was read and re-read.
+    cordisInventory.reset()
+    cordisInventory.refresh()
     // A reconnect re-reads every Session's feedback behind its queued
     // mutations, so a stale list cannot resurrect a replaced version (the
     // official ui-message-feedback rule; a cold controller has nothing to
@@ -150,6 +211,10 @@ export function apply(ctx: Context): void {
     // focus view renders message images with its own gallery instead.
     inject: (sessionId: SessionId): FocusViewInjected & FocusHooksInjected => {
       const feedback = feedbackControllerFor(sessionId)
+      // This Session's run-card index (page-local, retained across remounts):
+      // a Run card's successful result lands here, and every card of the same
+      // Package reads the newest pointer from it.
+      const cordisCards = cordisRunCards.forSession(sessionId)
       return {
         // Session-authorized historical image resolution (the chat view's
         // image gallery loader, served by the Conversation assembly).
@@ -258,6 +323,8 @@ export function apply(ctx: Context): void {
         // controller, re-declared for the focus view's delivery cards).
         reloadPresentedHost: () => { void presentedOpen.loadHost() },
         openPresented: (id, seq, index, action) => { void presentedOpen.open(id, seq, index, action) },
+        // The Cordis Run card's supersession index for this Session.
+        observeCordisRunCard: (pointer) => { cordisCards.observe(pointer) },
         // Host account home (account home for `~` path display) and the
         // Session feedback view, bound by the slot renderer into the view's
         // useHostHome / useFeedback hooks.
@@ -268,6 +335,10 @@ export function apply(ctx: Context): void {
           mdStyle: focusSettings.mdStyle,
           presentedOpen: presentedOpen.state,
           presentedHost: presentedOpen.host,
+          cordisInventory,
+          cordisLoaded,
+          cordisRunCards: cordisCards,
+          cordisActiveRuns: cordisRunner?.activeRuns ?? noCordisActiveRuns,
         },
       }
     },
@@ -278,4 +349,9 @@ export function apply(ctx: Context): void {
       feedbackControllers.clear()
     }
   })
+
+  // Read the definition registry once at load, so a card mounted before any
+  // wire announcement already carries the host's rows (the official apply's
+  // own opening read). An absent runner answers with an empty inventory.
+  cordisInventory.refresh()
 }

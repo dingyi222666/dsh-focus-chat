@@ -1,7 +1,7 @@
 import { memo, useState } from 'react'
 import { CodeBlock, DiffBlock, DisclosureRow, IconInspectOutline12, ReadBlock, SearchBlock, TerminalBlock, WebBlock } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ChangesBarDiff } from './ChangesBarDiff.tsx'
-import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusCordisActions, FocusTranslate } from '../../contract/props.ts'
 import type { FocusKey } from '../../locales.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import { planSummary } from '../../model/todo.ts'
@@ -9,6 +9,9 @@ import type { FocusCard, FocusToolRow } from '../../model/types.ts'
 import { leadingFor } from '../helpers/icons.tsx'
 import { messageImageLabels } from '../helpers/image-labels.ts'
 import { ImageGallery, type ImageLoader } from '../chrome/MessageImage.tsx'
+import { CordisActionRow } from './CordisActionRow.tsx'
+import { CordisDefineRow } from './CordisDefineRow.tsx'
+import { CordisRunRow } from './CordisRunRow.tsx'
 import {
   CHAT_DIFF_MAX_LINES, CHAT_READ_MAX_LINES, CHAT_SEARCH_MAX_LINES,
   changesBarExpandLabels, diffLabels, readLabels, searchLabels, terminalLabels, webLabels,
@@ -205,7 +208,7 @@ function agentsSummary(row: FocusToolRow, t: FocusTranslate): string {
 }
 
 /** One Tool call row inside an expanded group: the chat ToolRow chrome (title · summary, cards, IN/OUT). */
-export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect, diffStyle = 'default', loadImage }: {
+export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect, diffStyle = 'default', loadImage, cordis }: {
   row: FocusToolRow
   t: FocusTranslate
   openFile: (path: string, options?: { line?: number }) => void
@@ -215,8 +218,34 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
   diffStyle?: DiffStyle
   /** Session-authorized durable image URL loader (the read_image image card). */
   loadImage?: ImageLoader
+  /** The Cordis lifecycle-card face (the four cordis_* tools). */
+  cordis: FocusCordisActions
 }) {
   const [expanded, setExpanded] = useState(false)
+  // A Cordis lifecycle call paints its own derived card in place of the whole
+  // generic chrome (the official keyed `tool.call.toolview` replacement): the
+  // card root carries the `data-tool` / `data-state` / `data-cordis-*`
+  // attributes, and the call tree below still renders its subcalls.
+  if (row.cordis !== null) {
+    const card = row.cordis
+    const inspectCall = inspect === undefined ? undefined : () => { inspect(row.callId) }
+    return (
+      <div className={css.callRow} data-chat-anchor-key={`call:${row.callId}`} data-chat-call-id={row.callId}>
+        {card.kind === 'define'
+          ? <CordisDefineRow card={card} callId={row.callId} inspect={inspectCall} cordis={cordis} t={t} />
+          : card.kind === 'run'
+            ? <CordisRunRow card={card} callId={row.callId} inspect={inspectCall} cordis={cordis} t={t} />
+            : <CordisActionRow card={card} toolName={row.name} callId={row.callId} inspect={inspectCall} t={t} />}
+        {row.subcalls.length > 0 && (
+          <div className={css.subcalls} data-subcalls>
+            {row.subcalls.map(sub => (
+              <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} cordis={cordis} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
   // An Auto-review denial replaces the ordinary failed-call reading: the card
   // and the args body drop, the row says what was refused and why (the
   // official GenericToolCard rule).
@@ -376,7 +405,7 @@ export const ToolCallRow = memo(function ToolCallRow({ row, t, openFile, inspect
       {row.subcalls.length > 0 && (
         <div className={css.subcalls} data-subcalls>
           {row.subcalls.map(sub => (
-            <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
+            <ToolCallRow key={sub.callId} row={sub} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} cordis={cordis} />
           ))}
         </div>
       )}

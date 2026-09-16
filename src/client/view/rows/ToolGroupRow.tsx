@@ -1,7 +1,7 @@
 import { Fragment, memo, useMemo, useState } from 'react'
 import { DisclosureRow, IconSparkle16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownLabels } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusTranslate } from '../../contract/props.ts'
+import type { FocusCordisActions, FocusTranslate } from '../../contract/props.ts'
 import type { FocusToolGroup } from '../../model/types.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import type { ImageLoader } from '../chrome/MessageImage.tsx'
@@ -12,7 +12,7 @@ import { ToolCallRow } from './ToolCallRow.tsx'
 import css from './ToolGroupRow.module.css'
 
 /** One folded run of Tool calls: the step-summary line with its metrics. */
-export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, openFile, inspect, diffStyle, loadImage }: {
+export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, openFile, inspect, diffStyle, loadImage, cordis }: {
   group: FocusToolGroup
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -23,6 +23,8 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
   diffStyle: DiffStyle
   /** Session-authorized durable image URL loader (the read_image image card). */
   loadImage?: ImageLoader
+  /** The Cordis lifecycle-card face (the four cordis_* tools). */
+  cordis: FocusCordisActions
 }) {
   const [expanded, setExpanded] = useState(false)
   // The summary line reads the settled metrics only — a running call joins
@@ -92,7 +94,7 @@ export const ToolGroupRow = memo(function ToolGroupRow({ group, t, mdLabels, ope
           'callId' in item ? (
             item.state === 'running'
               ? null
-              : <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
+              : <ToolCallRow key={item.callId} row={item} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} cordis={cordis} />
           ) : 'kind' in item ? (
             // An absorbed context injection expands to its chat row.
             <ContextRow key={item.nodeKey} item={item} t={t} mdLabels={mdLabels} />

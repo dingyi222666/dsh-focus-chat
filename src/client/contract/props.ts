@@ -14,6 +14,10 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { TurnEventsResponse, TurnIndexResponse } from '../../protocol.ts'
 import type { DiffStyle, MdStyle } from '../../settings.ts'
 import type { PresentedAction, PresentedHost, PresentedOpenPhase } from '../model/presented-open.ts'
+import type {
+  FocusCordisInventorySnapshot, FocusCordisLivePackage, FocusCordisRunActivity,
+  FocusCordisRunCardPointer, FocusCordisToolViewKey,
+} from '../model/types.ts'
 
 /** The presented-file delivery face the rows read: the Session's durable
  *  open status, the Host desktop metadata, and the two verbs (the
@@ -32,6 +36,25 @@ export interface FocusPresentedActions {
   reloadHost: () => void
   /** Open or reveal one declared file through the Host. */
   open: (seq: number, index: number, action: PresentedAction) => void
+}
+
+/** The Cordis lifecycle-card face the tool rows read: the frame-wide
+ *  definition inventory, this page's live Client activations, the per-session
+ *  run-card index, and the page-local activation map (the ui-cordis card
+ *  faces, re-declared here because the focus view cannot take that plugin's
+ *  keyed-toolview seat). Threaded as one object so the row chain carries a
+ *  single prop, exactly like {@link FocusPresentedActions}. */
+export interface FocusCordisActions {
+  /** Frame-wide definition registry snapshot (the read-once store). */
+  useInventory: SnapshotSelectorHook<FocusCordisInventorySnapshot>
+  /** Client activations loaded in this page. */
+  useLoaded: SnapshotSelectorHook<readonly FocusCordisLivePackage[]>
+  /** This Session's latest successful run-card index. */
+  useRunCards: SnapshotSelectorHook<ReadonlyMap<FocusCordisToolViewKey, FocusCordisRunCardPointer>>
+  /** This page's in-flight approval/activation map, keyed by Plugin id. */
+  useActiveRuns: SnapshotSelectorHook<ReadonlyMap<string, FocusCordisRunActivity>>
+  /** Publish this successful result into the session's latest-card index. */
+  onObserveRunCard: (pointer: FocusCordisRunCardPointer) => void
 }
 
 /** One reflow-resistant scroll position (the chat view's saved shape). */
@@ -98,6 +121,11 @@ export interface FocusViewInjected {
     save: (position: FocusScrollPosition | null) => void
     read: () => FocusScrollPosition | null
   }
+  /**
+   * Publish one successful `cordis_run` result into its session's latest-card
+   * index (drives the superseded reading). Bound per session by the apply side.
+   */
+  observeCordisRunCard: (pointer: FocusCordisRunCardPointer) => void
 }
 
 /** Injected Host account home and message-feedback hooks for the view (the
@@ -121,6 +149,14 @@ export interface FocusHooksInjected {
     presentedOpen: HostObservable<Record<string, PresentedOpenPhase | undefined>>
     /** Host desktop metadata for the delivery cards, bound as usePresentedHost. */
     presentedHost: HostObservable<PresentedHost | 'error' | null>
+    /** Frame-wide Cordis definition registry, bound as useCordisInventory. */
+    cordisInventory: HostObservable<FocusCordisInventorySnapshot>
+    /** Client Cordis activations loaded in this page, bound as useCordisLoaded. */
+    cordisLoaded: HostObservable<readonly FocusCordisLivePackage[]>
+    /** This Session's latest successful run-card index, bound as useCordisRunCards. */
+    cordisRunCards: HostObservable<ReadonlyMap<FocusCordisToolViewKey, FocusCordisRunCardPointer>>
+    /** This page's in-flight approval/activation map, bound as useCordisActiveRuns. */
+    cordisActiveRuns: HostObservable<ReadonlyMap<string, FocusCordisRunActivity>>
   }
   /** Read (or retry) the Host desktop metadata for the delivery cards. */
   reloadPresentedHost: () => void

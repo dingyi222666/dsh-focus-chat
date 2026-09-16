@@ -1,6 +1,6 @@
 import { memo, useRef, useState } from 'react'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
+import type { FocusCordisActions, FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import { toAssistantBlock, type TurnSlice } from '../../model/turn-slice.ts'
@@ -58,7 +58,7 @@ function closingItem(nodeKey: string, summary: TurnSummary): FocusFlowItem | nul
  * fetch surfaces inline with a retry.
  */
 export const RemoteTurnRow = memo(function RemoteTurnRow({
-  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession,
+  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession, cordis,
 }: {
   item: Extract<FocusFlowItem, { kind: 'remote-turn' }>
   /** The cached projection for this turn; absent until first expansion. */
@@ -71,6 +71,8 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   pathImages: MarkdownPathImages
   /** Presented-delivery face for the turn-tail cards. */
   presented: FocusPresentedActions
+  /** Cordis lifecycle-card face for the cordis_* tool rows. */
+  cordis: FocusCordisActions
   openFile: (path: string, options?: { line?: number }) => void
   /** Open the source of a skill a sent message referenced (the chat openSkill). */
   openSkill: (name: string) => void
@@ -124,7 +126,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
 
   const rowProps = {
     t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
-    sessionId, useSessions, openSession,
+    sessionId, useSessions, openSession, cordis,
   } as const
 
   return (

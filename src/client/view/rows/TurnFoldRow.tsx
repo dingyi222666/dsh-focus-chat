@@ -1,7 +1,7 @@
 import { memo, useState, type MouseEvent } from 'react'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
+import type { FocusCordisActions, FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { FocusFlowItem } from '../../model/types.ts'
 import type { DiffStyle } from '../../../settings.ts'
 import { formatElapsed } from '../helpers/format.ts'
@@ -48,7 +48,7 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
  * stays the focus view's reading; the turn-process node's counts ride the
  * model.
  */
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession, cordis }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -56,6 +56,8 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
   pathImages: MarkdownPathImages
   /** Presented-delivery face for the turn-tail cards. */
   presented: FocusPresentedActions
+  /** Cordis lifecycle-card face for the cordis_* tool rows. */
+  cordis: FocusCordisActions
   openFile: (path: string, options?: { line?: number }) => void
   /** Open the source of a skill a sent message referenced (the chat openSkill). */
   openSkill: (name: string) => void
@@ -111,6 +113,7 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
               loadImage={loadImage}
               feedback={feedback}
               diffStyle={diffStyle}
+              cordis={cordis}
             />
           ))}
         </div>

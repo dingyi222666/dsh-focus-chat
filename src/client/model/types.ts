@@ -74,6 +74,128 @@ export type FocusCard =
 /** Tool-row state semantics; colors self-supplied by the view. */
 export type FocusToolState = 'running' | 'ok' | 'error' | 'stopped'
 
+/** Lifecycle of a Cordis tool call (the official CordisToolState). Same value
+ *  set as {@link FocusToolState}, but derived by the official Cordis rule — only
+ *  `interrupted` reads stopped, where the generic row maps several repair
+ *  codes — so the card names its own reading. */
+export type FocusCordisToolState = FocusToolState
+
+/**
+ * Live Cordis lifecycle facts the ported cards read.
+ *
+ * The dynamic-runner package's browser entry (`@deepseek-ai/dsh-cordis-client-runner`)
+ * is not on this package's dependency graph — the focus client resolves only the
+ * npm line's installed packages — so the runner-owned shapes are restated
+ * structurally here (the {@link WorkflowRunChatData} convention): the cards read
+ * exactly the fields below, and the wire inventory rows stay assignable to them.
+ */
+
+/** One immutable Package version as the host inventory publishes it. */
+export interface FocusCordisInventoryPackage {
+  readonly packageId: string
+  readonly name: string
+  readonly purpose: string
+  readonly hasHostHalf: boolean
+  readonly hasClientHalf: boolean
+}
+
+/** One persisted activation attempt (the fields the run card reads). */
+export interface FocusCordisRunAttempt {
+  readonly pluginRunId: string
+  readonly packageId: string
+  readonly mode: 'run' | 'update'
+  /** `CordisRunStatus`; the card compares the two readings it paints. */
+  readonly status: string
+  readonly error?: { readonly message: string } | undefined
+}
+
+/** One stable Plugin row in the frame-wide definition inventory. */
+export interface FocusCordisInventoryRow {
+  readonly pluginId: string
+  readonly packages: readonly FocusCordisInventoryPackage[]
+  /** Current activation; absent while stopped. */
+  readonly activeRun?: { readonly pluginRunId: string; readonly packageId: string } | undefined
+  /** Latest activation attempt, including pending approval and diagnostics. */
+  readonly latestRun?: FocusCordisRunAttempt | undefined
+}
+
+/** One Client activation loaded in this page (page-local truth). */
+export interface FocusCordisLivePackage {
+  readonly pluginId: string
+  readonly packageId: string
+  readonly pluginRunId: string
+}
+
+/** One Plugin's in-flight approval or activation (the page-local runner map). */
+export interface FocusCordisRunActivity {
+  readonly phase: 'awaiting-approval' | 'orchestrating'
+  readonly packageId: string
+  readonly mode: 'run' | 'update'
+}
+
+/** The frame-wide definition registry as this page last read it. */
+export interface FocusCordisInventorySnapshot {
+  readonly rows: readonly FocusCordisInventoryRow[]
+  /** Plugins that disappeared from a later read, retained for terminal cards. */
+  readonly removed: ReadonlySet<string>
+  /** False until a read settles: "nothing defined yet" is never claimed early. */
+  readonly read: boolean
+  /** Last read failure, so an empty card can say why. */
+  readonly error?: string | undefined
+}
+
+/** Stable keyed identity of one Package-owned business view. */
+export type FocusCordisToolViewKey = `${string}.${string}`
+
+/** One successful tool result competing to host a Package business view. */
+export interface FocusCordisRunCardPointer {
+  readonly key: FocusCordisToolViewKey
+  readonly callId: string
+  readonly seq: number
+  readonly pluginRunId: string
+}
+
+/** Fields shared by the three Cordis lifecycle cards. */
+interface FocusCordisCardBase {
+  readonly pluginId: string | null
+  readonly output: string | null
+  readonly errorSummary: string | null
+  readonly state: FocusCordisToolState
+}
+
+/** Frozen `cordis_define` presentation data (the official CordisDefineCard). */
+export interface FocusCordisDefineCard extends FocusCordisCardBase {
+  readonly kind: 'define'
+  readonly packageId: string | null
+  readonly name: string | null
+  readonly purpose: string | null
+  readonly hostCode: string | null
+  readonly clientCode: string | null
+}
+
+/** Frozen `cordis_run` presentation data (the official CordisRunCard). */
+export interface FocusCordisRunCard extends FocusCordisCardBase {
+  readonly kind: 'run'
+  readonly packageId: string | null
+  readonly pluginRunId: string | null
+  readonly mode: 'run' | 'update' | null
+  /** Settled result's log sequence; null while running. */
+  readonly seq: number | null
+}
+
+/** Frozen `cordis_stop` / `cordis_undefine` presentation data. */
+export interface FocusCordisActionCard extends FocusCordisCardBase {
+  readonly kind: 'action'
+}
+
+/**
+ * One derived Cordis lifecycle card. The row model carries it whenever the
+ * call is one of the four `cordis_*` lifecycle tools; the view then paints the
+ * dedicated card in place of the generic tool chrome (exactly as the official
+ * chat's keyed `tool.call.toolview` registration does).
+ */
+export type FocusCordisCard = FocusCordisDefineCard | FocusCordisRunCard | FocusCordisActionCard
+
 /** Tool-call row variants selected by the generic renderer (the chat table). */
 export type FocusToolVariant = 'search' | 'read' | 'bash' | 'write' | 'edit' | 'code' | 'question' | 'todo' | 'skill' | 'present' | 'others'
 
@@ -111,6 +233,9 @@ export interface FocusToolRow {
   body: string | null
   /** Card render material from the host-computed views; null = generic sections. */
   card: FocusCard | null
+  /** The derived Cordis lifecycle card for the four `cordis_*` tools; null for
+   *  every other call (the view then draws its generic chrome). */
+  cordis: FocusCordisCard | null
   /** Recursive child rows (the sub-call tree), in dispatch order. */
   subcalls: readonly FocusToolRow[]
   /** Git-style line-change tally for file-mutation calls (added/removed

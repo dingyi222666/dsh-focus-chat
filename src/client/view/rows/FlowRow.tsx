@@ -1,7 +1,7 @@
 import { Fragment, memo } from 'react'
 import { JsonBlock, MarkdownText, StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MarkdownFileMentions, MarkdownLabels, MarkdownPathImages, UserTextReferences } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
+import type { FocusCordisActions, FocusPresentedActions, FocusTranslate } from '../../contract/props.ts'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { FocusFlowItem } from '../../model/types.ts'
 import type { DiffStyle } from '../../../settings.ts'
@@ -25,7 +25,7 @@ import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession }: {
+export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession, cordis }: {
   item: FocusFlowItem
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -33,6 +33,8 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
   pathImages: MarkdownPathImages
   /** Presented-delivery face for the turn-tail cards. */
   presented: FocusPresentedActions
+  /** Cordis lifecycle-card face for the cordis_* tool rows. */
+  cordis: FocusCordisActions
   openFile: (path: string, options?: { line?: number }) => void
   /** Open the source of a skill a sent message referenced (the chat openSkill). */
   openSkill: (name: string) => void
@@ -158,9 +160,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
         && group.context.length === 0
         && 'callId' in group.items[0]
         && group.items[0].state !== 'running') {
-        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
+        return <ToolCallRow row={group.items[0]} t={t} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} cordis={cordis} />
       }
-      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} />
+      return <ToolGroupRow group={group} t={t} mdLabels={mdLabels} openFile={openFile} inspect={inspect} diffStyle={diffStyle} loadImage={loadImage} cordis={cordis} />
     }
     case 'turn-fold':
       return (
@@ -181,6 +183,7 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
           loadImage={loadImage}
           feedback={feedback}
           diffStyle={diffStyle}
+          cordis={cordis}
         />
       )
     case 'turn-tail':

@@ -51,8 +51,11 @@
   }
 }
 
-/* Cordis lifecycle tools retain their generic row mechanics while carrying a
-   shared product accent and tool-owned action title (the chat row's rule). */
+/* The Cordis family's generic rows (the package/runtime inspect tools) keep
+   their generic row mechanics while carrying the shared product accent and a
+   tool-owned action title (the chat row's rule); the four lifecycle verbs
+   paint their own dedicated cards (CordisDefineRow / CordisRunRow /
+   CordisActionRow) instead. */
 .callRow[data-tool^='cordis_'] .callLeading,
 .callRow[data-tool^='cordis_'] .callTitle {
   color: var(--dsw-alias-state-business-primary);

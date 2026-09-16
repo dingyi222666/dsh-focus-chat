@@ -7,9 +7,9 @@ import type { ChatSnapshot } from '@deepseek-ai/dsh-client-ui-chat/client'
 import type { ConversationTimelineSnapshot } from '@deepseek-ai/dsh-client-ui-conversation/client'
 // Type-only: the session standard kit's turnOutline projection key.
 import type {} from '@deepseek-ai/dsh-session-turn-outline/client'
-import type { FocusPresentedActions, FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
+import type { FocusCordisActions, FocusPresentedActions, FocusScrollPosition, FocusViewProps } from '../contract/props.ts'
 import { buildFocusFlow, createFlowBuildCache, isRowlessChatNode, LIVE_ROW_THRESHOLD_MS, projectTurnSlice } from '../model/index.ts'
-import type { FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
+import type { FocusCordisInventorySnapshot, FocusCordisLivePackage, FocusCordisRunActivity, FocusCordisRunCardPointer, FocusCordisToolViewKey, FocusFlowItem, FocusToolRow, TurnSlice } from '../model/index.ts'
 import type { TurnStepTiming, TurnSummary } from '../../protocol.ts'
 import { markdownLabels } from './helpers/terminal.ts'
 import { markdownPathImages } from './helpers/path-images.ts'
@@ -24,6 +24,13 @@ import css from './FocusView.module.css'
 
 /** The remote-turn slice cache holds at most this many expanded turns. */
 const SLICE_CACHE_LIMIT = 12
+
+/** Empty Cordis facts for a profile that composes no Cordis service: the
+ *  cards then read "nothing defined yet / nothing loaded" instead of throwing. */
+const NO_CORDIS_INVENTORY: FocusCordisInventorySnapshot = { rows: [], removed: new Set(), read: false }
+const NO_CORDIS_LOADED: readonly FocusCordisLivePackage[] = []
+const NO_CORDIS_RUN_CARDS: ReadonlyMap<FocusCordisToolViewKey, FocusCordisRunCardPointer> = new Map()
+const NO_CORDIS_ACTIVE_RUNS: ReadonlyMap<string, FocusCordisRunActivity> = new Map()
 
 /** How many pre-head turn folds render at first, and how many the pager above
  *  the stack prepends per click (the chat window's 50-message rhythm). */
@@ -217,7 +224,8 @@ export function FocusView({
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
   useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
   ensureFeedback, rateFeedback, retractFeedback, currentFeedback, openSession,
-  reloadPresentedHost, openPresented, t,
+  reloadPresentedHost, openPresented, observeCordisRunCard,
+  useCordisInventory, useCordisLoaded, useCordisRunCards, useCordisActiveRuns, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
   // SessionSnapshot); conversation content rides useChat (the Chat target's
@@ -256,6 +264,17 @@ export function FocusView({
     reloadHost: reloadPresentedHost,
     open: (seq, index, action) => { openPresented(sessionId, seq, index, action) },
   }), [sessionId, cwd, usePresentedOpen, usePresentedHost, reloadPresentedHost, openPresented])
+  // The Cordis lifecycle-card face the tool rows read (the FocusPresentedActions
+  // shape): one memoized object carrying the four injected stores plus the
+  // session-bound run-card observation verb. The `??` arms keep a profile
+  // without the Cordis services rendering the cards' empty readings.
+  const cordis = useMemo<FocusCordisActions>(() => ({
+    useInventory: useCordisInventory ?? (selector => selector(NO_CORDIS_INVENTORY)),
+    useLoaded: useCordisLoaded ?? (selector => selector(NO_CORDIS_LOADED)),
+    useRunCards: useCordisRunCards ?? (selector => selector(NO_CORDIS_RUN_CARDS)),
+    useActiveRuns: useCordisActiveRuns ?? (selector => selector(NO_CORDIS_ACTIVE_RUNS)),
+    onObserveRunCard: observeCordisRunCard ?? (() => {}),
+  }), [useCordisInventory, useCordisLoaded, useCordisRunCards, useCordisActiveRuns, observeCordisRunCard])
   const pendingSteering = useMemo(
     () => inbox.filter(item => item.placement === 'steering'),
     [inbox],
@@ -951,6 +970,7 @@ export function FocusView({
             mdLabels={mdLabels}
             pathImages={pathImages}
             presented={presented}
+            cordis={cordis}
             openFile={requestOpenFile}
             openSkill={openSkill}
             sessionId={sessionId}
@@ -970,6 +990,7 @@ export function FocusView({
             mdLabels={mdLabels}
             pathImages={pathImages}
             presented={presented}
+            cordis={cordis}
             openFile={requestOpenFile}
             openSkill={openSkill}
             sessionId={sessionId}
@@ -985,7 +1006,7 @@ export function FocusView({
         )}
       </div>
     )),
-    [flow, chat, t, mdLabels, pathImages, presented, requestOpenFile, openSkill, sessionId, useSessions, openSession, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
+    [flow, chat, t, mdLabels, pathImages, presented, cordis, requestOpenFile, openSkill, sessionId, useSessions, openSession, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
   )
 
   return (
@@ -1034,7 +1055,7 @@ export function FocusView({
           <div className={css.flowItem}>
             <div className={css.runningCalls} data-running-calls>
               {runningCalls.map(row => (
-                <ToolCallRow key={row.callId} row={row} t={t} openFile={requestOpenFile} />
+                <ToolCallRow key={row.callId} row={row} t={t} openFile={requestOpenFile} cordis={cordis} />
               ))}
             </div>
           </div>

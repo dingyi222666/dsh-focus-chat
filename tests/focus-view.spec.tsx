@@ -16,6 +16,9 @@ import { FocusView } from '../src/client/view/FocusView.tsx'
 import { buildFocusFlow } from '../src/client/model/flow.ts'
 import type { FocusViewProps } from '../src/client/contract/props.ts'
 import type { FocusScrollPosition } from '../src/client/contract/props.ts'
+import type {
+  FocusCordisInventorySnapshot, FocusCordisLivePackage, FocusCordisRunActivity, FocusCordisRunCardPointer,
+} from '../src/client/model/types.ts'
 import { zh } from '../src/client/locales.ts'
 
 afterEach(() => {
@@ -131,6 +134,16 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
   openSkill?: (name: string) => void
   openSession?: (sessionId: string) => void
+  /** The trajectory-view reveal the row's Inspect action calls. */
+  openView?: (view: string, callId: string) => void
+  /** The Cordis card face overrides (empty facts by default). */
+  cordis?: {
+    inventory?: FocusCordisInventorySnapshot
+    loaded?: readonly FocusCordisLivePackage[]
+    runCards?: ReadonlyMap<string, FocusCordisRunCardPointer>
+    activeRuns?: ReadonlyMap<string, FocusCordisRunActivity>
+    onObserveRunCard?: (pointer: FocusCordisRunCardPointer) => void
+  }
 } = {}): {
   result: ReturnType<typeof render>
   source: ReturnType<typeof createSnapshotStore<ViewSlice>>
@@ -149,6 +162,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     openFile: opts.openFile ?? (() => Promise.resolve()),
     openSkill: opts.openSkill ?? (() => {}),
     openSession: opts.openSession ?? (() => {}),
+    openView: opts.openView ?? (() => {}),
     forkAt: opts.forkAt ?? (() => {}),
     fileMentions: opts.fileMentions ?? (() => undefined),
     isLoopback: opts.isLoopback ?? true,
@@ -162,6 +176,21 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     usePresentedHost: (selector: (host: null) => unknown) => selector(null),
     reloadPresentedHost: () => {},
     openPresented: () => {},
+    // The Cordis card face: plain selector functions over the injected
+    // snapshots (the slot renderer binds the same shape in production).
+    useCordisInventory: (selector: (snapshot: FocusCordisInventorySnapshot) => unknown) => selector(
+      opts.cordis?.inventory ?? { rows: [], removed: new Set(), read: false },
+    ),
+    useCordisLoaded: (selector: (loaded: readonly FocusCordisLivePackage[]) => unknown) => selector(
+      opts.cordis?.loaded ?? [],
+    ),
+    useCordisRunCards: (selector: (cards: ReadonlyMap<string, FocusCordisRunCardPointer>) => unknown) => selector(
+      opts.cordis?.runCards ?? new Map(),
+    ),
+    useCordisActiveRuns: (selector: (runs: ReadonlyMap<string, FocusCordisRunActivity>) => unknown) => selector(
+      opts.cordis?.activeRuns ?? new Map(),
+    ),
+    observeCordisRunCard: opts.cordis?.onObserveRunCard ?? (() => {}),
     ensureFeedback: () => Promise.resolve({ ok: true as const }),
     currentFeedback: opts.feedback?.current ?? (() => undefined),
     rateFeedback: opts.feedback?.rate ?? (() => Promise.resolve({ ok: true as const })),
@@ -194,6 +223,12 @@ function assistantNode(key: string, status: 'running' | 'settled', reasoning: st
       }
       : {}),
   })
+}
+
+/** The source text of the single code surface a Cordis source panel renders
+ *  (highlighting may wrap it in spans, so the content node's text is read). */
+function codeText(card: HTMLElement): string {
+  return card.querySelector('[data-code-block-content]')?.textContent ?? ''
 }
 
 describe('FocusView flow rows', () => {
@@ -2726,6 +2761,149 @@ it('renders the empty hint for an empty conversation', () => {
     expect(screen.getAllByText('已完成').length).toBeGreaterThan(0)
   })
 
+  it('renders the cordis define card with its identity, purpose, and source tabs', () => {
+    renderView([
+      chatNode('d1', 'tool-call', {
+        root: settledCall('c-define', 'cordis_define', JSON.stringify({
+          name: 'demo-plugin',
+          purpose: 'renders a demo panel',
+          code: { host: 'export const hostHalf = 1', client: 'export const clientHalf = 2' },
+        }), {
+          content: [{ type: 'text', text: 'defined demo-plugin' }],
+          meta: { pluginId: 'demo', packageId: 'pkg-1' },
+        }),
+      }),
+    ])
+    // The dedicated card replaces the generic tool chrome entirely.
+    const card = document.querySelector('[data-tool="cordis_define"]') as HTMLElement
+    expect(card).toBeTruthy()
+    expect(within(card).getByText('注册 Cordis 插件')).toBeTruthy()
+    // The derived name and purpose ride the collapsed line; the persisted
+    // identity rides the card's data attributes.
+    expect(within(card).getByText('demo-plugin')).toBeTruthy()
+    expect(within(card).getByText('renders a demo panel')).toBeTruthy()
+    expect(card.getAttribute('data-cordis-plugin-id')).toBe('demo')
+    expect(card.getAttribute('data-cordis-package-id')).toBe('pkg-1')
+    expect(card.getAttribute('data-state')).toBe('ok')
+    expect(card.hasAttribute('data-terminal')).toBe(false)
+    // No inventory row: the reading is idle, and the persisted output lands in
+    // the expanded body (with the source tabs).
+    expect(card.getAttribute('data-cordis-status')).toBe('idle')
+    fireEvent.click(within(card).getByText('注册 Cordis 插件'))
+
+    expect(within(card).getByRole('tablist', { name: '插件代码' })).toBeTruthy()
+    const clientTab = within(card).getByRole('tab', { name: 'Client' })
+    const hostTab = within(card).getByRole('tab', { name: 'Host' })
+    // The Client half is present, so it opens first.
+    expect(clientTab.getAttribute('aria-selected')).toBe('true')
+    expect(hostTab.getAttribute('aria-selected')).toBe('false')
+    // The tab/panel wiring is the official aria-controls / aria-labelledby pair.
+    const panel = within(card).getByRole('tabpanel')
+    expect(clientTab.getAttribute('aria-controls')).toBe(panel.getAttribute('id'))
+    expect(panel.getAttribute('aria-labelledby')).toBe(clientTab.getAttribute('id'))
+    expect(codeText(card)).toContain('export const clientHalf = 2')
+
+    // Switching tabs swaps the code panel's source.
+    fireEvent.click(hostTab)
+    expect(hostTab.getAttribute('aria-selected')).toBe('true')
+    expect(clientTab.getAttribute('aria-selected')).toBe('false')
+    expect(panel.getAttribute('aria-labelledby')).toBe(hostTab.getAttribute('id'))
+    expect(codeText(card)).toContain('export const hostHalf = 1')
+    // The result output stays in the body beside the sources.
+    expect(within(card).getByText('defined demo-plugin')).toBeTruthy()
+  })
+
+  it('renders the cordis run card with its run/update titles, live status, and output', () => {
+    const observed: FocusCordisRunCardPointer[] = []
+    renderView([
+      chatNode('r1', 'tool-call', {
+        root: settledCall('c-run', 'cordis_run', JSON.stringify({ pluginId: 'demo', packageId: 'pkg-2', mode: 'run' }), {
+          content: [{ type: 'text', text: 'activation output' }],
+          meta: { pluginId: 'demo', packageId: 'pkg-2', pluginRunId: 'run-7' },
+        }),
+      }),
+      chatNode('between', 'assistant-step', {
+        status: 'settled', turn: 1, step: 1, time: 3000,
+        blocks: [{ kind: 'text', text: 'between runs' }],
+      }),
+      chatNode('r2', 'tool-call', {
+        root: settledCall('c-update', 'cordis_run', JSON.stringify({ pluginId: 'demo', packageId: 'pkg-3', mode: 'update' }), {
+          content: [{ type: 'text', text: 'updated output' }],
+          meta: { pluginId: 'demo', packageId: 'pkg-3', pluginRunId: 'run-8' },
+        }),
+      }),
+    ], {
+      cordis: {
+        // pkg-2 is active with no Client half: the card reads "running".
+        inventory: {
+          rows: [{
+            pluginId: 'demo',
+            packages: [{ packageId: 'pkg-2', name: 'demo', purpose: 'demo', hasHostHalf: true, hasClientHalf: false }],
+            activeRun: { pluginRunId: 'run-7', packageId: 'pkg-2' },
+          }],
+          removed: new Set(),
+          read: true,
+        },
+        onObserveRunCard: (pointer) => { observed.push(pointer) },
+      },
+    })
+    const cards = [...document.querySelectorAll('[data-tool="cordis_run"]')] as HTMLElement[]
+    expect(cards).toHaveLength(2)
+    const [runCard, updateCard] = cards as [HTMLElement, HTMLElement]
+    // The args' mode picks the title (run vs update).
+    expect(within(runCard).getByText('运行 Cordis 插件')).toBeTruthy()
+    expect(within(updateCard).getByText('更新 Cordis 插件')).toBeTruthy()
+    // The summary reads pluginId · packageId.
+    expect(within(runCard).getByText('demo · pkg-2')).toBeTruthy()
+    expect(within(updateCard).getByText('demo · pkg-3')).toBeTruthy()
+    // The live inventory makes the first card read running; the second has no
+    // matching active run and stays ready.
+    expect(runCard.getAttribute('data-cordis-status')).toBe('running')
+    expect(within(runCard).getByText('运行中')).toBeTruthy()
+    expect(runCard.getAttribute('data-cordis-run-id')).toBe('run-7')
+    expect(runCard.getAttribute('data-state')).toBe('ok')
+    expect(updateCard.getAttribute('data-cordis-status')).toBe('idle')
+    expect(within(updateCard).getByText('待激活')).toBeTruthy()
+    // The result output rides the card's own <pre>.
+    expect(within(runCard).getByText('activation output')).toBeTruthy()
+    expect(within(updateCard).getByText('updated output')).toBeTruthy()
+    // Both settled successful runs publish their supersession pointer.
+    expect(observed.map(pointer => pointer.callId)).toEqual(expect.arrayContaining(['c-run', 'c-update']))
+  })
+
+  it('renders the cordis remove card with its inspect action', () => {
+    const inspected: string[] = []
+    renderView([
+      chatNode('x1', 'tool-call', {
+        root: settledCall('c-remove', 'cordis_undefine', JSON.stringify({ pluginId: 'demo' }), {
+          content: [{ type: 'text', text: 'removed demo' }],
+        }),
+      }),
+    ], { openView: (_view, callId) => { inspected.push(callId) } })
+    const card = document.querySelector('[data-tool="cordis_undefine"]') as HTMLElement
+    expect(card).toBeTruthy()
+    expect(within(card).getByText('移除 Cordis 插件')).toBeTruthy()
+    expect(within(card).getByText('demo')).toBeTruthy()
+    expect(within(card).getByText('removed demo')).toBeTruthy()
+    expect(card.getAttribute('data-state')).toBe('ok')
+    expect(card.getAttribute('data-cordis-plugin-id')).toBe(null)
+    // The card owns the Inspect pill (the generic chrome is not rendered).
+    fireEvent.click(within(card).getByRole('button', { name: '查看' }))
+    expect(inspected).toEqual(['c-remove'])
+  })
+
+  it('marks a running cordis define card with its live status', () => {
+    renderView([
+      chatNode('d2', 'tool-call', { root: runningCall('c-live', 'cordis_define', JSON.stringify({ name: 'live-plugin' })) }),
+    ])
+    const card = document.querySelector('[data-tool="cordis_define"]') as HTMLElement
+    expect(card).toBeTruthy()
+    expect(card.getAttribute('data-state')).toBe('running')
+    // The visually-hidden live status keeps the running state legible to
+    // assistive tech (the official card's aria state line).
+    expect(within(card).getByText('正在定义插件')).toBeTruthy()
+  })
+
   it('renders running and outcome-less command rows and a bare compaction marker', () => {
     renderView([
       chatNode('run', 'command', {
@@ -3052,6 +3230,8 @@ describe('plugin apply', () => {
       constructor(serviceCtx: InstanceType<typeof Context>) {
         super(serviceCtx, 'remote')
       }
+      /** The forwarded-event seat the Cordis inventory invalidation subscribes. */
+      $on(): () => void { return () => {} }
     }
     new RemoteService(ctx)
     ctx.provide('remote.session', {
