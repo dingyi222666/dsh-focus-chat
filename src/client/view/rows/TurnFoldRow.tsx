@@ -7,7 +7,7 @@ import type { DiffStyle } from '../../../settings.ts'
 import { formatElapsed } from '../helpers/format.ts'
 import type { ImageLoader } from '../chrome/MessageImage.tsx'
 import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
-import { FlowRow, flowKey } from './FlowRow.tsx'
+import { FlowRow, flowKey, type WorkflowRunSessionsHook } from './FlowRow.tsx'
 import css from './TurnFoldRow.module.css'
 
 /** The turn fold's label button — "worked for X" / "stopped after X" with the
@@ -48,7 +48,7 @@ export const TurnFoldLine = memo(function TurnFoldLine({ duration, stopped, open
  * stays the focus view's reading; the turn-process node's counts ride the
  * model.
  */
-export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
+export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession }: {
   item: Extract<FocusFlowItem, { kind: 'turn-fold' }>
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -68,6 +68,12 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
   feedback: FocusFeedbackActions
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
+  /** Owning Session id (the workflow run's child-session navigation). */
+  sessionId: string
+  /** Session list snapshot selector (the standard kit). */
+  useSessions: WorkflowRunSessionsHook
+  /** Open one workflow member's child Session. */
+  openSession: (sessionId: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const duration = formatElapsed(item.durationMs, t)
@@ -96,6 +102,9 @@ export const TurnFoldRow = memo(function TurnFoldRow({ item, t, mdLabels, pathIm
               presented={presented}
               openFile={openFile}
               openSkill={openSkill}
+              sessionId={sessionId}
+              useSessions={useSessions}
+              openSession={openSession}
               inspect={inspect}
               forkAt={forkAt}
               mentionsByKey={mentionsByKey}

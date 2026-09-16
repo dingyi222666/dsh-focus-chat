@@ -216,7 +216,7 @@ export function FocusView({
   useSession, useChat, useProjection, sessionId, useSessions, loadImage, openFile, openSkill, loadOlder, loadThrough, openView, forkAt, fileMentions,
   turnIndex, turnEvents, scroll, useHostHome, useFeedback,
   useDiffStyle, useMdStyle, usePresentedOpen, usePresentedHost,
-  ensureFeedback, rateFeedback, retractFeedback, currentFeedback,
+  ensureFeedback, rateFeedback, retractFeedback, currentFeedback, openSession,
   reloadPresentedHost, openPresented, t,
 }: FocusViewProps) {
   // Lifecycle and control state ride useSession (the Session Controller's
@@ -953,6 +953,9 @@ export function FocusView({
             presented={presented}
             openFile={requestOpenFile}
             openSkill={openSkill}
+            sessionId={sessionId}
+            useSessions={useSessions}
+            openSession={openSession}
             inspect={inspectCall}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
@@ -969,6 +972,9 @@ export function FocusView({
             presented={presented}
             openFile={requestOpenFile}
             openSkill={openSkill}
+            sessionId={sessionId}
+            useSessions={useSessions}
+            openSession={openSession}
             inspect={inspectCall}
             forkAt={forkAt}
             mentionsByKey={mentionsByKey}
@@ -979,7 +985,7 @@ export function FocusView({
         )}
       </div>
     )),
-    [flow, chat, t, mdLabels, pathImages, presented, requestOpenFile, openSkill, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
+    [flow, chat, t, mdLabels, pathImages, presented, requestOpenFile, openSkill, sessionId, useSessions, openSession, inspectCall, forkAt, mentionsByKey, loadImage, feedback, diffStyle, requestTurnSlice],
   )
 
   return (

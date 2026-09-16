@@ -130,6 +130,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
   mdStyle?: 'default' | 'highlight'
   turnIndex?: (sessionId: SessionId) => Promise<TurnIndexResponse>
   openSkill?: (name: string) => void
+  openSession?: (sessionId: string) => void
 } = {}): {
   result: ReturnType<typeof render>
   source: ReturnType<typeof createSnapshotStore<ViewSlice>>
@@ -147,6 +148,7 @@ function renderView(nodes: ReturnType<typeof chatNode>[], opts: {
     loadImage,
     openFile: opts.openFile ?? (() => Promise.resolve()),
     openSkill: opts.openSkill ?? (() => {}),
+    openSession: opts.openSession ?? (() => {}),
     forkAt: opts.forkAt ?? (() => {}),
     fileMentions: opts.fileMentions ?? (() => undefined),
     isLoopback: opts.isLoopback ?? true,
@@ -2677,6 +2679,51 @@ it('renders the empty hint for an empty conversation', () => {
       }),
     ])
     expect(document.querySelector('[data-focus-md-style="default"]')).toBeTruthy()
+  })
+
+  it('renders a slash-command echo as its own bubble with a command chip', () => {
+    renderView([
+      chatNode('ci1', 'command-input', {
+        commandId: 'cmd-1', text: '/goal ship the 0.1.6 port', time: 1000,
+      }),
+    ])
+    // The node is a right-aligned user-style bubble with no message actions —
+    // the leading `/goal` token is the executed command chip, the rest prose.
+    const row = document.querySelector('[data-command-input]') as HTMLElement
+    expect(row).toBeTruthy()
+    expect(row.getAttribute('aria-label')).toBe('指令输入')
+    expect(screen.getByText('/goal')).toBeTruthy()
+    expect(screen.getByText('ship the 0.1.6 port')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: '复制' })).toBeNull()
+  })
+
+  it('renders a workflow run with its phases and members, opening an active run', () => {
+    renderView([
+      chatNode('w1', 'workflow-run', {
+        name: 'review',
+        status: 'running',
+        phases: [
+          { key: 'missing', phase: null, members: [{ seq: 1, label: 'audit', childId: 'child-1', status: 'running' }] },
+          { key: 'value:4:lint', phase: 'lint', members: [{ seq: 2, label: '', childId: 'child-2', status: 'completed' }] },
+        ],
+      }),
+    ])
+    // The run header reads the workflow name, its member count, and its status.
+    expect(screen.getByText('review')).toBeTruthy()
+    expect(screen.getByText('2 个成员')).toBeTruthy()
+    // The run's own status tail and the running member both read 运行中.
+    expect(screen.getAllByText('运行中').length).toBeGreaterThan(0)
+    // An active run opens itself: both phases and their members are visible,
+    // with the absent phase name and the empty member label localized.
+    expect(screen.getByText('未分阶段')).toBeTruthy()
+    expect(screen.getByText('lint')).toBeTruthy()
+    expect(screen.getByText('audit')).toBeTruthy()
+    // The running phase lists its members; the settled phase stays collapsed
+    // (the status-driven disclosure) and reads its own count.
+    expect(screen.queryByText('空成员名')).toBeNull()
+    fireEvent.click(screen.getByText('lint'))
+    expect(screen.getByText('空成员名')).toBeTruthy()
+    expect(screen.getAllByText('已完成').length).toBeGreaterThan(0)
   })
 
   it('renders running and outcome-less command rows and a bare compaction marker', () => {

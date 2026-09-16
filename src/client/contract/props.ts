@@ -65,6 +65,9 @@ export interface FocusViewInjected {
   /** Open the current source file of a skill a sent message referenced (the
    *  chat `openSkill`: a `/name` chip in a user bubble becomes a button). */
   openSkill: (name: string) => void
+  /** Open one workflow member's child Session (the workflow-run row's
+   *  navigation; the member must be this Session's own running subagent). */
+  openSession: (sessionId: string) => void
   /** Page one window of older raw history (the fallback when the Host turn
    *  index is unavailable). */
   loadOlder: () => void

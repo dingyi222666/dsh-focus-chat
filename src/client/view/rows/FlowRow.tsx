@@ -16,13 +16,16 @@ import { ContextFoldRow, ContextRow } from './ContextRow.tsx'
 import { SystemPromptRow } from './SystemPromptRow.tsx'
 import { MessageRow } from './UserBubble.tsx'
 import { TurnTailRow } from './TurnTailRow.tsx'
+import { CommandInputRow } from './CommandInputRow.tsx'
 import { CommandRow } from './CommandRow.tsx'
+import { WorkflowRunPanel, type WorkflowRunSessionsHook } from './WorkflowRunPanel.tsx'
+export type { WorkflowRunSessionsHook }
 import { CompactionRow, ManualCompactionRow } from './CompactionRow.tsx'
 import { RetryRow } from './RetryRow.tsx'
 import { TurnFoldRow } from './TurnFoldRow.tsx'
 import css from './FlowRow.module.css'
 
-export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle }: {
+export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession }: {
   item: FocusFlowItem
   t: FocusTranslate
   mdLabels: MarkdownLabels
@@ -43,6 +46,12 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
   feedback: FocusFeedbackActions
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
+  /** Owning Session id (the workflow run's child-session navigation). */
+  sessionId: string
+  /** Session list snapshot selector, for the workflow run's navigable members. */
+  useSessions: WorkflowRunSessionsHook
+  /** Open one workflow member's child Session. */
+  openSession: (sessionId: string) => void
 }) {
   switch (item.kind) {
     case 'message':
@@ -163,6 +172,9 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
           presented={presented}
           openFile={openFile}
           openSkill={openSkill}
+          sessionId={sessionId}
+          useSessions={useSessions}
+          openSession={openSession}
           inspect={inspect}
           forkAt={forkAt}
           mentionsByKey={mentionsByKey}
@@ -184,6 +196,18 @@ export const FlowRow = memo(function FlowRow({ item, t, mdLabels, pathImages, pr
       )
     case 'command':
       return <CommandRow item={item} t={t} />
+    case 'command-input':
+      return <CommandInputRow item={item} t={t} />
+    case 'workflow-run':
+      return (
+        <WorkflowRunPanel
+          item={item}
+          sessionId={sessionId}
+          useSessions={useSessions}
+          openSession={openSession}
+          t={t}
+        />
+      )
     case 'manual-compaction':
       return <ManualCompactionRow item={item} t={t} mdLabels={mdLabels} />
     case 'compaction':

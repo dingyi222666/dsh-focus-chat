@@ -191,6 +191,10 @@ export function apply(ctx: Context): void {
           if (scope === undefined) return
           ctx.get('inputTriggers')?.sessionOf(scope).openReference('skill', { ref: `/${name}` })
         },
+        // A workflow member's child Session: only this Session's own running
+        // subagents are navigable (the workflow-run row decides that), so the
+        // open is a plain Session Controller selection.
+        openSession: (id) => { ctx.sessions.open(id as SessionId) },
         // Raw history paging: the fallback when the Host turn index is absent
         // (the chat view's own loadOlder).
         loadOlder: () => { ctx.sessions.binding(sessionId)?.session.loadOlder() },

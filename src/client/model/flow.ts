@@ -4,7 +4,7 @@ import type { AssistantBlock, ChatConversationViewNode, CommandNode, CompactionS
 import type { TurnStepTiming } from '../../protocol.ts'
 import { toolGroup, type ToolRowModelCache } from './tools.ts'
 import { assistantText, presentedForClosing, producedForClosing, thoughtDurationMs } from './text.ts'
-import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, FocusToolGroup } from './types.ts'
+import type { FocusContextItem, FocusFlowItem, FocusGroupThink, FocusNodeData, FocusToolGroup, WorkflowRunChatData } from './types.ts'
 
 /**
  * One derived flow item plus the identity facts it was derived from. The
@@ -247,6 +247,21 @@ function flowItemOf(
     case 'turn-error': {
       const error = data as TurnErrorNode
       return { kind: 'turn-error', nodeKey: key, message: error.message, code: error.code }
+    }
+    case 'command-input': {
+      // A human slash-command echo (the goal plugin's `/goal` node): the
+      // logged line with its leading token, drawn as a user-style bubble.
+      const input = data as { text?: unknown; time?: unknown }
+      return {
+        kind: 'command-input',
+        nodeKey: key,
+        text: typeof input.text === 'string' ? input.text : '',
+        time: typeof input.time === 'number' ? input.time : 0,
+      }
+    }
+    case 'workflow-run': {
+      const run = data as WorkflowRunChatData
+      return { kind: 'workflow-run', nodeKey: key, data: run }
     }
     case 'turn-max-tokens': {
       // The official turn-max-tokens notice is a static row (no payload).
@@ -692,9 +707,11 @@ export function buildFocusFlow(
       || item.kind === 'tools'
       || item.kind === 'system-prompt'
       || item.kind === 'command'
+      || item.kind === 'command-input'
       || item.kind === 'manual-compaction'
       || item.kind === 'compaction'
       || item.kind === 'retry'
+      || item.kind === 'workflow-run'
       || (item.kind === 'message' && item.role === 'context')) {
       if (pendingFoldTurn !== null && pendingFoldTurn !== turnId) flushFold(null)
       pendingFoldTurn = turnId

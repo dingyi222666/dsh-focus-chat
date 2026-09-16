@@ -11,6 +11,39 @@ import type { AssistantBlock, ChatNodeDataMap, ContextMessageNode, SteeringMessa
 // from the public entry (the src/* export seam is absent from the npm
 // package, so a source-module import would not resolve for consumers).
 export type TurnTokenUsage = NonNullable<TurnTailChatData['tokenUsage']>
+
+/**
+ * Status shown for a workflow run, one of its phases, or one member.
+ *
+ * The workflow-run chat node's payload is restated structurally: the owning
+ * plugin's client entry publishes only its loader (`apply`/`inject`) and the
+ * package's `src/*` seam is not shipped to npm consumers, so a type-only
+ * source import would not resolve for them.
+ */
+export type WorkflowRunStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'interrupted'
+
+/** One workflow member that actually started. */
+export interface WorkflowRunMemberData {
+  readonly seq: number
+  readonly label: string
+  readonly childId: string
+  readonly status: WorkflowRunStatus
+}
+
+/** One exact phase identity and its members. */
+export interface WorkflowRunPhaseData {
+  readonly key: string
+  /** `null` is the absent field; the empty string stays a distinct identity. */
+  readonly phase: string | null
+  readonly members: readonly WorkflowRunMemberData[]
+}
+
+/** One durable workflow run as the chat node publishes it. */
+export interface WorkflowRunChatData {
+  readonly name: string
+  readonly status: WorkflowRunStatus
+  readonly phases: readonly WorkflowRunPhaseData[]
+}
 import type { TurnSummary } from '../../protocol.ts'
 
 /** Locale-owned label surfaces the render sites add to the shared card primitives. */
@@ -279,6 +312,22 @@ export type FocusFlowItem =
     mode: 'normal' | 'always'
     retryState: 'scheduled' | 'started' | 'cancelled'
     failure: { message: string; code?: string } | null
+  }
+  | {
+    /** A human-entered slash command echoed above its own result row (the
+     *  chat command-input node: today the `/goal` run the goal plugin owns). */
+    kind: 'command-input'
+    nodeKey: string
+    /** The logged command line, leading `/name` included. */
+    text: string
+    time: number
+  }
+  | {
+    /** One durable workflow run: its phases and the members that started (the
+     *  chat workflow-run node the workflow-run plugin projects). */
+    kind: 'workflow-run'
+    nodeKey: string
+    data: WorkflowRunChatData
   }
   | { kind: 'turn-error'; nodeKey: string; message: string; code: string | undefined }
   | { kind: 'turn-max-tokens'; nodeKey: string }

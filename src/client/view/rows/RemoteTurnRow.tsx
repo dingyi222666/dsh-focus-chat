@@ -8,7 +8,7 @@ import type { TurnOpeningMessage, TurnSummary } from '../../../protocol.ts'
 import { formatElapsed } from '../helpers/format.ts'
 import type { ImageLoader } from '../chrome/MessageImage.tsx'
 import type { FocusFeedbackActions } from '../chrome/MessageFeedbackActions.tsx'
-import { FlowRow, flowKey } from './FlowRow.tsx'
+import { FlowRow, flowKey, type WorkflowRunSessionsHook } from './FlowRow.tsx'
 import { TurnFoldLine } from './TurnFoldRow.tsx'
 import foldCss from './TurnFoldRow.module.css'
 import css from './RemoteTurnRow.module.css'
@@ -58,7 +58,7 @@ function closingItem(nodeKey: string, summary: TurnSummary): FocusFlowItem | nul
  * fetch surfaces inline with a retry.
  */
 export const RemoteTurnRow = memo(function RemoteTurnRow({
-  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
+  item, slice, onExpand, t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle, sessionId, useSessions, openSession,
 }: {
   item: Extract<FocusFlowItem, { kind: 'remote-turn' }>
   /** The cached projection for this turn; absent until first expansion. */
@@ -82,6 +82,12 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
   feedback: FocusFeedbackActions
   /** The file-mutation diff renderer (official DiffBlock vs the changes bar). */
   diffStyle: DiffStyle
+  /** Owning Session id (the workflow run's child-session navigation). */
+  sessionId: string
+  /** Session list snapshot selector (the standard kit). */
+  useSessions: WorkflowRunSessionsHook
+  /** Open one workflow member's child Session. */
+  openSession: (sessionId: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -118,6 +124,7 @@ export const RemoteTurnRow = memo(function RemoteTurnRow({
 
   const rowProps = {
     t, mdLabels, pathImages, presented, openFile, openSkill, inspect, forkAt, mentionsByKey, loadImage, feedback, diffStyle,
+    sessionId, useSessions, openSession,
   } as const
 
   return (

@@ -445,6 +445,16 @@ export const RELEASE_NOTES: Record<string, ReleaseNotes> = {
       '- **其它细节**: 压缩行图标跟随字号轴、检查按钮悬停加深文字色、展开的系统提示词补 4px 下边距、折叠内容顶部间距对齐 16px、思考摘要的省略机制对齐官方、错误行不再同时显示 +A -R 徽标、反馈对话框的错误行按块级排版;清理未使用的样式与文件',
     ],
   },
+  '0.7.18': {
+    features: [
+      '- **workflow 面板**: 官方 chat 的 `workflow-run` 节点(工作流运行卡片)以前在焦点视图里落进「未知节点」——只画了一坨 JSON。现在按官方 `WorkflowRunPanel` 完整实现:运行头(名称 / 成员数 / 状态点+状态词)、按阶段分组、每个成员一行(状态点 / 可点击打开子会话 / 状态词);状态驱动展开——运行中或异常自动展开,收敛成完成态时自动收起,但焦点还在里面时会延迟到失焦再收',
+      '- **指令回显气泡**: `/goal` 这类 `command-input` 节点以前同样是「未知节点」。现在是官方样式的右对齐气泡(无消息操作),行首 `/goal` 作为指令 chip、其余为正文',
+      '- **补齐全部节点种类**: 至此官方 chat 的 17 种 `conversation.chat.node` 种类(assistant-step / command / command-input / compaction / context / manual-compaction / model-retry / steering / system-prompt / tool-call / turn-error / turn-max-tokens / turn-process / turn-tail / unknown / user / workflow-run)在焦点视图里都有对应渲染,不再有 JSON 兜底',
+    ],
+    fixes: [
+      '- 两个新种类与官方一致地算作回合「过程」:回合结束折叠时它们进折叠体(展开折叠行仍能看到),回合运行中或位于回合外则照常独立成行',
+    ],
+  },
   '0.7.17': {
     features: [],
     fixes: [
