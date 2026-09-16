@@ -73,7 +73,7 @@ type ViewSlice = {
   chat: ChatSnapshot
 }
 
-function chatOf(nodes: ChatConversationViewNode[], opts: { running?: boolean; hasMore?: boolean; openState?: SessionSnapshot['openState'] } = {}): ViewSlice {
+function chatOf(nodes: ChatConversationViewNode[], opts: { running?: boolean; hasMore?: boolean; openState?: SessionSnapshot['openState']; navigation?: readonly TurnNavigationItem[] } = {}): ViewSlice {
   const nodesByKey = new Map(nodes.map(n => [n.key, n]))
   return {
     session: {
@@ -94,7 +94,7 @@ function chatOf(nodes: ChatConversationViewNode[], opts: { running?: boolean; ha
         values: () => nodes,
       },
       locations: { getTurn: () => [], getStep: () => [] },
-      navigation: { items: () => [] as TurnNavigationItem[] },
+      navigation: { items: () => opts.navigation ?? [] as TurnNavigationItem[] },
       timeline: { turnOrder: [], turns: new Map() },
       legacy: {
         nodes: [], turnTimings: new Map(), turnEnds: new Map(), partial: null, runningCalls: [],
@@ -492,6 +492,11 @@ describe('remote turn folds', () => {
     ]
     renderView(windowNodes(), {
       outline,
+      chat: chatOf(windowNodes(), {
+        openState: 'open',
+        // The loaded window's own turn: the rail keeps its bright tick.
+        navigation: [{ turn: 4, anchorKey: 'a4', prompt: 'ask 4', response: 'turn 4 reply' }],
+      }),
       turnIndex: () => Promise.resolve({ turns, cursor: 100 }),
     })
     await waitFor(() => expect(screen.getByText('ask 1')).toBeTruthy())
@@ -502,6 +507,14 @@ describe('remote turn folds', () => {
     expect(marks.map(mark => mark.getAttribute('aria-label'))).toEqual([
       '跳转到第 1 轮', '跳转到第 3 轮', '跳转到第 4 轮',
     ])
+    // The tick keeps the official dim tier for turns outside the loaded
+    // window: the remote folds (1 and 3) read dim, the window's turn 4 does
+    // not — the anchor can still reach the fold row on screen.
+    const tier = (turn: string): boolean =>
+      document.querySelector(`[aria-label="跳转到第 ${turn} 轮"]`)?.className.includes('markUnloaded') ?? false
+    expect(tier('1')).toBe(true)
+    expect(tier('3')).toBe(true)
+    expect(tier('4')).toBe(false)
     // The remote fold's flow row carries its Turn, so the reading line can
     // resolve inside a folded stretch.
     const remoteRow = document.querySelector('[data-focus-turn="1"]') as HTMLElement

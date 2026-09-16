@@ -17,6 +17,13 @@ export interface FocusTurnRailItem {
   readonly prompt: string
   /** Bounded response preview (loaded window first, index fallback). */
   readonly response: string
+  /**
+   * The official rail's dim tier: the Turn sits outside the loaded window (a
+   * remote fold the focus flow paints, or an outline turn behind the fold
+   * pager). Independent of {@link anchor}, which may still reach a row the
+   * flow already renders.
+   */
+  readonly unloaded: boolean
   /** How the rail reaches the Turn. */
   readonly anchor:
     | { readonly kind: 'loaded'; readonly key: string }
@@ -188,7 +195,7 @@ export const TurnNavigator = memo(function TurnNavigator({ items, activeTurn, bu
               const active = item.turn === activeTurn
               const showingPreview = item.turn === previewTurn
               const classes = [css.mark]
-              if (item.anchor.kind === 'unloaded') classes.push(css.markUnloaded)
+              if (item.unloaded) classes.push(css.markUnloaded)
               if (active) classes.push(css.markActive)
               else if (showingPreview) classes.push(css.markPreview)
               if (item.turn === busyTurn) classes.push(css.markBusy)

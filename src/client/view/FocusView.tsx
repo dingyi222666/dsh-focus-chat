@@ -449,7 +449,7 @@ export function FocusView({
   // mergeTurnRailItems, extended with the focus view's own remote folds).
   const turnOutline = useProjection('turnOutline')
   const railItems = useMemo<readonly FocusTurnRailItem[]>(() => {
-    const byTurn = new Map<number, FocusTurnRailItem>()
+    const byTurn = new Map<number, Omit<FocusTurnRailItem, 'unloaded'>>()
     for (const raw of Array.isArray(turnOutline) ? turnOutline : []) {
       const entry = raw as { turn?: unknown; seq?: unknown; prompt?: unknown; response?: unknown }
       if (typeof entry.turn !== 'number' || !Number.isSafeInteger(entry.turn) || entry.turn < 0) continue
@@ -487,7 +487,14 @@ export function FocusView({
         anchor: { kind: 'loaded', key: item.anchorKey },
       })
     }
-    return [...byTurn.values()].sort((a, b) => a.turn - b.turn)
+    // The tick's own tier is the loaded window's membership — the turns the
+    // transcript has actually paged in — so a remote fold, which the focus
+    // flow paints but the window does not hold, keeps the official rail's dim
+    // short tick even though its anchor reaches the row on screen.
+    const windowTurns = new Set(turnNavigationItems.map(item => item.turn))
+    return [...byTurn.values()]
+      .map(item => ({ ...item, unloaded: !windowTurns.has(item.turn) }))
+      .sort((a, b) => a.turn - b.turn)
   }, [turnNavigationItems, turnOutline, flow, chat])
   // The live-row debounce: a running call paints nothing until it has run
   // LIVE_ROW_THRESHOLD_MS — a fast call would otherwise flash a live row
